@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:HBox xmlns:mx="http://www.adobe.com/2006/mxml"
+	horizontalAlign="center"
+	width="100%">
+	
+	<mx:Script>
+		<![CDATA[
+			import services.vo.profiles.ProfilePersonalVO;
+		]]>
+	</mx:Script>
+	
+	<mx:CheckBox id="cbUnknown" 
+		selected="{(data as ProfilePersonalVO).bIsUnknown}"
+		enabled="false"/>
+</mx:HBox>

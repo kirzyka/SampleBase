@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Canvas
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	verticalScrollPolicy="off"
+	horizontalScrollPolicy="off"
+	width="100%" height="100%">
+	
+	<mx:Script>
+		<![CDATA[
+			import framework.view.pages.items.events.ItemGroupEvent;
+			import mx.binding.utils.BindingUtils;
+			import services.vo.items.ItemsGroupVO;
+			
+			override public function set data(value:Object):void
+			{
+				super.data = value;
+				
+				var item:ItemsGroupVO = (data as ItemsGroupVO);
+				if (item && item.bIsDefault)
+				{
+					item.bSelected = item.bIsDefault;
+				}
+			}
+			
+			protected function handleSelected(e:MouseEvent):void
+			{
+				var item:ItemsGroupVO = data as ItemsGroupVO;
+				
+				item.bSelected = (item.bIsDefault) ? true : !item.bSelected;
+				
+				var evt:ItemGroupEvent = new ItemGroupEvent(ItemGroupEvent.ITEM_GROUP_SELECTED, item.bSelected);
+				owner.dispatchEvent(evt);
+				
+				data = item;
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:HBox width="100%" height="100%">
+		<mx:CheckBox id="checkItem"
+			selected="{(data as ItemsGroupVO).bSelected}"
+			click="handleSelected(event)"/>
+		<mx:Label
+			text="{(data as ItemsGroupVO).sName}"
+			width="100%"/>
+	</mx:HBox>
+</mx:Canvas>

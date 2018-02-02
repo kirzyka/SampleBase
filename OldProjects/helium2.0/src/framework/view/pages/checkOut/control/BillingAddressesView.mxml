@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="utf-8"?>
+<module:SubWindow
+	xmlns:module="framework.core.view.*"	
+	xmlns:mx="http://www.adobe.com/2006/mxml" 
+	width="100%" height="100%"
+	>
+
+<mx:Script>
+	<![CDATA[
+		import mx.collections.ArrayCollection;
+		import mx.collections.HierarchicalData;
+		import mx.controls.advancedDataGridClasses.AdvancedDataGridColumn;
+		import mx.controls.Alert;
+		import mx.core.IUIComponent;
+		import mx.managers.DragManager;
+		import mx.events.DragEvent;
+		import services.events.checkOut.CloseAccountEvent;
+		import services.events.checkOut.GetReservationBalanceEvent;
+		import framework.core.utils.UtilsGolobal;
+		import services.vo.checkOut.AccountVO;
+		import services.events.checkOut.GetItemsRoutingEvent;
+		import services.events.checkOut.RemoveAccountEvent;
+		import framework.view.pages.checkOut.data.AccountTreeItem;
+		import framework.managers.PopUpManagerExt;
+		import framework.view.pages.checkOut.popups.AddAccountPopupView;
+		import services.events.checkOut.GetBillingAddresesEvent;
+		
+		public var iOrderId:int;
+		public var iReservationId:int;
+		public var iVirtualId:int;
+		
+		override public function update():void
+		{
+			refreshTree();	
+		}
+		
+		private function selectFirstTreeItem(update:Boolean = false):void
+		{
+			if(model.checkOutModule.aBillingAddresses.length > 0)
+			{
+				if(model.checkOutModule.aBillingAddresses[0].children.length > 0)
+				{
+					trBillingAddresses.selectedItem = model.checkOutModule.aBillingAddresses[0].children[0] as AccountVO;
+				}
+			}
+			
+			if(update)
+			{
+				getItemsRouting();
+			}
+		}
+		
+		private function handleDragDropItem(event:DragEvent):void
+		{
+			//model.checkOutModule.paymentItemsView
+			refreshBillingAddresses();
+		}
+		public function refreshBillingAddresses():void
+		{
+			var getBillingAddresesEvent:GetBillingAddresesEvent = new GetBillingAddresesEvent();
+			getBillingAddresesEvent.iOrderId = iOrderId;
+			getBillingAddresesEvent.iReservationId = iReservationId;
+			getBillingAddresesEvent.iVirtualId = iVirtualId;
+			getBillingAddresesEvent.callBack = refreshTree;
+			getBillingAddresesEvent.dispatch();
+		}
+		
+		public function refreshBalance():void
+		{
+			var getReservationBalanceEvent:GetReservationBalanceEvent = new GetReservationBalanceEvent();
+			
+			getReservationBalanceEvent.iReservationId = iReservationId;//(iReservationId == 0)?model.checkOutModule.reservationId:iReservationId;
+			getReservationBalanceEvent.iOrderId = iOrderId;//(iOrderId == 0)?model.checkOutModule.iOrderId:iOrderId;			
+			//TODO: need fill in the model
+			getReservationBalanceEvent.iVirtualId = iVirtualId;
+			getReservationBalanceEvent.dispatch();
+		}
+		
+        private function refreshTree():void
+        {	
+        	trBillingAddresses.dataProvider = new HierarchicalData( model.checkOutModule.aBillingAddresses );
+        	callLater(expandTree);		  	
+            refreshBalance();
+        } 
+        
+        private function expandTree():void
+        {
+        	trBillingAddresses.expandAll();
+        	selectFirstTreeItem();
+        }
+		
+		private function addAddress():void
+		{
+			var addAddressPopup:AddAccountPopupView = PopUpManagerExt.createPopUp(this.owner, AddAccountPopupView, true) as AddAccountPopupView;
+			addAddressPopup.callBack = refreshTree;
+			PopUpManagerExt.centerPopUp(addAddressPopup);
+		}
+		
+		private function removeAddress():void
+		{
+			var removeAccountEvent:RemoveAccountEvent = new RemoveAccountEvent();
+			removeAccountEvent.lAccountId = (trBillingAddresses.selectedItem as AccountVO).lId;
+			removeAccountEvent.callBack = refreshTree;
+			removeAccountEvent.dispatch();
+			model.checkOutModule.aRoutingItems = new ArrayCollection();
+		}
+		
+
+		
+		private function getItemsRouting():void
+		{
+			if(trBillingAddresses.selectedItem is AccountTreeItem)
+			{
+				return;
+			}			
+			if(trBillingAddresses.selectedItem is AccountVO)
+			{
+				model.checkOutModule.currentBillingAddress = trBillingAddresses.selectedItem as AccountVO;
+				var getItemsRoutingEvent:GetItemsRoutingEvent = new GetItemsRoutingEvent();
+				getItemsRoutingEvent.iPaymentLineId = (trBillingAddresses.selectedItem as AccountVO).lId;
+				getItemsRoutingEvent.dispatch();
+			}
+		}
+		
+		private function nameLabelFunction(item:Object, column:AdvancedDataGridColumn):String
+		{
+			if(item is AccountTreeItem)
+			{
+				return (item as AccountTreeItem).sName;
+			}
+			else
+			{
+				return (item as AccountVO).sName;
+			}			
+		}
+		
+		private function balanceLabelFunction(item:Object, column:AdvancedDataGridColumn):String
+		{
+			if(item is AccountTreeItem)
+			{
+				return "";
+			}
+			else
+			{
+				if((item as AccountVO).bIsPrimary)
+				{
+					return "€" + UtilsGolobal.convertTo2DecimalPlaces(UtilsGolobal.round((item as AccountVO).fBalance, 2).toString());
+				}
+				else if((item as AccountVO).bIsOpen)
+				{
+					return "€" + UtilsGolobal.convertTo2DecimalPlaces(UtilsGolobal.round((item as AccountVO).fBalance, 2).toString());
+				}
+				else
+				{
+					return "€" + UtilsGolobal.convertTo2DecimalPlaces(UtilsGolobal.round((item as AccountVO).fBalance, 2).toString());
+				}
+			}
+			
+		}	
+		
+	]]>
+</mx:Script>
+	
+	<mx:Label text="Accounts:"
+		fontSize="16" fontWeight="bold"/>
+
+	<mx:AdvancedDataGrid id="trBillingAddresses"
+		width="100%" height="100%"
+		click="{getItemsRouting()}"	
+		sortExpertMode="true"
+		
+		dropEnabled="true">
+		<mx:dataProvider>
+			<mx:HierarchicalData childrenField="children" source="{model.checkOutModule.aBillingAddresses}"/>
+		</mx:dataProvider>
+		<mx:columns>
+			<mx:AdvancedDataGridColumn headerText="Name"
+				
+				itemRenderer="framework.view.pages.checkOut.control.BillingAddressItemRenderer"
+				labelFunction="nameLabelFunction"/>
+			<mx:AdvancedDataGridColumn headerText="Balance"
+				itemRenderer="framework.view.pages.checkOut.control.BillingAddressItemRenderer"
+				labelFunction="balanceLabelFunction"/>				
+		</mx:columns>
+	</mx:AdvancedDataGrid>
+	
+	
+	<mx:ApplicationControlBar width="100%"
+		>
+		<mx:Button id="btnAddAddress"
+			label="Add"
+			click="{addAddress()}"/>
+		<mx:Button id="btnRemoveAddress"
+			label="Remove"
+			enabled="{trBillingAddresses.selectedItem != null ? ((trBillingAddresses.selectedItem is AccountTreeItem) ? false : true) : false}"
+			click="{removeAddress()}"/>
+			
+	</mx:ApplicationControlBar>	
+</module:SubWindow>

@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8"?>
+<popup:DataPopupView 
+	xmlns:popup="framework.view.components.popups.*"  
+	editTitle="Edit Region" 
+	xmlns:mx="http://www.adobe.com/2006/mxml" layout="vertical" creationComplete="init()">
+	
+	<mx:Script>
+		<![CDATA[
+			import services.events.miscellaneous.countries.GetRegionEvent;
+			import services.events.miscellaneous.countries.AddRegionEvent;
+			import services.vo.common.CountryVO;
+			import services.vo.common.RegionVO;
+			import services.controller.AppController;
+			import framework.model.AppModelLocator;
+			import mx.events.CloseEvent;
+			import services.vo.GlobalStorage;
+			import mx.collections.ArrayCollection;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import framework.managers.PopUpManagerExt;
+			
+			[Bindable]
+			private var submitEnable:Boolean = true;
+			
+			[Bindable]
+			private var currenRegion:RegionVO = new RegionVO();
+			
+			/**
+			 * 	Initialize data for region.
+			*/
+			private function init():void
+			{
+				currenRegion = data as RegionVO;
+				region.text = currenRegion.sRegionName;
+				for (var i:int = 0; i < model.commonModule.countries.length; i++)
+				{
+					if ((model.commonModule.countries[i] as CountryVO).lId == currenRegion.lCountryId)
+					{
+						country.selectedIndex = i;
+						break;
+					}
+				}
+				regionCode.text = currenRegion.sRegionCode;
+			}
+			
+			/**
+			 * 	Set data for region.
+			 * 	Add region to Region List.
+			 * 	Close Popup.
+			*/
+			private function handleCreateRegion():void
+			{
+				var evt:AddRegionEvent = new AddRegionEvent (AppController.ADD_REGION_EVENT);
+				evt.region.lCountryId = (country.selectedItem as CountryVO).lId;
+				evt.region.sRegionName = region.text;
+				evt.region.sRegionCode = regionCode.text;
+				evt.region.lId = currenRegion.lId;
+				CairngormEventDispatcher.getInstance().dispatchEvent( evt );
+				
+				var evt2:GetRegionEvent = new GetRegionEvent (AppController.GET_REGION_EVENT);
+				evt2.countryId = (country.selectedItem as CountryVO).lId;
+				CairngormEventDispatcher.getInstance().dispatchEvent( evt2 );
+				
+				closeWindow();
+			}
+			/**
+			 * 	Close Popup.
+			*/
+			private function closeWindow():void
+			{
+				PopUpManagerExt.removePopUp( this );
+			}
+			/**
+			 * 	Check: Is all required fields are filled.
+			*/
+			private function checkFillRequiredFields():void
+			{
+				if(region.text.length > 0 && regionCode.text.length > 0) submitEnable = true;
+				else submitEnable = false;
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:FormItem label="Region:"  required="true">
+		<mx:TextInput id="region" change="checkFillRequiredFields()" width="200" />
+	</mx:FormItem>
+	<mx:FormItem label="Region Code"  required="true">
+		<mx:TextInput id="regionCode" change="checkFillRequiredFields()" width="50" maxChars="5"/>
+	</mx:FormItem>
+	
+	<mx:FormItem label="Country:" >
+		<mx:ComboBox id="country" dataProvider="{model.commonModule.countries}" 
+						width="200" labelField="sCountryName"/>
+	</mx:FormItem>
+	
+	<mx:HBox width="100%" horizontalAlign="right">
+		<mx:Button label="Save" click="handleCreateRegion()"  enabled="{submitEnable}" id="submit_From_AddFloorPopupView"/>
+		<mx:Button label="Close" click="closeWindow()" id="cancel_From_AddFloorPopupView"/>
+	</mx:HBox>
+	
+</popup:DataPopupView>

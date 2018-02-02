@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Application
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:flexui="flexunit.flexui.*"
+	xmlns:services="services.*" 
+	xmlns:controller="services.controller.*"
+	layout="absolute"
+	creationComplete="onCreationComplete()"
+	preinitialize="{serviceLoader.send()}">
+	
+	<mx:Script>
+		<![CDATA[
+			import flexUnit.tests.ItemsGroupTest;
+			import flexUnit.tests.HotelsTestEnd;
+			import flexUnit.tests.CommonDictionaryTest;
+			import flexUnit.tests.ReservationTest;
+			import flexUnit.tests.HotelsTestStart;
+			import flexUnit.tests.SecurityTest;
+			
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.events.frontend.LoginEvent;
+			import mx.controls.Alert;
+			import services.vo.GlobalStorage;
+			import mx.rpc.events.ResultEvent;
+			import framework.model.AppModelLocator;
+			import flexunit.framework.TestSuite;
+			
+			[Bindable]
+			private var model:AppModelLocator = AppModelLocator.getInstance();
+			
+			//Createthetestsuiteandrunthetests
+			private function onCreationComplete():void
+			{
+				model.owner = this;
+				
+				var loginEvent:LoginEvent = new LoginEvent(AppController.LOGIN_EVENT);
+				loginEvent.userLogin = "viktor";
+				loginEvent.userPassword = "viktor";
+				loginEvent.callBack = startTest;
+				CairngormEventDispatcher.getInstance().dispatchEvent(loginEvent);
+			}
+			
+			private function startTest():void
+			{
+				testRunner.test=createSuite();
+				testRunner.startTest();
+			}
+			
+			// Creates the test suite to run
+			private function createSuite():TestSuite
+			{
+				var testSuite:TestSuite = new TestSuite();
+				
+				/* Test List */
+				testSuite.addTestSuite(SecurityTest);
+				testSuite.addTestSuite(CommonDictionaryTest);
+				testSuite.addTestSuite(HotelsTestStart);
+				
+				testSuite.addTestSuite(ItemsGroupTest);
+				
+				testSuite.addTestSuite(HotelsTestEnd);
+				testSuite.addTestSuite(ReservationTest);
+				
+				return testSuite;
+			}
+			
+			private function onGetServices(e:ResultEvent):void
+			{
+				try
+				{
+					var settings:XML = e.result as XML;
+					var endpoint:String = settings.endpoint[0].@uri;
+					GlobalStorage.endpoint = endpoint;
+				}
+				catch(ex:Error)
+				{
+					Alert.show("File services-config.xml is broken!");
+				}
+			}
+		]]>
+	</mx:Script>
+	
+	<services:Services id="services"/>
+	<controller:AppController id="controller"/>
+	
+	<mx:HTTPService id="serviceLoader"
+		resultFormat="e4x"
+		url="services-config.xml"
+		result="onGetServices(event)"
+		fault="{Alert.show('File not found!')}"/>
+	
+	<flexui:TestRunnerBase id="testRunner"
+		width="100%" height="100%"/>
+</mx:Application>

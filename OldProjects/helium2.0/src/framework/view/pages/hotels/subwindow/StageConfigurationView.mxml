@@ -1,0 +1,296 @@
+<?xml version="1.0" encoding="utf-8"?>
+<subwindow:VSubWindow
+	xmlns:subwindow="framework.core.view.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	width="100%" height="100%" >
+	
+	<mx:Script>
+		<![CDATA[
+			import framework.view.pages.hotels.popups.SaveRoomPopupView;
+			import framework.view.pages.hotels.popups.AddFloorPopupView;
+			import framework.core.utils.UtilsGolobal;
+			import framework.core.utils.UtilsGolobal;
+			import services.events.backend.GetHotelDictionariesEvent;
+			import mx.managers.PopUpManagerChildList;
+			import framework.view.components.popups.DeletePopupView;
+			import framework.view.components.popups.events.PopupEvent;
+			import services.events.hotels.GetHotelRoomTypesEvent;
+			import services.events.roomTypes.GetRoomTypesDataEvent;
+			import services.events.hotels.DeleteHotelRoomEvent;
+			import services.events.hotels.DeleteHotelStageEvent;
+			import services.vo.hotels.HotelRoomObjectVO;
+			import services.events.hotels.SetHotelFloorNameEvent;
+			import services.events.hotels.GetHotelStageListEvent;
+			import services.vo.hotels.HotelStageObjectVO;
+			import framework.core.utils.UtilsMXML;
+			import h2olib.control.Confirmation;
+			import services.vo.GlobalStorage;
+			import mx.events.CloseEvent;
+			import flash.debugger.enterDebugger;
+			import mx.events.ListEvent;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.controller.AppController;
+			import mx.collections.ArrayCollection;
+			import framework.model.AppModelLocator;
+			import framework.managers.PopUpManagerExt;
+			import mx.controls.Alert;
+						
+			private var hotelId:Number = -1;
+			
+			[Bindable]
+			private var roomListLength:Number=0;
+			
+			[Bindable]
+			private var currentName:String="";		
+			
+			[Bindable]
+			private var floorIndex:Number=0;
+			
+			/**
+			 *  @override
+			 *  Open page for view. Update view list of floors anf rooms if it needs.
+			 */
+			override public function open():void
+			{
+				super.open();
+				model.hotelsModule.currStageRoomsDP.removeAll();
+				model.hotelsModule.currStage = new HotelStageObjectVO();
+				
+				if (model.hotelsModule.hotelRoomTypes.length == 0)
+				{
+					 var getRTevt:GetHotelRoomTypesEvent = new GetHotelRoomTypesEvent( AppController.GET_HOTEL_ROOM_TYPES );
+					CairngormEventDispatcher.getInstance().dispatchEvent( getRTevt ); 
+				}
+				
+				var event:GetHotelDictionariesEvent = new GetHotelDictionariesEvent(AppController.GET_PAGE_OF_START_HOTEL);
+				event.hotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+				CairngormEventDispatcher.getInstance().dispatchEvent(event);
+				
+				hotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+			}
+			
+			/**
+			 * Select stage. 
+			 */ 
+			private function handleSelectStage():void
+			{					
+				if (stageList.selectedItem)
+					model.hotelsModule.currStage = stageList.selectedItem as HotelStageObjectVO;
+				currentName=model.hotelsModule.currStage.sStageName;
+				floorIndex=stageList.selectedIndex;
+				model.hotelsModule.currStageRoomsDP = new ArrayCollection(model.hotelsModule.currStage.aMapHotelRooms);
+				
+				GlobalStorage.selectStageIndex = stageList.selectedIndex;
+				
+				roomList.dataProvider = model.hotelsModule.currStageRoomsDP;
+				
+				stageList.editorUsesEnterKey = true;
+				stageList.addEventListener(KeyboardEvent.KEY_DOWN, downEnter);	
+				stageList.addEventListener(ListEvent.ITEM_FOCUS_OUT, editFloor); // ITEM_EDIT_END not update data
+			}
+			
+			/**
+			* If we click Enter
+			 */ 
+			private function downEnter(event:KeyboardEvent):void
+			{
+				if (event.charCode == 13)
+					stageList.dispatchEvent(new ListEvent(ListEvent.ITEM_FOCUS_OUT));		
+			}
+			
+			/**
+			 * Request to server for edit floor
+			 */ 
+			private function editFloor(event:ListEvent=null):void
+			{	
+				model.hotelsModule.stageDP.refresh();				
+				if (model.hotelsModule.stageDP[floorIndex].sStageName=="") {model.hotelsModule.stageDP[floorIndex].sStageName=currentName; return;} // name floor can't be ""  
+				if (currentName==model.hotelsModule.stageDP[floorIndex].sStageName) return;
+				var evt:SetHotelFloorNameEvent = new SetHotelFloorNameEvent( AppController.SET_HOTEL_FLOOR_NAME_EVENT );
+				evt.stage.iStageId = model.hotelsModule.stageDP[floorIndex].iStageId;
+				evt.stage.iStageHotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+				evt.stage.iStageRoomCount = model.hotelsModule.stageDP[floorIndex].iStageRoomCount;
+				evt.stage.iStageLevel = model.hotelsModule.stageDP[floorIndex].iStageLevel;
+				evt.stage.sStageName = model.hotelsModule.stageDP[floorIndex].sStageName;
+				evt.stage.sStageFloorPlanName = model.hotelsModule.stageDP[floorIndex].sStageFloorPlanName;
+				evt.stage.aMapHotelRooms = model.hotelsModule.stageDP[floorIndex].aMapHotelRooms;
+
+				CairngormEventDispatcher.getInstance().dispatchEvent( evt );
+				stageList.removeEventListener(ListEvent.ITEM_FOCUS_OUT, editFloor);
+			}
+			  
+			/**
+			 * if we select room from room list, model.hotelsModule.currRoom set this room
+			 */ 
+			private function handleSelectRoom():void
+			{
+				model.hotelsModule.currRoom = UtilsGolobal.clone(roomList.selectedItem) as HotelRoomObjectVO;
+			}
+						
+			/**
+			 * Create PopUp for add room
+			 */ 
+			private function handleAddFloor():void
+			{
+				var pop:AddFloorPopupView = PopUpManagerExt.createPopUp(this, AddFloorPopupView) as AddFloorPopupView;
+				PopUpManagerExt.centerPopUp(pop);
+			}
+			
+			/**
+			 * Create popUp for delete floor
+			 */ 
+			public function deleteFloor():void 
+            {
+                var pop:DeletePopupView = PopUpManagerExt.createPopUp(this, DeletePopupView) as DeletePopupView;
+				pop.title = "Delete Floor";
+				pop.description =  "Are you sure to delete floor " + (stageList.selectedItem as HotelStageObjectVO).sStageName;
+				pop.subDescription = "All the rooms assigned to this floor will be deleted.";
+				pop.addEventListener(PopupEvent.DELETE_HANDLER, handleRemoveFloor);
+            }
+			
+			/**
+			 * Request for remove floor
+			 */ 
+			private function handleRemoveFloor(e:PopupEvent):void
+			{
+				(e.target as DeletePopupView).removeEventListener(PopupEvent.DELETE_HANDLER, handleRemoveFloor);
+ 				var evt:DeleteHotelStageEvent = new DeleteHotelStageEvent( AppController.DELETE_HOTEL_STAGE );
+				evt.stageIndex = stageList.selectedIndex;
+				CairngormEventDispatcher.getInstance().dispatchEvent( evt );
+				(e.target as DeletePopupView).completeCall();
+			}
+			
+			/**
+			 * Create popup for add room
+			 * @see SaveRoomPopupView
+			 */ 
+			private function handleAddRoom():void
+			{				
+				model.hotelsModule.currStage = stageList.selectedItem as HotelStageObjectVO;
+				var pop:SaveRoomPopupView = PopUpManagerExt.createPopUp(this, SaveRoomPopupView, true) as SaveRoomPopupView;
+				PopUpManagerExt.centerPopUp(pop);
+				pop.callBack = handleSelectStage;
+				GlobalStorage.selectStageIndex = stageList.selectedIndex;
+				pop.addEventListener(CloseEvent.CLOSE, updateStageIndex);								
+			}
+			
+			/**
+			 * Create popup for edit room
+			 * @see SaveRoomPopupView
+			 */ 
+			private function handleEditRoom():void
+			{
+				stageList.selectedIndex = GlobalStorage.selectStageIndex;
+				var pop:SaveRoomPopupView = PopUpManagerExt.createPopUp(this, SaveRoomPopupView, true) as SaveRoomPopupView;
+				pop.data = model.hotelsModule.currRoom;
+				PopUpManagerExt.centerPopUp(pop);
+				GlobalStorage.selectStageIndex = stageList.selectedIndex;
+				pop.addEventListener(CloseEvent.CLOSE, updateStageIndex);								
+			}
+			
+			/**
+			 * update stage index
+			 */ 
+			private function updateStageIndex(e:CloseEvent = null):void
+			{
+				stageList.selectedIndex = GlobalStorage.selectStageIndex;
+			} 
+			
+			 /**
+			 * Create popup for delete room 
+			 */ 
+			 public function deleteRoom():void 
+            {
+                var pop:DeletePopupView = PopUpManagerExt.createPopUp(this, DeletePopupView) as DeletePopupView;
+
+				pop.title = "Delete Room";
+				pop.description =  "Are you sure to delete room " + (roomList.selectedItem as HotelRoomObjectVO).sRoomName + "?";
+				pop.addEventListener(PopupEvent.DELETE_HANDLER, handleRemoveRoom);                
+            }
+			
+			/**
+			 * Request to server command for delete room
+			 */			
+			private function handleRemoveRoom(e:PopupEvent):void
+			{
+					(e.target as DeletePopupView).removeEventListener(PopupEvent.DELETE_HANDLER, handleRemoveRoom);
+					var evt:DeleteHotelRoomEvent = new DeleteHotelRoomEvent( AppController.DELETE_HOTEL_ROOM );
+					
+					evt.roomIndex = roomList.selectedIndex;
+					evt.stageIndex = GlobalStorage.selectStageIndex;
+					//evt.roomId = (roomList.selectedItem as HotelRoomObjectVO).iRoomId;
+					roomListLength=(model.hotelsModule.stageDP.getItemAt(GlobalStorage.selectStageIndex).aMapHotelRooms as Array).length;
+					if (roomListLength>1)
+					{
+						remove_Room_From_StageConfigurationView.enabled=true;
+					}
+					else
+					{
+						remove_Room_From_StageConfigurationView.enabled=false;
+					}
+					evt.room = roomList.selectedItem as HotelRoomObjectVO;
+					CairngormEventDispatcher.getInstance().dispatchEvent( evt );
+					
+					remove_Room_From_StageConfigurationView.enabled=false;
+					(e.target as DeletePopupView).completeCall();
+					
+					var evt3:GetHotelStageListEvent = new GetHotelStageListEvent( AppController.GET_HOTEL_STAGES );
+					evt3.callBack = updateStageIndex;
+					CairngormEventDispatcher.getInstance().dispatchEvent( evt3 );	
+			}
+
+		]]>
+		
+	</mx:Script>
+	
+	
+	<mx:HBox width="100%" height="100%">
+		<mx:VBox width="100%" height="100%" borderStyle="solid">
+			<mx:Label text="Floors" fontSize="14" textAlign="center" fontWeight="bold"/>
+			<mx:List id="stageList" 
+				width="100%" height="100%" 
+				labelField="sStageName" 
+				itemClick="handleSelectStage()" 
+				textAlign="left" paddingLeft="10"
+				dataProvider="{model.hotelsModule.stageDP}"
+				editable="true" 
+				 />	
+			<mx:HBox width="100%" height="40">
+				<mx:Button id="add_Floor_From_StageConfigurationView"
+					label="Add" 
+					width="100%" 
+					click="handleAddFloor()"/>
+				<mx:Button id="remove_Floor_From_StageConfigurationView" 
+					label="Delete" 
+					width="100%" 
+					click="deleteFloor()" 
+					enabled="{stageList.selectedIndex > -1}" />
+			</mx:HBox>
+
+		</mx:VBox>
+		
+		<mx:VBox width="100%" height="100%" borderStyle="solid">
+			<mx:Label text="Rooms" fontSize="14" textAlign="center" fontWeight="bold"/>
+			<mx:List id="roomList" width="100%" height="100%" labelField="sRoomName" 
+				textAlign="left" paddingLeft="10"
+				itemClick="handleSelectRoom()" dataProvider="{model.hotelsModule.currStageRoomsDP}"
+				/>	
+			<mx:HBox width="100%" height="40">
+				<mx:Button id="add_Room_From_StageConfigurationView" 
+					label="Add" width="100%" 
+					click="handleAddRoom()" 
+					enabled="{stageList.selectedIndex > -1}"/>
+				<mx:Button id="edit_Room_From_StageConfigurationView" 
+					label="Edit" 
+					width="100%" 
+					click="handleEditRoom()" 
+					enabled="{roomList.selectedIndex > -1}"  />
+				<mx:Button id="remove_Room_From_StageConfigurationView" 
+					label="Delete" 
+					width="100%" 
+					click="deleteRoom()" 
+					enabled="{roomList.selectedIndex > -1}" />
+			</mx:HBox>
+		</mx:VBox>
+	</mx:HBox>
+</subwindow:VSubWindow>

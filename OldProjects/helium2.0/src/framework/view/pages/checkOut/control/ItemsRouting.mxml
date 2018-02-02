@@ -1,0 +1,876 @@
+<?xml version="1.0" encoding="utf-8"?>
+<VSubWindow
+	xmlns="framework.core.view.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:controls="framework.view.components.controls.*"
+	xmlns:control="h2olib.control.*"
+	xmlns:checkoutControls="framework.view.pages.checkOut.control.*"
+	creationComplete="init()"
+	width="100%" height="100%">
+
+	<mx:Script>
+		<![CDATA[
+			import mx.events.DragEvent;
+			import services.events.SaveReservationNotesEvent;
+			import services.vo.checkOut.AccountVO;
+			import services.events.checkOut.CloseAccountEvent;
+			import framework.view.pages.checkOut.data.AccountTreeItem;
+			import services.business.inHouse.InHouseDelegate;
+			import services.events.checkOut.GetItemsRoutingEvent;
+			import services.events.checkOut.UnmergeItemEvent;
+			import framework.view.pages.inHouse.InHouseView;
+			import services.vo.inHouse.InHouseSearchVO;
+			import framework.view.components.popups.events.PopupEvent;
+			import mx.formatters.NumberFormatter;
+			import services.events.checkOut.DetachPaymentsFromAccountEvent;
+			import services.events.checkOut.PrintActualReportEvent;
+			import framework.view.pages.checkOut.data.AccountData;
+			import framework.module.CheckOutModule;
+			import framework.view.pages.inHouse.popups.ProfileAssignPopupView;
+			import services.vo.inHouse.InHouseViewVO;
+			import framework.view.pages.checkOut.popups.ShowPackageItemsPopupView;
+			import mx.events.AdvancedDataGridEvent;
+			import mx.events.ListEvent;
+			import mx.events.ItemClickEvent;
+			import mx.controls.advancedDataGridClasses.AdvancedDataGridColumn;
+			import services.events.checkOut.DeletePaymentEvent;
+			import services.cairngorm.BaseEvent;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.controls.DateField;
+			import mx.controls.dataGridClasses.DataGridColumn;
+			import mx.core.IFlexDisplayObject;
+			import framework.managers.PopUpManagerExt;
+			import mx.managers.PopUpManagerChildList;
+
+			import services.business.checkOut.CheckOutDelegate;
+			import services.controller.AppController;
+			import services.events.checkOut.DeleteItemEvent;
+			import services.events.checkOut.GetCheckoutStateEvent;
+			import framework.model.AppModelLocator;
+			import framework.view.components.popups.*;
+			import framework.view.pages.checkOut.CheckOutModuleView;
+			import framework.view.pages.checkOut.control.AttachedItemsToAccountView;
+			import framework.view.pages.checkOut.events.*;
+			import framework.view.pages.checkOut.popups.*;
+			import services.vo.GlobalSettings;
+			import services.vo.checkOut.itemRouting.*;
+			import services.vo.checkOut.payment.CheckoutPaymentVO;
+			import services.vo.frontend.*;
+			import framework.core.utils.UtilsMXML;
+
+			// ===================================================================== //
+			//                         VARIABLES AND CONSTANTS                       //
+			// ===================================================================== //
+			[Bindable]
+			/**
+			 *  This property is insatnce of CheckOut module.
+			 *
+			 *  @default model.checkOutModule
+			 *
+			 *  @see framework.module.CheckOutModule
+			 */
+			protected var _module:CheckOutModule = new CheckOutModule();
+			/**
+			 *  This property is id of room.
+			 *  <p><b>Note:</b>it need for InHouse module.
+			 *
+			 *  @default 0
+			 */
+			private var _roomId:Number = 0;
+			/**
+			 *  This proeprty is type of items routing. It is type of room in InHouse
+			 *  module.
+			 *
+			 *  @default InHouseViewVO.TYPE_NORMAL
+			 *
+			 *  @see services.vo.inHouse.InHouseViewVO
+			 */
+			private var _type:int = InHouseViewVO.TYPE_NORMAL;
+
+			// ===================================================================== //
+			//                    OVERRIDE METHODS AND HANDLERS                      //
+			// ===================================================================== //			
+			override public function update():void
+			{
+				//module = model.checkOutModule;
+				// update view by type
+				type = _type;
+				// remove all accounts with attached items to them
+
+				// update view by previous active page
+				switch(model.checkOutModule.prevPage)
+				{
+					default:
+					case CheckOutModule.CHECKOUT_GUESTS_VIEW:
+					case CheckOutModule.CHECKOUT_ITEMS_ROUTING:
+						// clear storage for attached accounts
+						model.checkOutModule.attachedItemsView = new Dictionary(true);
+						model.checkOutModule.paymentItemsView = new Dictionary(true);
+
+						model.checkOutModule.aRoutingItems.refresh();
+						dgAddedItems.selectedIndex = -1;
+			
+					break;
+
+				}
+
+				//sattachedItemsView = model.checkOutModule.attachedItemsView;
+
+				model.inHouseModule.isCheckOut = false;
+				btSplit.enabled = false;
+				btAdjust.enabled = false;
+				
+				billingAddresses.iOrderId = model.checkOutModule.iOrderId;
+				billingAddresses.iReservationId = model.checkOutModule.reservationId;
+				billingAddresses.update();
+			}
+			/**
+			 *  Get account data by id such as company name or guest name and address by
+			 *  name of owner account.
+			 *
+			 *  @param id:Number - id of account.
+			 *
+			 *  @return account data
+			 */
+			private function getAccountById(id:Number):AccountData
+			{
+
+					if (model.checkOutModule.account != null)
+					{
+						return new AccountData("", model.checkOutModule.account.sName, "");
+						//return new AccountData(account.sCompanyName, account.sGuestName, address.sAddress);
+					}
+			
+				return new AccountData();
+			}
+			// ===================================================================== //
+			//                      COMMON METHODS AND HANDLERS                      //
+			// ===================================================================== //
+			private function init():void
+			{
+				//module = model.checkOutModule;
+				if (model.inHouseModule.isCheckOut)
+				{
+					update();
+					model.inHouseModule.isCheckOut = false;
+				}
+				model.checkOutModule.billingAddressesView = billingAddresses;
+				dgAddedItems.addEventListener(ItemRoutingEvent.ITEM_SELECTED, handleUpdate);
+			}
+
+			/**
+			 *  The handle for update state of button "Attach to Account" by selected
+			 *  items in the not routed otems grid.
+			 */
+			private function handleUpdate(e:ItemRoutingEvent = null):void
+			{
+				updateControlPanel();
+			}
+			/**
+			 *  The handle to open popup for add new transaction to guest.
+			 */
+			private function openAddTransactionPopup():void
+			{
+				var pop:AddTransactionPopupView = PopUpManagerExt.createPopUp(this, AddTransactionPopupView) as AddTransactionPopupView;
+				pop.callBack = billingAddresses.refreshBillingAddresses;
+			}
+			/**
+			 *  The handle to open popup for add new payment by guest.
+			 */
+			private function openAddPaymentPopup():void
+			{
+				var pop:AddPaymentPopupView = PopUpManagerExt.createPopUp(this, AddPaymentPopupView) as AddPaymentPopupView;
+				pop.callBack = billingAddresses.refreshBillingAddresses;
+			}			
+			
+			/**
+			 *  The handle to open popup for split selected item.
+			 */
+			private function openSplitItemPopup():void
+			{
+				var pop:SplitItemPopupView = PopUpManagerExt.createPopUp(this, SplitItemPopupView) as SplitItemPopupView;
+				pop.data = dgAddedItems.selectedItem;
+				pop.selectedIndex = dgAddedItems.selectedIndex;
+				pop.callBack = updateControlPanel;
+			}
+			/**
+			 *  The handle to open popup for adjust selected item.
+			 */
+			private function openAdjustItemPopup():void
+			{
+				var pop:AdjustItemPopupView = PopUpManagerExt.createPopUp(this, AdjustItemPopupView) as AdjustItemPopupView;
+				pop.data = dgAddedItems.selectedItem;
+				pop.selectedIndex = dgAddedItems.selectedIndex;
+				pop.callBack = updateControlPanel;
+			}
+
+			/**
+			 *  Try to delete selected routing item by opened popup.
+			 *
+			 *  @param e:PopupDeleteEvent
+			 */
+			private function tryDeleteRoutingItem(e:PopupEvent):void
+			{
+				(e.target as DeletePopupView).removeEventListener(PopupEvent.DELETE_HANDLER, tryDeleteRoutingItem);
+
+				var event:BaseEvent;
+				var item:ItemCheckOutVO = dgAddedItems.selectedItem as ItemCheckOutVO;
+				// check selected item by type - payment or item
+				if (item.bIsPayment)
+				{
+					event = new DeletePaymentEvent(CheckOutDelegate.DELETE_PAYMENT);
+					(event as DeletePaymentEvent).paymentId = item.lId;
+					(event as DeletePaymentEvent).index = dgAddedItems.selectedIndex;
+				}
+				else
+				{
+					event = new DeleteItemEvent(CheckOutDelegate.DELETE_ITEM);
+					(event as DeleteItemEvent).id = item.lId;
+					(event as DeleteItemEvent).index = dgAddedItems.selectedIndex;
+				}
+
+				event.callBack = (e.target as DeletePopupView).completeCall;
+				CairngormEventDispatcher.getInstance().dispatchEvent(event);
+			}
+
+			
+			private function applyPayingInstruction():void
+			{
+				
+			}			
+			/**
+			 *  The handle to open popup for merge selected items by codes or
+			 *  transactions.
+			 */
+			private function openMergeItemsPopup():void
+			{
+				var item:ItemCheckOutVO;
+				var pop:IFlexDisplayObject;
+				var mergeByCode:Boolean = false;
+				var items:ArrayCollection = dgAddedItems.dataProvider as ArrayCollection;
+				var selectedItems:Array = dgAddedItems.selectedItems;
+				var selectedIndices:Array = dgAddedItems.selectedIndices;
+
+				// check possible merge selected items by trasnsactions
+				var hotelItemId:int = 0;
+				var hotelItem:ItemCheckOutVO = (selectedItems[0] as ItemCheckOutVO);
+				// get etalon item hotel id
+				if (hotelItem.aComponents.length == 0)
+				{
+					hotelItemId = hotelItem.lHotelItemId;
+				}
+				else
+				{
+					hotelItemId = (hotelItem.aComponents[0] as ItemCheckOutVO).lHotelItemId
+				}
+				
+				if(selectedItems.length == 1)
+				{
+					mergeByCode = true;
+				}
+				else
+				{
+					for each(item in selectedItems)
+					{
+						var mergedItems:Array = item.aComponents;
+						if (mergedItems.length == 0)
+						{
+							if (item.lHotelItemId != hotelItemId)
+							{
+								mergeByCode = true;
+								break;
+							}
+						}
+						else
+						{
+							// check all merged items
+							for each(var mergedItem:ItemCheckOutVO in mergedItems)
+							{
+								if (mergedItem.lHotelItemId != hotelItemId)
+								{
+									mergeByCode = true;
+									break;
+								}
+							}
+						}
+					}
+				}
+				// open popup for merge selected item by need type
+				
+				if (mergeByCode)
+				{
+					pop = PopUpManagerExt.createPopUp(this, MergeItemsByCodesPopupView);
+					(pop as MergeItemsByCodesPopupView).selectedItems = selectedItems;
+					(pop as MergeItemsByCodesPopupView).selectedIndexes = selectedIndices;
+					(pop as MergeItemsByCodesPopupView).callBack = updateControlPanel;
+				}
+				else
+				{
+					pop = PopUpManagerExt.createPopUp(this, MergeItemsByTransactiosPopupView);
+					(pop as MergeItemsByTransactiosPopupView).selectedItems = selectedItems;
+					(pop as MergeItemsByTransactiosPopupView).selectedIndexes = selectedIndices;
+					(pop as MergeItemsByTransactiosPopupView).callBack = updateControlPanel;
+				}
+				
+			}
+
+			private function unmergeItem():void
+			{
+				var item:ItemCheckOutVO = dgAddedItems.selectedItem as ItemCheckOutVO;
+				
+				if(item != null)
+				{				
+					var unmergeItemEvent:UnmergeItemEvent = new UnmergeItemEvent(CheckOutDelegate.UNMERGE_ITEM);
+					unmergeItemEvent.itemId = item.lId;
+					unmergeItemEvent.callBack = onUnmergeOk;
+					unmergeItemEvent.dispatch();				
+				} 				
+			}
+			
+			private function onUnmergeOk():void
+			{	
+				var getCheckOutstateEvent:GetCheckoutStateEvent = new GetCheckoutStateEvent();
+				switch(model.checkOutModule.roomType)
+				{
+					
+					case InHouseViewVO.TYPE_NORMAL:							
+						getCheckOutstateEvent.iOrderId = model.checkOutModule.iOrderId;
+					break;					
+					case InHouseViewVO.TYPE_VIRTUAL:	
+						getCheckOutstateEvent.iVirtualId = model.inHouseModule.roomId;
+					break;	
+					case InHouseViewVO.TYPE_CONFERENCE:	
+						getCheckOutstateEvent.iVirtualId = model.inHouseModule.roomId;
+					break;														
+				}
+				getCheckOutstateEvent.callBack = onGetCheckoutStateOk;
+				getCheckOutstateEvent.dispatch();
+			}
+			
+			private function onGetCheckoutStateOk():void
+			{
+				dgAddedItems.selectedIndex = -1;
+				model.checkOutModule.aRoutingItems.refresh();
+				updateControlPanel();				
+			}
+
+			/**
+			 *  Label function for view date by dd/mm/yyyy format.
+			 *
+			 *  @param item:Object - item of dataprovider for caller table.
+			 *  @param column:DataGridColumn - column in grid.
+			 *
+			 *  @result formated date as String.
+			 */
+			private function funcDateView(item:Object, column:DataGridColumn):String
+			{
+				if ((item as ItemCheckOutVO).dDate)
+				{
+					var date:Date = DateField.stringToDate((item as ItemCheckOutVO).dDate, GlobalSettings.DATE_SERVER_FORMAT);
+					return DateField.dateToString(date, GlobalSettings.DATE_FORMAT);
+				}
+				return "";
+			}
+			/**
+			 *  Label function for view price by "NN.DD" format.
+			 *
+			 *  @param item:Object - item of dataprovider for caller table.
+			 *  @param column:DataGridColumn - column in grid.
+			 *
+			 *  @result formated price as String.
+			 */
+			private function funcPriceView(item:Object, column:DataGridColumn):String
+			{
+				if (!isNaN((item as ItemCheckOutVO).fPrice))
+				{
+					return nfPrice.format((item as ItemCheckOutVO).fPrice);
+				}
+				return "";
+			}
+			/**
+			 *  Label function for selector column.
+			 *
+			 *  @param item:Object - item of dataprovider for caller table.
+			 *  @param column:DataGridColumn - column in grid.
+			 *
+			 *  @result empty string.
+			 */
+			private function funcSelectorView(item:Object, column:DataGridColumn):String
+			{
+				return "";
+			}
+			/**
+			 *  Data tool tip function for column.
+			 *
+			 *  @param item:Object - item of dataprovider for caller table.
+			 *  @param column:DataGridColumn - column in grid.
+			 *
+			 *  @result tool tip as String.
+			 */
+			private function funcDataToolTip(item:Object):String
+			{
+				var tooltip:String = (item as ItemCheckOutVO).sTransName;
+				if (((item as ItemCheckOutVO).bIsPackage) && (!(item as ItemCheckOutVO).bIsChecked))
+				{
+					tooltip += "\n" + "Note: for show items in package use double click on selected package";
+				}
+				return tooltip;
+			}
+
+
+			/**
+			 *  Confirmation handler to attach selected items to account.
+			 *
+			 *  @param e:AccountEvent
+			 */
+			private function handleAccountSelect(e:AccountEvent):void
+			{
+				(e.target as BasePopupView).removeEventListener(AccountEvent.ACCOUNT_SELECTED, handleAccountSelect);
+				//
+				var packageIds:Array = (e.target as SelectAccountPopupView).packageIds;
+
+				// update grid
+				dgAddedItems.selectedIndex = -1;
+				model.checkOutModule.aRoutingItems.refresh();
+				// disable button to attach items to account
+				updateControlPanel();
+			}
+
+					
+
+			private function validateAppliedPayments():void
+			{
+
+			}
+
+			/**
+			 *  Colorize function for make disable state to added items
+			 *  data grid.
+			 *
+			 *  @param item:Object
+			 *  @param rowIndex:int
+			 *  @param dataIndex:int
+			 *  @param color:uint
+			 *
+			 *  @return color as RGB of row
+			 */
+			private function calcRowColor(item:Object, rowIndex:int,
+				dataIndex:int, color:uint):uint
+			{
+				return ((item as ItemCheckOutVO).bIsChecked) ? 0xcccccc : color;
+			}
+
+			/**
+			 *  The handle of update control panel for routing items.
+			 */
+			private function updateControlPanel():void
+			{
+				// print actual report button status
+				var countItems:Number = 0;
+				for each(item in dgAddedItems.dataProvider)
+				{
+					if ((!item.bIsChecked) || (item.bIsChecked && item.bIsPayment))
+					{
+						countItems++;
+					}
+				}
+				btPrintActualReport.enabled = (countItems > 0);
+				// check possible to update
+				if (!dgAddedItems.selectedItem)
+				{
+					btMerge.enabled = false;
+					btnUnmerge.enabled = false;
+					btAdjust.enabled = false;
+					btSplit.enabled = false			
+					return;
+				}
+				
+				var item:ItemCheckOutVO = dgAddedItems.selectedItem as ItemCheckOutVO;
+				// operations with one item
+				btAdjust.enabled = ((!item.bIsChecked) && (!item.bIsPackage));
+				btSplit.enabled = (!item.bIsChecked) && (!item.bIsPackage) && (item.fPrice > 0) && (type != InHouseViewVO.TYPE_VIRTUAL);
+				
+				if(dgAddedItems.selectedItems.every(itemIsNotPackage))
+				{
+					countItems = dgAddedItems.selectedItems.length;
+				}
+				else
+				{
+					countItems = 0;
+				}
+
+
+				btMerge.enabled = (countItems > 0) && (type != InHouseViewVO.TYPE_VIRTUAL);
+				btnUnmerge.enabled = (countItems == 1);
+			}
+			
+			private function itemIsNotPackage(element:ItemCheckOutVO, index:int, arr:Array):Boolean 
+			{
+            	return !element.bIsPackage;
+        	}
+
+			
+			/**
+			 *  The handler for open popup with package's items.
+			 *
+			 *  @param e:Event
+			 */
+			private function showPackageItems(e:Event):void
+			{
+				var item:ItemCheckOutVO = dgAddedItems.selectedItem as ItemCheckOutVO;
+				
+				if (null == item) return;
+				if ((item.aComponents.length == 0) && (item.bIsPackage == false)) return;
+				
+				var pop:ShowPackageItemsPopupView = PopUpManagerExt.createPopUp(this, ShowPackageItemsPopupView) as ShowPackageItemsPopupView;
+				pop.title = item.sTransName;
+				if (e is RemoveItemsEvent)
+				{
+					pop.items = (e as RemoveItemsEvent).items;
+				}
+				if (e is MouseEvent)
+				{
+					if (item.bIsPackage)
+					{
+						pop.items = new ArrayCollection(item.aPackageItems);
+					}
+					else
+					{
+						pop.items = new ArrayCollection(item.aComponents);
+					}
+				}
+			}
+			/**
+			 *  Update view for option inforamtion about items routing by
+			 *  type.
+			 */
+			private function updateView():void
+			{
+				vsInfo.visible = (_type != InHouseViewVO.TYPE_VIRTUAL);
+				switch(_type)
+				{
+					default:
+					case InHouseViewVO.TYPE_NORMAL:
+						vsInfo.includeInLayout = true;
+						vsInfo.selectedIndex = 0;
+						break;
+					case InHouseViewVO.TYPE_VIRTUAL:
+						vsInfo.includeInLayout = false;
+						break;
+					case InHouseViewVO.TYPE_CONFERENCE:
+						vsInfo.includeInLayout = true;
+						vsInfo.selectedIndex = 1;
+						break;
+				}
+				updateViewConferenceRoomState();
+			}
+
+			private function updateViewConferenceRoomState():void
+			{
+				if (type != InHouseViewVO.TYPE_CONFERENCE) return;
+				updateControlPanel();
+
+				var isLinked:Boolean = model.checkOutModule.reservationSummary.bRoomIsLinked;
+				btAddTransaction.enabled = btAddPayment.enabled = isLinked;
+				btPrintActualReport.enabled = isLinked;
+				if(UtilsMXML.and(lbState != null, lbName != null) )
+				{
+					if (isLinked)
+					{
+						lbState.text = "Conference room in use";
+					}
+					else
+					{
+						lbState.text = "Conference room is empty";
+					}
+					lbName.text = "Name: " + model.checkOutModule.reservationSummary.sRoomNumber;
+				}
+			}
+			/**
+			 *  The handler for open popup for assign profile to conference room.
+			 */
+			private function openAssignProfilePopup():void
+			{
+				var pop:ProfileAssignPopupView = PopUpManagerExt.createPopUp(this, ProfileAssignPopupView) as ProfileAssignPopupView;
+				pop.lock = true;
+				pop.roomId = model.checkOutModule.reservationSummary.lRoomId;
+				pop.callBack = updateViewConferenceRoomState;
+			}
+
+			private function generateInvoice():void
+			{
+				if(billingAddresses.trBillingAddresses.selectedItem is AccountTreeItem)
+				{
+					
+				}
+				else
+				{
+					var closeAccountEvent:CloseAccountEvent = new CloseAccountEvent();
+					closeAccountEvent.lAccountId = (billingAddresses.trBillingAddresses.selectedItem as AccountVO).lId;
+					closeAccountEvent.callBack = billingAddresses.refreshBillingAddresses;
+					closeAccountEvent.dispatch();
+				}		
+			}
+
+			private function createActualReport():void
+			{
+				var event:PrintActualReportEvent = new PrintActualReportEvent();
+				event.paymentLineId = model.checkOutModule.paymentLineId;
+				event.callBack = showReport;
+				CairngormEventDispatcher.getInstance().dispatchEvent(event);
+			}
+
+			private function showReport():void
+			{
+				if (model.checkOutModule.invoiceURL != "null")
+				{
+					navigateToURL(new URLRequest(model.checkOutModule.invoiceURL));
+				}
+			}
+			// ===================================================================== //
+			//                       GETTER AND SETTER HANDLERS                      //
+			// ===================================================================== //
+			[Bindable(event="attachedItemsViewChanged")]
+			/**
+			 *  Id of account.
+			 */
+			/*public function get attachedItemsView():Dictionary
+			{
+				return _attachedItemsView;
+			}*/
+			/**
+			 *  @private
+			 */
+			/*public function set attachedItemsView(value:Dictionary):void
+			{
+				_attachedItemsView = value;
+
+				dispatchEvent(new Event("attachedItemsViewChanged"));
+			}*/
+
+			[Bindable(event="roomIdChanged")]
+			/**
+			 *  The id of room.
+			 */
+			public function get roomId():Number
+			{
+				return _roomId;
+			}
+			/**
+			 *  @private
+			 */
+			public function set roomId(value:Number):void
+			{
+				_roomId = value;
+
+				dispatchEvent(new Event("roomIdChanged"));
+			}
+
+			[Bindable(event="typeChanged")]
+			/**
+			 *  The type of items routing. It is type of room in InHouse
+			 *  module.
+			 */
+			public function get type():int
+			{
+				return _type;
+			}
+			/**
+			 *  @private
+			 */
+			public function set type(value:int):void
+			{
+				_type = value;
+
+				model.checkOutModule.roomType = _type;
+				updateView();
+
+				dispatchEvent(new Event("typeChanged"));
+			}
+			
+			private function isBtnGenerateInvoiceEnabled(item:AccountTreeItem):Boolean
+			{
+				var result:Boolean = true;
+				
+				return result;
+			}
+			
+			private function getLabelForBtnPrintActualReport(item:AccountTreeItem):String
+			{
+				var result:String = model.locale.CheckOut_Buttons_PrintActualReport;
+				
+				return result;
+			}
+			
+			
+			private function saveReservationNote():void
+			{
+				var e:SaveReservationNotesEvent = new SaveReservationNotesEvent();
+				e.sText = txtReservationNote.text;
+				e.iOrderId = model.checkOutModule.iOrderId;
+				e.iReservationId = model.checkOutModule.reservationId;
+				e.dispatch();
+			}
+			
+			private function handleDragDropItem(event:DragEvent):void
+			{
+				billingAddresses.refreshBillingAddresses();
+			}
+			
+			
+			
+		]]>
+	</mx:Script>
+
+	<mx:HBox height="100%" width="100%"
+		horizontalGap="1">
+		<!--
+			Summary information by profiles, who check outed from hotel.
+		  -->
+		<mx:ViewStack id="vsInfo"
+			width="270"
+			resizeToContent="true">
+			<checkoutControls:SummaryInfo id="cSummaryInfo"
+				width="250"
+				summary="{model.checkOutModule.reservationSummary}"/>
+			<mx:VBox id="vbSummaryInfo"
+				creationComplete="updateViewConferenceRoomState()">
+				<mx:Label id="lbState"/>
+				<mx:Label id="lbName"
+					truncateToFit="true"
+					width="100%"/>
+				<mx:Button
+					label="Link to Profile"
+					enabled="{!model.checkOutModule.reservationSummary.bRoomIsLinked}"
+					click="{openAssignProfilePopup()}"/>
+			</mx:VBox>
+		</mx:ViewStack>
+		
+		<checkoutControls:BillingAddressesView id="billingAddresses"
+	
+			width="300"		
+			/>
+
+		<!--
+			Control panel for add new items and paymets to guest,
+			which check out from hotel's room.
+		  -->
+		<mx:VBox width="100%" height="100%">
+			<mx:Label text="Overview"
+				fontSize="16" fontWeight="bold"/>
+			<mx:HBox width="100%">
+				<mx:Button id="btAddTransaction"
+					label="{model.locale.CheckOut_Buttons_AddTransaction}"
+					click="{openAddTransactionPopup()}"/>
+				<mx:Button id="btAddPayment"
+					label="{model.locale.CheckOut_Buttons_AddPayment}"
+					click="{openAddPaymentPopup()}"/>
+				<!--mx:Button id="btApplyPayingInstruction"
+					label="{model.locale.CheckOut_Buttons_AddPayment}"
+					click="{applyPayingInstruction()}"/-->					
+			</mx:HBox>
+			<!--
+				Colored grid with all items and payments. Items are routed,
+				applied to accounts and payments. Grid consist next columns:
+				  - selector to check item;
+				  - date of creation item;
+				  - transaction code of item;
+				  - transaction name of item;
+				  - reason of adjustment of item.
+			  -->
+			<controls:ColoredDataGrid id="dgAddedItems"
+				dataProvider="{model.checkOutModule.aRoutingItems}"
+				rowColorFunction="calcRowColor"
+				doubleClickEnabled="true"
+				doubleClick="showPackageItems(event)"
+				mouseUp="updateControlPanel()"
+				allowMultipleSelection="true"
+				dragDrop="{handleDragDropItem(event)}"
+				dragEnabled="true"
+				dragMoveEnabled="true"				
+				width="100%" height="100%">
+				<controls:columns>
+					<mx:DataGridColumn
+						headerText="{model.locale.CheckOut_Columns_Date}"
+						labelFunction="funcDateView"
+						width="100"/>
+					<mx:DataGridColumn
+						headerText="{model.locale.CheckOut_Columns_Code}"
+						dataField="sTransCode"
+						width="60"/>
+					<mx:DataGridColumn
+						headerText="{model.locale.CheckOut_Columns_TransactionName}"
+						dataField="sTransName"
+						dataTipFunction="funcDataToolTip"
+						showDataTips="true"/>
+					<mx:DataGridColumn
+						headerText="{model.locale.CheckOut_Columns_Price}"
+						labelFunction="funcPriceView"
+						width="100"/>
+					<mx:DataGridColumn
+						headerText="{model.locale.CheckOut_Columns_AdjustmentReason}"
+						dataField="sAdjustedReason"/>
+				</controls:columns>
+			</controls:ColoredDataGrid>
+			<!--
+				Control panel for colored grid with all items and payments.
+			  -->
+			<mx:HBox width="100%">
+				<mx:Button id="btMerge"
+					label="{model.locale.CheckOut_Buttons_Merge}"
+					enabled="false"
+					click="openMergeItemsPopup()"/>
+				<mx:Button id="btnUnmerge"
+					label="{model.locale.CheckOut_Buttons_Unmerge}"
+					enabled="false"
+					click="unmergeItem()"/>					
+				<mx:Button id="btAdjust"
+					label="{model.locale.CheckOut_Buttons_Adjust}"
+					enabled="false"
+					click="openAdjustItemPopup()"/>
+				<mx:Button id="btSplit"
+					label="{model.locale.CheckOut_Buttons_Split}"
+					enabled="false"
+					click="openSplitItemPopup()"/>
+			</mx:HBox>		
+			<mx:HBox width="100%">	
+				<mx:Button id="btnGenerateInvoice"
+					label="{model.locale.CheckOut_Buttons_GenerateInvoice}"
+					enabled="{false/*isBtnGenerateInvoiceEnabled(billingAddresses.trBillingAddresses.selectedItem as AccountTreeItem)*/}"
+					visible="false"
+					includeInLayout="false"
+					click="{generateInvoice()}"/>					
+				<mx:Button id="btPrintActualReport"
+					label="{getLabelForBtnPrintActualReport(billingAddresses.trBillingAddresses.selectedItem as AccountTreeItem)}"
+					enabled="{dgAddedItems.dataProvider.length != 0}"
+					click="{createActualReport()}"/>
+			</mx:HBox>
+			
+			<!-- TOTAL -->
+			<mx:HBox width="100%" horizontalAlign="right">
+				<mx:TextArea id="txtReservationNote"
+					width="100%" height="100%"
+					text="{model.checkOutModule.reservationSummary.sReservationNotes}"/>
+				<mx:Button id="btnSaveNote"
+					label="Save Note"
+					click="{saveReservationNote()}"/>
+					
+				<mx:Spacer width="20"/>
+			
+				<mx:Label text="Balance: {model.checkOutModule.reservationBalance}"
+					fontSize="20" fontWeight="bold"/>
+			</mx:HBox>			
+			
+		</mx:VBox>
+	</mx:HBox>
+	
+
+	
+	<mx:NumberFormatter id="nfPrice"
+		precision="2"
+		useThousandsSeparator="false"
+		rounding="none"/>
+</VSubWindow>

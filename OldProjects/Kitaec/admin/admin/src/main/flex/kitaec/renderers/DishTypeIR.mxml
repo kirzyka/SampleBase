@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<s:GridItemRenderer xmlns:fx="http://ns.adobe.com/mxml/2009" xmlns:mx="library://ns.adobe.com/flex/mx"
+                xmlns:s="library://ns.adobe.com/flex/spark">
+        <fx:Script>
+		<![CDATA[
+            import kitaec.common.CommonConst;
+
+            override public function set data(value:Object):void
+            {
+                super.data = value;
+                if (value)
+                {
+                    dishTypeTLb.text = CommonConst.DISH_TYPES[data.type];
+                }
+            }
+            ]]>
+	</fx:Script>
+    <s:VGroup width="100%" height="100%" horizontalAlign="center" verticalAlign="middle">
+        <s:Label id="dishTypeTLb"/>
+    </s:VGroup>
+</s:GridItemRenderer>

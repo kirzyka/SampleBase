@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<view:BaseView 
+	xmlns:fx="http://ns.adobe.com/mxml/2009" 
+	xmlns:s="library://ns.adobe.com/flex/spark" 
+	xmlns:mx="library://ns.adobe.com/flex/mx" 		   
+	xmlns:view="view.*" 
+	xmlns:subView="view.subView.*"
+	
+	width="100%" height="100%"
+	>
+	
+	<fx:Script>
+		<![CDATA[
+			import model.AppModel;
+		]]>
+	</fx:Script>
+	
+	<view:layout>
+		<s:VerticalLayout/>
+	</view:layout>
+	
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+			
+	<mx:ViewStack 
+		selectedIndex="{appModel.currentView}"
+		width="100%" height="100%">
+		<subView:SplashView/>
+		<subView:WorkspaceView/>
+		<subView:HelpView/>
+	</mx:ViewStack>
+	
+</view:BaseView>

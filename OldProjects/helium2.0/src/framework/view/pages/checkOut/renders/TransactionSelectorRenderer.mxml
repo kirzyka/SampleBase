@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:HBox
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	horizontalAlign="center" verticalAlign="middle"
+	width="100%" height="100%">
+	
+	<mx:Script>
+		<![CDATA[
+			import framework.view.pages.checkOut.events.ItemRoutingEvent;
+			import services.vo.checkOut.itemRouting.ItemCheckOutVO;
+			/**
+			 *  The handle of (de)select item.
+			 */
+			private function changeSeletedState():void
+			{
+				(data as ItemCheckOutVO).bIsSelected = !(data as ItemCheckOutVO).bIsSelected;
+				
+				var event:ItemRoutingEvent = new ItemRoutingEvent(ItemRoutingEvent.ITEM_SELECTED);
+				event.isSelected = (data as ItemCheckOutVO).bIsSelected;
+				owner.dispatchEvent(event);
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:CheckBox
+		label=""
+		selected="{ItemCheckOutVO(data).bIsSelected}"
+		visible="{!ItemCheckOutVO(data).bIsChecked}"
+		click="changeSeletedState()"/>
+</mx:HBox>

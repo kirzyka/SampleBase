@@ -1,0 +1,283 @@
+<?xml version="1.0" encoding="utf-8"?>
+<BasePopupView
+	xmlns="framework.view.components.popups.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:control="h2olib.control.*"
+	horizontalAlign="center" verticalAlign="middle"
+	width="400" height="300"
+	creationComplete="init()" 
+	title="Guests per Rooms">
+
+	<mx:Script>
+		<![CDATA[
+			import mx.controls.Alert;
+			import framework.core.utils.UtilsGolobal;
+			import framework.view.pages.items.render.ArrangementsRenderer;
+			import mx.collections.ArrayCollection;
+			import framework.model.AppModelLocator;
+			import com.adobe.cairngorm.model.ModelLocator;
+			import services.vo.reservation.RoomPersonsVO;
+			import services.vo.GlobalImageAssets;
+	
+			[Bindable]
+			private var guests:RoomPersonsVO = new RoomPersonsVO();
+			[Bindable]
+			public var guestsTotal:RoomPersonsVO = new RoomPersonsVO();
+	
+			[Bindable]
+			private var roomList:ArrayCollection = new ArrayCollection();
+			[Bindable]
+			public var guestsPerRoomsList:ArrayCollection = new ArrayCollection();//RoomPersonsVO
+	
+			[Bindable]
+			private var errorMsg:String="";
+	
+			private var _roomCount:int;
+			public function set roomCount(value:int):void
+			{
+				roomList = new ArrayCollection;
+				guestsPerRoomsList = new ArrayCollection;
+				guests = UtilsGolobal.clone(guestsTotal) as RoomPersonsVO;
+				for(var i:int = 0; i < value; i++)
+				{
+					roomList.addItem(i+1);
+					guestsPerRoomsList.addItem(new RoomPersonsVO());
+				}
+			}
+			//================
+			public static const ACTION_PLUS:String = "plus";
+			public static const ACTION_MINUS:String = "minus";
+	
+			public static const GUEST_TYPE_ADULT:String = "adult";
+			public static const GUEST_TYPE_CHILD1:String = "child1";
+			public static const GUEST_TYPE_CHILD2:String = "child2";
+			public static const GUEST_TYPE_CHILD3:String = "child3";
+			//================
+			private function init():void
+			{
+				this.x = this.parent.width / 2 - this.width / 2;
+				this.y = this.parent.height / 2 - this.height / 2;
+			}
+	
+			private function setGuest(action:String,guestType:String):void
+			{
+				errorMsg = "";
+				if(action == ACTION_PLUS)
+				{
+					switch (guestType)
+					{
+						case GUEST_TYPE_ADULT:
+							if(guests.iAdults > 0)
+							{
+								(guestsPerRoomsList.getItemAt(cmbRoomNumber.selectedIndex) as RoomPersonsVO).iAdults++;
+								guests.iAdults--;
+							}
+						break;
+						case GUEST_TYPE_CHILD1:
+							if(guests.iChildBefore > 0)
+							{
+								(guestsPerRoomsList.getItemAt(cmbRoomNumber.selectedIndex) as RoomPersonsVO).iChildBefore++;
+								guests.iChildBefore--;
+							}
+						break;
+						case GUEST_TYPE_CHILD2:
+							if(guests.iChildMiddle > 0)
+							{
+								(guestsPerRoomsList.getItemAt(cmbRoomNumber.selectedIndex) as RoomPersonsVO).iChildMiddle++;
+								guests.iChildMiddle--;
+							}
+						break;
+						case GUEST_TYPE_CHILD3:
+							if(guests.iChildAbove > 0)
+							{
+								(guestsPerRoomsList.getItemAt(cmbRoomNumber.selectedIndex) as RoomPersonsVO).iChildAbove++;
+								guests.iChildAbove--;
+							}
+						break;
+	
+					}
+				}
+				else
+				{
+	
+					switch (guestType)
+					{
+						case GUEST_TYPE_ADULT:
+							if((guestsPerRoomsList.getItemAt(cmbRoomNumber.selectedIndex) as RoomPersonsVO).iAdults > 0)
+							{
+								(guestsPerRoomsList.getItemAt(cmbRoomNumber.selectedIndex) as RoomPersonsVO).iAdults--;
+								guests.iAdults++;
+							}
+						break;
+						case GUEST_TYPE_CHILD1:
+							if((guestsPerRoomsList.getItemAt(cmbRoomNumber.selectedIndex) as RoomPersonsVO).iChildBefore > 0)
+							{
+								(guestsPerRoomsList.getItemAt(cmbRoomNumber.selectedIndex) as RoomPersonsVO).iChildBefore--;
+								guests.iChildBefore++;
+							}
+						break;
+						case GUEST_TYPE_CHILD2:
+							if((guestsPerRoomsList.getItemAt(cmbRoomNumber.selectedIndex) as RoomPersonsVO).iChildMiddle > 0)
+							{
+								(guestsPerRoomsList.getItemAt(cmbRoomNumber.selectedIndex) as RoomPersonsVO).iChildMiddle--;
+								guests.iChildMiddle++;
+							}
+						break;
+						case GUEST_TYPE_CHILD3:
+							if((guestsPerRoomsList.getItemAt(cmbRoomNumber.selectedIndex) as RoomPersonsVO).iChildAbove > 0)
+							{
+								(guestsPerRoomsList.getItemAt(cmbRoomNumber.selectedIndex) as RoomPersonsVO).iChildAbove--;
+								guests.iChildAbove++;
+							}
+						break;
+					}
+				}
+				model.reservationModule.guestsPerRooms = UtilsGolobal.clone(guestsPerRoomsList) as ArrayCollection;
+			}
+	
+			private function completeSelect():void
+			{
+				errorMsg = "";
+				if(guests.iAdults > 0 || guests.iChildBefore > 0 || guests.iChildMiddle > 0 || guests.iChildAbove > 0)
+				{
+					errorMsg = "Not all guests are allocated.";
+					return;
+				}
+	
+				for each(var room:RoomPersonsVO in guestsPerRoomsList)
+				{
+					if(!checkRoom(room))
+					{
+						errorMsg = "An adult should be reserved for each room.";
+						return;
+					}
+				}
+	
+	
+				completeCall();
+	
+			}
+	
+			private function checkRoom(room:RoomPersonsVO):Boolean
+			{
+				var result:Boolean = false;
+				if(room.iAdults > 0)
+				{
+					result = true;
+				}
+				return result;
+			}
+		]]>
+	</mx:Script>
+
+	<mx:HBox width="100%" height="100%">
+		<mx:VBox height="100%">
+			<mx:Spacer height="24"/>
+			<mx:Form>
+				<mx:FormItem label="Adults: ">
+					<mx:Label text="{guests.iAdults + '/' + guestsTotal.iAdults}"/>
+				</mx:FormItem>
+				<mx:FormItem label="{'Children &lt; ' + model.hotelsModule.hotelTotalInfo.iChildAge1}">
+					<mx:Label text="{guests.iChildBefore + '/' + guestsTotal.iChildBefore}"/>
+				</mx:FormItem>
+				<mx:FormItem label="{'Children &lt; ' + model.hotelsModule.hotelTotalInfo.iChildAge2}">
+					<mx:Label text="{guests.iChildMiddle + '/' + guestsTotal.iChildMiddle}"/>
+				</mx:FormItem>
+				<mx:FormItem label="{'Children &lt; ' + model.hotelsModule.hotelTotalInfo.iChildAge3}">
+					<mx:Label text="{guests.iChildAbove + '/' + guestsTotal.iChildAbove}"/>
+				</mx:FormItem>
+			</mx:Form>
+		</mx:VBox>
+		<mx:VBox height="100%">
+			<mx:HBox width="100%">
+				<mx:Label text="Rooms:"/>
+				<mx:ComboBox id="cmbRoomNumber"
+					dataProvider="{roomList}"
+					selectedIndex="0"/>
+			</mx:HBox>
+			
+			<mx:Form>
+				<mx:FormItem label="Adults: ">
+					<mx:HBox>
+						<mx:Label text="{(guestsPerRoomsList.getItemAt(cmbRoomNumber.selectedIndex) as RoomPersonsVO).iAdults}"/>
+						<mx:LinkButton
+							click="{setGuest(ACTION_PLUS,GUEST_TYPE_ADULT)}">						
+							<mx:icon>
+								{GlobalImageAssets.getInstance().addIcon}
+							</mx:icon>		
+						</mx:LinkButton>
+						<mx:LinkButton
+							click="{setGuest(ACTION_MINUS,GUEST_TYPE_ADULT)}">
+							<mx:icon>
+								{GlobalImageAssets.getInstance().removeIcon}
+							</mx:icon>							
+						</mx:LinkButton>
+					</mx:HBox>
+				</mx:FormItem>
+				<mx:FormItem label="{'Children &lt; ' + model.hotelsModule.hotelTotalInfo.iChildAge1}">
+					<mx:HBox>
+						<mx:Label text="{(guestsPerRoomsList.getItemAt(cmbRoomNumber.selectedIndex) as RoomPersonsVO).iChildBefore}"/>
+						<mx:LinkButton
+							click="{setGuest(ACTION_PLUS,GUEST_TYPE_CHILD1)}">
+							<mx:icon>
+								{GlobalImageAssets.getInstance().addIcon}
+							</mx:icon>		
+						</mx:LinkButton>
+						<mx:LinkButton
+							click="{setGuest(ACTION_MINUS,GUEST_TYPE_CHILD1)}">
+							<mx:icon>
+								{GlobalImageAssets.getInstance().removeIcon}
+							</mx:icon>							
+						</mx:LinkButton>
+					</mx:HBox>
+				</mx:FormItem>
+				<mx:FormItem label="{'Children &lt; ' + model.hotelsModule.hotelTotalInfo.iChildAge2}">
+					<mx:HBox>
+						<mx:Label text="{(guestsPerRoomsList.getItemAt(cmbRoomNumber.selectedIndex) as RoomPersonsVO).iChildMiddle}"/>
+						<mx:LinkButton
+							click="{setGuest(ACTION_PLUS,GUEST_TYPE_CHILD2)}">
+							<mx:icon>
+								{GlobalImageAssets.getInstance().addIcon}
+							</mx:icon>		
+						</mx:LinkButton>
+						<mx:LinkButton
+							click="{setGuest(ACTION_MINUS,GUEST_TYPE_CHILD2)}">
+							<mx:icon>
+								{GlobalImageAssets.getInstance().removeIcon}
+							</mx:icon>
+						</mx:LinkButton>
+					</mx:HBox>
+				</mx:FormItem>
+				<mx:FormItem label="{'Children &lt; ' + model.hotelsModule.hotelTotalInfo.iChildAge3}">
+					<mx:HBox>
+						<mx:Label text="{(guestsPerRoomsList.getItemAt(cmbRoomNumber.selectedIndex) as RoomPersonsVO).iChildAbove}"/>
+						<mx:LinkButton
+							click="{setGuest(ACTION_PLUS,GUEST_TYPE_CHILD3)}">
+							<mx:icon>
+								{GlobalImageAssets.getInstance().addIcon}
+							</mx:icon>		
+						</mx:LinkButton>
+						<mx:LinkButton
+							click="{setGuest(ACTION_MINUS,GUEST_TYPE_CHILD3)}">
+							<mx:icon>
+								{GlobalImageAssets.getInstance().removeIcon}
+							</mx:icon>
+						</mx:LinkButton>
+					</mx:HBox>
+				</mx:FormItem>
+			</mx:Form>
+			
+		</mx:VBox>
+	</mx:HBox>
+	<mx:HRule width="100%"/>	
+	<mx:Label text="{errorMsg}" color="#FF0000"/>
+	
+	<mx:ApplicationControlBar width="100%" horizontalAlign="right">
+		<mx:Button id="btnSave" 
+			label="Save" 
+			click="{completeSelect()}"/>
+		<mx:Button id="btnClose" 
+			label="Close" 
+			click="{close()}"/>
+	</mx:ApplicationControlBar>
+</BasePopupView>

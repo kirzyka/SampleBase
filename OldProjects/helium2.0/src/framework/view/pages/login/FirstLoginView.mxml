@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox xmlns:mx="http://www.adobe.com/2006/mxml"
+		 width="100%" height="100%"
+		 horizontalAlign="center" verticalAlign="middle">
+
+	<mx:Script>
+		<![CDATA[
+			import h2olib.crypt.MD5;
+			import services.vo.GlobalSettings;
+			import framework.model.AppModelLocator;
+			import mx.controls.Alert;
+			import mx.validators.DateValidator;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.vo.frontend.UserProfileVO;
+			import services.controller.AppController;
+			import services.events.frontend.ConfirmFirstLoginEvent;
+
+			[Bindable]
+			private var model:AppModelLocator = AppModelLocator.getInstance();
+
+			[Bindable]
+			private var isApplyEnabled:Boolean = false;
+
+			private function handleConfirmClick():void
+			{
+				if(passTxt.text != passTxt2.text)
+				{
+					Alert.show(model.locale.Login_FirstTimeLogin_Messages_PasswordIncorrect);
+					return;
+				}
+
+				var evt:ConfirmFirstLoginEvent = new ConfirmFirstLoginEvent( AppController.CONFIRM_FIRST_LOGIN_EVENT );
+
+
+				/*if (loginTxt.text.length > GlobalSettings.LOGIN_MAX_LOGIN_LENGTH + 1)
+				{
+					loginTxt.text = loginTxt.text.slice(0,GlobalSettings.LOGIN_MAX_LOGIN_LENGTH);
+				}*/
+				model.currentUser.cLogInUser.sUserLogin = loginTxt.text;
+
+				/*if (passTxt.text.length > GlobalSettings.LOGIN_MAX_PASSWORD_LEHGTH + 1)
+				{
+					passTxt.text = passTxt.text.slice(0,GlobalSettings.LOGIN_MAX_PASSWORD_LEHGTH);
+				}*/
+				model.currentUser.cLogInUser.sUserPassword = MD5.encrypt(passTxt.text);
+				model.currentUser.cLogInUser.sUserName = uName.text;
+				model.currentUser.cLogInUser.sUserSurname = surname.text;
+				model.currentUser.cLogInUser.sUserEmail = emailTxt.text;
+				model.currentUser.cLogInUser.sDirectPhone = phoneTxt.text;
+				model.currentUser.cLogInUser.sPhoneExtention = extension.text;
+
+				if (fpQuestion.text.length > 100)
+				{
+					fpQuestion.text=fpQuestion.text.slice(0,99);
+				}
+				model.currentUser.cLogInUser.sForgottenQuestion = fpQuestion.text;
+
+				if (fpAnswer.text.length > 50)
+				{
+					fpAnswer.text=fpAnswer.text.slice(0,49);
+				}
+				model.currentUser.cLogInUser.sForgottenAnswer = fpAnswer.text;
+
+				CairngormEventDispatcher.getInstance().dispatchEvent( evt );
+			}
+
+			private function checkMantadoryFields():void
+			{
+				 if ((loginTxt.text.length >= GlobalSettings.LOGIN_MIN_LOGIN_LENGTH) &&
+					(passTxt.text.length >= GlobalSettings.LOGIN_MIN_PASSWORD_LEHGTH) &&
+					(passTxt.text == passTxt2.text) &&
+					(fpAnswer.text != "") &&
+					(fpQuestion.text != ""))
+				{
+					this.isApplyEnabled = true;
+				}
+				else
+				{
+					this.isApplyEnabled = false;
+				}
+
+			}
+		]]>
+	</mx:Script>
+
+	<mx:TitleWindow title="{model.locale.Login_FirstTimeLogin_Title}"
+		horizontalAlign="center" verticalAlign="middle">
+		<mx:Label text="{model.locale.Login_FirstTimeLogin_HeaderLabel}"/>
+		<mx:Form width="100%" height="100%">
+			<mx:FormItem label="{model.locale.Login_FirstTimeLogin_Login}:"
+				required="true">
+				<mx:TextInput id="loginTxt"
+					maxChars="{GlobalSettings.LOGIN_MAX_LOGIN_LENGTH}"
+					text="{model.currentUser.cLogInUser.sUserLogin}"
+					change="checkMantadoryFields()"
+					enabled="{model.loginPage.firstLoginModule.isLoginEditable}"
+					editable="{model.loginPage.firstLoginModule.isLoginEditable}"/>
+			</mx:FormItem>
+			<mx:FormItem label="{model.locale.Login_FirstTimeLogin_Password}:"
+				required="true">
+				<mx:TextInput id="passTxt"
+					displayAsPassword="true"
+					change="this.checkMantadoryFields()"
+					maxChars="{GlobalSettings.LOGIN_MAX_PASSWORD_LEHGTH}"
+					toolTip="{model.locale.Login_FirstTimeLogin_Minimum + GlobalSettings.LOGIN_MIN_PASSWORD_LEHGTH + model.locale.Login_FirstTimeLogin_Symbols}"/>
+			</mx:FormItem>
+			<mx:FormItem label="{model.locale.Login_FirstTimeLogin_ConfirmPassword}:"
+				required="true">
+				<mx:TextInput id="passTxt2"
+					displayAsPassword="true"
+					change="this.checkMantadoryFields()"
+					maxChars="15"
+					toolTip="{model.locale.Login_FirstTimeLogin_Minimum + GlobalSettings.LOGIN_MIN_PASSWORD_LEHGTH + model.locale.Login_FirstTimeLogin_Symbols}"/>
+			</mx:FormItem>
+			<mx:FormItem label="{model.locale.Login_FirstTimeLogin_ForgotPasswordQuestion}:"
+				required="true">
+				<mx:TextInput id="fpQuestion"
+					change="this.checkMantadoryFields()"
+					maxChars="100"/>
+			</mx:FormItem>
+			<mx:FormItem label="{model.locale.Login_FirstTimeLogin_Answer}:"
+				required="true">
+				<mx:TextInput id="fpAnswer"
+					change="this.checkMantadoryFields()"
+					maxChars="50"/>
+			</mx:FormItem>
+			<mx:FormItem label="">
+
+			</mx:FormItem>
+			<mx:FormItem label="{model.locale.Login_FirstTimeLogin_Name}:">
+				<mx:TextInput id="uName"
+					maxChars="25"/>
+			</mx:FormItem>
+			<mx:FormItem label="{model.locale.Login_FirstTimeLogin_Surname}:">
+				<mx:TextInput id="surname"
+					maxChars="25"/>
+			</mx:FormItem>
+			<mx:FormItem label="{model.locale.Login_FirstTimeLogin_Email}:">
+				<mx:TextInput id="emailTxt"
+					maxChars="25"/>
+			</mx:FormItem>
+			<mx:FormItem label="{model.locale.Login_FirstTimeLogin_DirectPhone}:"
+				direction="horizontal">
+				<mx:TextInput id="phoneTxt"
+					restrict="0-9-"
+					maxChars="15"/>
+				<mx:FormItem label="{model.locale.Login_FirstTimeLogin_Extension}:">
+					<mx:TextInput id="extension"
+						width="60"
+						restrict="0-9" maxChars="50"/>
+				</mx:FormItem>
+			</mx:FormItem>
+			<mx:HRule width="100%"/>
+			<mx:FormItem label="{model.locale.Login_FirstTimeLogin_Position}:"
+				visible="{model.loginPage.firstLoginModule.isPositionVisible}">
+				<mx:TextInput id="position"
+					maxChars="50"/>
+			</mx:FormItem>
+			<mx:HRule width="100%"/>
+			<mx:FormItem label="{model.locale.Login_FirstTimeLogin_PrimaryHotel}:"
+				visible="{model.loginPage.firstLoginModule.isPrimaryHotelVisible}">
+				<mx:TextInput id="primary"
+					maxChars="50"/>
+			</mx:FormItem>
+			<mx:FormItem label="{model.locale.Login_FirstTimeLogin_SecondaryHotels}:"
+				visible="{model.loginPage.firstLoginModule.isSecondaryHotelsVisible}">
+				<mx:TextInput id="secondary"
+					maxChars="50"/>
+			</mx:FormItem>
+		</mx:Form>
+
+		<mx:HBox width="100%" horizontalAlign="center">
+			<mx:Button id="apply_FirstLoginView"
+				label="{model.locale.Global_Button_Save}"
+				click="handleConfirmClick()"
+				enabled="{isApplyEnabled}"/>
+		</mx:HBox>
+
+	</mx:TitleWindow>
+
+</mx:VBox>

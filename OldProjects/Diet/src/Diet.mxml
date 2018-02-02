@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Application 
+	xmlns:fx="http://ns.adobe.com/mxml/2009" 
+	xmlns:s="library://ns.adobe.com/flex/spark" 
+	xmlns:mx="library://ns.adobe.com/flex/mx" 
+	xmlns:view="view.*"
+	
+	width="607" height="650"
+			   
+	addedToStage="onAddedToStage()"
+	creationComplete="onCreationComplete()"
+	>	
+	
+	<s:layout>
+		<s:VerticalLayout/>
+	</s:layout>
+	
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	
+	<fx:Script>
+		<![CDATA[
+			import com.serialization.json.JSON;
+			
+			import model.AppModel;
+			
+			import mx.controls.Alert;
+			
+			import utils.AppUtils;
+			
+			import vk.vo.WallPostVO;
+
+			[Bindable]
+			private var appModel:AppModel = AppModel.getInstance();
+			
+			
+			public function onAddedToStage():void
+			{			
+				try {
+					appModel.wrapper = Object(parent.parent.parent);
+					loadAds();
+				}
+				catch(e:Error)
+				{
+					
+				}
+			}
+			
+			private function onCreationComplete():void
+			{
+				var date:Date = new Date();
+				date.hours = 0;
+				date.minutes = 0;
+				date.seconds = 0;
+				date.milliseconds = 0;
+				appModel.currentDate = date.getTime();
+				
+				appModel.sharedObject = SharedObject.getLocal("productsToday");
+				var au:AppUtils = new AppUtils()
+				au.readData();
+				
+				//appModel.currentView = AppModel.MAIN_SCREEN;
+			}
+			
+			
+			private function loadAds():void
+			{
+				if(appModel.wrapper)
+				{
+					try{
+						//appModel.wrapper.external.showSettingsBox();
+						appModel.wrapper.addEventListener("onPostSave", onWallPostSave); 
+						appModel.wrapper.addEventListener("onPostCancel", onWallPostCancel); 
+						//appModel.wrapper.external.api("wall.post", {owner_id:4092914, message:"Test message from App", attachment:''}, onWallPostSave, onWallPostCancel);
+						//Alert.show("post send", "info");
+						/* 	appModel.wrapper.external.api("newsfeed.get", {source_ids:"-25348491", count:1}, onWallPostSave, onWallPostCancel);//, filters:"post"
+						Alert.show("get news", "info"); */
+						
+						appModel.wrapper.external.api("wall.get", {owner_id:"-25348491", count:1}, onWallPostSave, onWallPostCancel);//, filters:"post"
+						
+					}
+					catch(e:Error)
+					{
+						Alert.show(e.getStackTrace(), "error");
+					}
+				}
+				else
+				{
+					Alert.show("wrapper is not initialized", "error");
+				}
+			}
+			
+			
+			private function onWallPostSave(data:Object): void 
+			{ 
+				if(data is Array)
+				{
+					for(var i:int = 1; i < 2; i++)
+					{
+						var wp:WallPostVO = new WallPostVO();
+						wp.id = data[i]["id"];
+						wp.text = data[i]["text"];
+						wp.to_id = data[i]["to_id"];
+						wp.text = wp.text.replace(/<br><br>/g,"\n");
+						appModel.adsString = wp.text.replace(/<br>/g,"\n");
+					}
+				}
+				//Alert.show(JSON.serialize((data as Array)[0]), "Result");
+			}
+			
+			
+			private function onWallPostCancel(data:Object): void 
+			{ 
+				/* 				if(data.hasOwnProperty("error_msg"))
+				{
+				Alert.show(data.error_msg, "Error");
+				}
+				else */
+				Alert.show(JSON.serialize(data), "Error");
+				
+			}				
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+		]]>
+	</fx:Script>
+	<view:MainView width="100%" height="100%"/>
+	
+</s:Application>

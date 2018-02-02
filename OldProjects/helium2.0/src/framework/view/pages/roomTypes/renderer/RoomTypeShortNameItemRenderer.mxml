@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:HBox xmlns:mx="http://www.adobe.com/2006/mxml" width="100%" horizontalScrollPolicy="off" creationComplete="handleInit()">
+	<mx:Script>
+		<![CDATA[
+			import services.events.roomTypes.SetRoomTypeShortNameEvent;
+			import framework.model.AppModelLocator;
+			import services.vo.backend.RoomTypeHierarchicalVO;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.vo.backend.RoomTypeRowVO;
+			import services.controller.AppController;
+
+			
+			private var currValue:String;
+			
+			private var model:AppModelLocator = AppModelLocator.getInstance();
+			
+			private function handleInit():void
+			{
+				model.roomTypesModule.currentShortNameIR = this;
+			}
+			
+			override public function set data(value:Object):void
+			{
+				super.data = value;
+				
+				shortTxt.initialize();
+				
+				if(data != null)
+				{
+					shortTxt.text = "";
+					shortTxt.enabled = false;
+					shortTxt.setStyle("backgroundAlpha","0");
+					
+					if(!(data as RoomTypeHierarchicalVO))
+					{ 
+						shortTxt.text = data.shortName;
+						currValue = data.shortName;						
+						shortTxt.enabled = true;
+					}
+				}
+			}
+			
+			private function handleFocusIn():void
+			{
+				shortTxt.setStyle("backgroundAlpha","1");
+				
+				model.roomTypesModule.currentShortNameIR = this;
+			}
+			
+			public function handleFocusOut():void
+			{
+				shortTxt.setStyle("backgroundAlpha","0");
+				
+				if(!(data as RoomTypeRowVO) || shortTxt.text == "" || currValue == shortTxt.text) return;
+				
+				var evt:SetRoomTypeShortNameEvent = new SetRoomTypeShortNameEvent( AppController.SET_ROOM_TYPE_SHORT_NAME_EVENT );
+				
+				evt.roomTypeId = (data as RoomTypeRowVO).roomTypeId;
+				evt.shortName = shortTxt.text;
+				
+				(data as RoomTypeRowVO).shortName = shortTxt.text; 
+				
+				CairngormEventDispatcher.getInstance().dispatchEvent( evt );
+				
+				
+			}
+		]]>
+	</mx:Script>	
+	
+	<mx:TextInput id="shortTxt" width="100%" borderStyle="none" focusOut="handleFocusOut()" 
+		focusIn="handleFocusIn()"/>
+</mx:HBox>

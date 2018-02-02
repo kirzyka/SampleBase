@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<popup:DataPopupView
+	xmlns:popup="framework.view.components.popups.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+
+	title="{model.locale.Items_Groups_Popups_EditGroup_Main}"
+	creationComplete="init()"
+	width="300">
+	
+	<mx:Script>
+		<![CDATA[
+			import services.business.items.ItemsDelegate;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.controller.AppController;
+			import services.events.items.itemGroups.SaveSystemGroupEvent;
+			import services.vo.items.ItemsGroupVO;
+			import services.vo.GlobalSettings;
+			
+			// ================================================================= //
+			//                             VARIABLES                             //
+			// ================================================================= //
+			/**
+			 *  This property is index of selected system item.
+			 *  
+			 *  @default -1
+			 */
+			private var _selectedIndex:int = -1;
+			
+			// ================================================================= //
+			//                        COMMON METHODS                             //
+			// ================================================================= //
+			/**
+			 *  The initialize handler of current popup view.
+			 */
+			private function init():void
+			{
+				focusManager.setFocus(tiGroupName);
+			}
+			/**
+			 *  The handle to save changes for system main group.
+			 */
+			private function handleSave():void
+			{
+				var item:ItemsGroupVO = (isEdit) ? data as ItemsGroupVO : new ItemsGroupVO();
+				item.sName = tiGroupName.text;
+				
+				// check needs to make request for save. If any data is not changed
+				// close popup.
+				if (!isDirty)
+				{
+					completeCall();
+					return;
+				}
+				// save changes
+				var event:SaveSystemGroupEvent = new SaveSystemGroupEvent(ItemsDelegate.SAVE_SYSTEM_GROUP);
+				event.group = item;
+				event.callBack = completeCall;
+				CairngormEventDispatcher.getInstance().dispatchEvent(event);
+			}
+			
+			// ================================================================= //
+			//                        GETTERS AND SETTERS                        //
+			// ================================================================= //
+			/**
+			 *  The index of selected system item.
+			 */
+			public function get selectedIndex():int
+			{
+				return _selectedIndex;
+			}
+			/**
+			 *  @private
+			 */
+			public function set selectedIndex(value:int):void
+			{
+				_selectedIndex = value;
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:Form width="100%">
+		<mx:FormItem
+			label="{model.locale.Items_Groups_Popups_EditGroup_MainGroup}:"
+			width="100%">
+			<mx:TextInput id="tiGroupName"
+				text="{(data as ItemsGroupVO).sName}"
+				maxChars="25"
+				enter="handleSave()"
+				width="100%"/>
+		</mx:FormItem>
+	</mx:Form>
+	<mx:HBox width="100%">
+		<mx:Button
+			label="{model.locale.Global_Button_Save}"
+			enabled="{tiGroupName.text.length != 0}"
+			click="handleSave()"
+			width="{GlobalSettings.BUTTON_WIDTH_APPLY}"/>
+		<mx:Spacer width="100%" />
+		<mx:Button
+			label="{model.locale.Global_Button_Cancel}"
+			click="close()"
+			width="{GlobalSettings.BUTTON_WIDTH}"/>
+	</mx:HBox>
+</popup:DataPopupView>

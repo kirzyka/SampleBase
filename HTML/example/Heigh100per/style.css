@@ -1,0 +1,172 @@
+*, *:after, *:before {
+	-webkit-box-sizing: border-box;
+	-moz-box-sizing: border-box;
+	box-sizing: border-box;
+}
+
+html {
+    background: #211E43;
+}
+
+html, body {
+    height: 100%;
+    position: relative;    
+    padding: 0;
+    margin: 0 auto;
+    width: 1200px;
+}
+
+header {
+    height: 50px;
+    background: #272173;
+    color: #fff;
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;   
+    padding: 10px;
+    font-weight: 800;
+    font-size: 16px;
+}
+
+nav {
+    height: 40px;    
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50px;
+}
+
+nav * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+nav .mnu {    
+    position: relative;
+    color: #fff;
+    width: 33.33%;    
+    padding: 0 2px;
+    float: left;
+}
+
+nav .mnu:first-child {
+    padding: 0 2px 0 0;
+}
+
+nav .mnu:last-child {
+    padding: 0 0 0 2px;
+}
+
+nav .mnu .mnu-base {
+    width: 100%;    
+    height: 40px;
+    color: #fff;
+    padding: 10px;
+    float: left;
+}
+
+nav .mnu.etl .mnu-base {
+    background: #25C1AD;
+}
+
+nav .mnu.mdm .mnu-base {
+    background: #228bcc;
+}
+
+
+nav .mnu.mng .mnu-base {
+    background: #6f55ff;
+}
+
+
+
+.page-wrapper {   
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 94px;
+    bottom: 0;
+}
+
+.left-panel {
+   position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 398px; 
+     background: #777;
+}
+
+.right-panel {
+    position: absolute;
+    left: 402px;
+    top: 0;
+    bottom: 0;
+    right: 0px;
+    background: #fff;
+}
+
+/* MNU */
+/* Dropdown Button */
+.dropbtn {
+    cursor: pointer;
+}
+
+
+/* The container <div> - needed to position the dropdown content */
+.dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+/* Dropdown Content (Hidden by Default) */
+.dropdown-content {
+    display: none;
+    position: absolute;
+    top: 40px;
+    min-width: 160px;
+    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+    z-index: 1;
+}
+
+/* Links inside the dropdown */
+.dropdown-content a {
+    color: #fff;
+    padding: 10px;
+    text-decoration: none;
+    display: block;
+   border-top: 1px solid #22a796;
+}
+
+.etl .dropdown-content a {
+    background-color: #25C1AD;
+}
+/* Change color of dropdown links on hover */
+.etl .dropdown-content a:hover {background-color: #22a796}
+.etl .dropdown-content {
+    left: 0;
+    right: 2px;
+}
+
+.mdm .dropdown-content a {
+    background-color: #228bcc;
+}
+.mdm .dropdown-content a:hover {background-color: #228bcc}
+.mdm .dropdown-content {
+    left: 2px;
+    right: 2px;
+}
+
+.mng .dropdown-content a {
+    background-color: #6f55ff;
+}
+.mng .dropdown-content a:hover {background-color: #6f55ff}
+.mng .dropdown-content {
+    left: 2px;
+    right: 0;
+}
+
+/* Show the dropdown menu (use JS to add this class to the .dropdown-content container when the user clicks on the dropdown button) */
+.show {display:block;}

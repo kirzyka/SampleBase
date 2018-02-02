@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<popup:DataPopupView
+	xmlns:popup="framework.view.components.popups.*" 
+	editTitle="Edit country"
+	xmlns:mx="http://www.adobe.com/2006/mxml" layout="vertical" showCloseButton="true" 
+	close="closeWindow()" creationComplete="init()">
+	
+	<mx:Script>
+		<![CDATA[
+			import services.events.miscellaneous.countries.GetCountryEvent;
+			import services.events.miscellaneous.countries.AddCountryEvent;
+			import services.vo.common.CountryVO;
+			import services.controller.AppController;
+			import framework.model.AppModelLocator;
+			import mx.events.CloseEvent;
+			import mx.collections.ArrayCollection;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import framework.managers.PopUpManagerExt;
+			
+			[Bindable]
+			private var currentCountry:CountryVO = new CountryVO();
+			
+			[Bindable]
+			private var submitEnable:Boolean = false;
+			
+			private var prevCountry:String = '';
+			private var prevCountryCode:String = '';
+			
+			/**
+			 * 	Initialize data for country.
+			*/
+			private function init():void
+			{
+				currentCountry = data as CountryVO;
+				country.text = currentCountry.sCountryName;
+				countryCode.text = currentCountry.sCountryCode;
+				defaultCountry.selected = currentCountry.bIsDefault;
+				prevCountry = country.text;
+				prevCountryCode = countryCode.text;
+			}
+			/**
+			 * 	Set data for country.
+			 * 	Add country to Country List.
+			 * 	Close Popup.
+			*/
+			private function handleCreateCountry():void
+			{
+				var evt:AddCountryEvent = new AddCountryEvent (AppController.ADD_COUNTRY_EVENT);
+				evt.country.sCountryName = country.text;
+				evt.country.sCountryCode = countryCode.text;
+				evt.country.lId = currentCountry.lId;
+				evt.country.bIsDefault = defaultCountry.selected;
+				CairngormEventDispatcher.getInstance().dispatchEvent( evt );
+				
+				var evt2:GetCountryEvent = new GetCountryEvent (AppController.GET_COUNTRY_EVENT);
+				CairngormEventDispatcher.getInstance().dispatchEvent( evt2 );				
+				
+				closeWindow();		
+			}
+			
+			/**
+			 * 	Close Popup.
+			*/
+			private function closeWindow(evt:CloseEvent = null):void
+			{
+				PopUpManagerExt.removePopUp( this );
+			}
+			
+			/**
+			 * 	Save previous country.
+			*/
+			private function savePrevCountry():void
+			{
+				prevCountry = country.text;
+			}
+			
+			/**
+			 * 	Check: Is all required fields are filled.
+			*/
+			private function checkFillRequiredFields():void
+			{
+				if(country.text.length > 0 && countryCode.length > 0 && (prevCountry!=country.text || prevCountryCode!=countryCode.text)) submitEnable = true;
+				else submitEnable = false;
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:FormItem label="Country" required="true">
+	<mx:HBox>
+		<mx:TextInput id="country" change="checkFillRequiredFields()" click="savePrevCountry()"  width="200"/>
+		<mx:CheckBox label="Default" id="defaultCountry" change="{submitEnable = true}"/>
+	</mx:HBox>
+	</mx:FormItem>
+	<mx:FormItem label="Country Code" required="true">
+		<mx:TextInput id="countryCode" width="50" change="checkFillRequiredFields()" maxChars="5"/>
+	</mx:FormItem>
+	
+	<mx:HBox width="100%" horizontalAlign="right">
+		<mx:Button id="submit_From_AddFloorPopupView" label="Save" click="handleCreateCountry()" change="checkFillRequiredFields()" enabled="{submitEnable}"/>
+		<mx:Button id="cancel_From_AddFloorPopupView" label="Close" click="closeWindow()"/>
+	</mx:HBox>
+	
+</popup:DataPopupView>

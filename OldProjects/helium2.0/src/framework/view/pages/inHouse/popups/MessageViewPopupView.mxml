@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<BasePopupView
+	xmlns="framework.view.components.popups.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+
+	prefix="popups.messages."
+	title="{model.locale.InHouse_Popups_Messages_Title}"
+	width="400" height="400">
+	<mx:Script>
+		<![CDATA[
+			import services.vo.GlobalSettings;
+			import mx.controls.DateField;
+			import services.vo.inHouse.PersonMessageVO;
+			
+			override public function set data(value:Object):void
+			{
+				super.data = value;
+				
+				if ((data as PersonMessageVO).dCreationTime)
+				{
+					txtCreationTime.text = timeConverter((data as PersonMessageVO).dCreationTime);
+				}
+				if ((data as PersonMessageVO).dDeliverTime)
+				{
+					txtDeliverTime.text = timeConverter((data as PersonMessageVO).dDeliverTime);
+				}
+			}
+			/**
+			 *  Converter from date and time as "YYYY-MM-DD hh:mm:ss" to
+			 *  ui format as "DD/MM/YYYY hh:mm:ss".
+			 *  
+			 *  @param dateTime:String - date and time as "YYYY-MM-DD hh:mm:ss"
+			 *         format
+			 *  
+			 *  @return formatted string as "DD/MM/YYYY hh:mm:ss"
+			 */
+			private function timeConverter(dateTime:String):String
+			{
+				var aDateTime:Array = dateTime.split(" ");
+				var date:Date = DateField.stringToDate(aDateTime[0], GlobalSettings.DATE_SERVER_FORMAT);
+				var strDate:String = DateField.dateToString(date, GlobalSettings.DATE_FORMAT);
+				
+				return strDate + " " + aDateTime[1];
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:Form width="100%">
+		<mx:FormItem
+			label="{model.locale.InHouse_Popups_Messages_From}:"
+			fontWeight="bold"
+			width="100%">
+			<mx:Label
+				text="{(data as PersonMessageVO).sFrom}"
+				fontWeight="normal"/>
+		</mx:FormItem>
+		<mx:FormItem
+			label="{model.locale.InHouse_Popups_Messages_CreationTime}:"
+			fontWeight="bold"
+			width="100%">
+			<mx:Label id="txtCreationTime"/>
+		</mx:FormItem>
+		<mx:FormItem
+			label="{model.locale.InHouse_Popups_Messages_DeliverTime}:"
+			fontWeight="bold"
+			width="100%">
+			<mx:Label id="txtDeliverTime"/>
+		</mx:FormItem>
+	</mx:Form>
+	
+	<mx:TextArea
+		text="{(data as PersonMessageVO).sMsg}"
+		editable="false"
+		width="100%" height="100%"/>
+</BasePopupView>

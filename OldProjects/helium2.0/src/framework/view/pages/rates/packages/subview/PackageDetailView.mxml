@@ -1,0 +1,730 @@
+<?xml version="1.0" encoding="utf-8"?>
+<popup:DataPopupView xmlns:popup="framework.view.components.popups.*"
+	addTitle="{model.locale.Rates_Packages_DetailsWindow_NewTitle}" 
+	editTitle="{model.locale.Rates_Packages_DetailsWindow_EditTitle}"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:control="h2olib.control.*"
+	width="450"
+	creationComplete="init()">
+
+<mx:Script>
+	<![CDATA[
+		import mx.events.FlexEvent;
+		import mx.containers.HBox;
+		import mx.containers.FormItemDirection;
+		import mx.containers.FormItem;
+		import mx.controls.Label;
+		import services.vo.rates.packages.PackagePricesVO;
+		import mx.controls.CheckBox;
+		import services.vo.backend.RoomQualityObjectVO;
+		import services.vo.rates.packages.PackageGroupVO;
+		import framework.core.utils.UtilsGolobal;
+		import h2olib.utils.DateUtils;
+		import framework.core.utils.UtilsMXML;
+		import services.vo.rates.bar.BarPriceVO;
+		import mx.controls.Alert;
+		import services.events.rates.bar.GetHotelBarPriceEvent;
+		import services.vo.rates.bar.BARItemPricesObjectVO;
+		import services.vo.frontend.ReservationCalendarCellVO;
+		import services.vo.hotels.HotelRoomTypeObjectVO;
+		import services.vo.hotels.HotelRoomWithBedTypesObjectVO;
+		import services.events.rates.packages.SavePackageEvent;
+		import framework.core.utils.UtilsGolobal;
+		import com.adobe.cairngorm.control.CairngormEventDispatcher;
+		import services.controller.AppController;
+		import services.vo.GlobalSettings;
+		import mx.controls.PopUpButton;
+		import mx.managers.IFocusManagerContainer;
+		import mx.managers.IFocusManager;
+		import services.vo.GlobalImageAssets;
+		import services.vo.backend.PackageVO;
+		import framework.model.AppModelLocator;
+		import framework.managers.PopUpManagerExt;
+		import h2olib.control.NumericTextInput;
+		import mx.containers.Form;
+
+		[Bindable]
+		public var currentPackage:PackageGroupVO;
+
+		//Constants
+		public static const ONE_ADULT:String = 'oneAdult';
+		public static const TWO_ADULT:String = 'twoAdult';
+		public static const EXTRA_ADULT:String = 'extraAdult';
+		
+		public static const BELOW_CHILD:String = 'belowChild';
+		public static const MIDDLE_CHILD:String = 'middleChild';
+		public static const ABOVE_CHILD:String = 'aboveChild';
+		
+		public var closeAfterSave:Boolean = true;
+		
+		/**
+		 *  All prices from form.
+		 */		
+		[ArrayElementType("PackagePricesVO")]
+		private var _allPrices:/*PackagePricesVO*/Array = [];
+		[Bindable(event = "allPricesInPackageDetailChange")]
+		public function get allPrices():Array
+		{
+			return _allPrices;
+		}
+		public function set allPrices(value:Array):void
+		{
+			_allPrices = value;
+			dispatchEvent(new Event("allPricesInPackageDetailChange"));
+		}
+		/*///////////////////////////////////////////////////////////////*/
+		
+		[Bindable]
+		private var isCreatedPrice:Boolean = false;
+		
+		[Bindable]
+		private var metricLabel:String = ''; 
+
+		/**
+		 * Enabled button save and ok
+		 */ 
+		private var _enabledButton:Boolean = false;
+		[Bindable(event = "enabledSavePackageDetailViewChange")]
+		public function get enabledButton():Boolean
+		{
+			return _enabledButton;
+		}
+		public function set enabledButton(value:Boolean):void
+		{
+			_enabledButton = value;
+			dispatchEvent(new Event("enabledSavePackageDetailViewChange"));
+		}
+		/*/////////////////////////////////////////////////////////////////*/
+		
+		
+		private function init():void
+		{
+			initInputTypes();
+			metricLabel = model.locale.Rates_Packages_DetailsWindow_PricesForm_Euro;
+			if (!isEdit)
+			{
+				rbPriceTypeAbsolute.selected = true;
+				rbPricePercent.selected = false;
+			}
+			else
+			{
+				rbPriceTypeAbsolute.selected = !currentPackage.bPriceIsRelative;
+				rbPricePercent.selected = currentPackage.bPriceIsRelative;
+				nsMinimumStay.value = currentPackage.iMinStay;
+			}
+			initData();			
+		}
+
+		private var arrInputTypes:Array = new Array();
+		private function initInputTypes():void
+		{
+			arrInputTypes[0] = ONE_ADULT;
+			arrInputTypes[1] = TWO_ADULT;
+			arrInputTypes[2] = EXTRA_ADULT;
+			arrInputTypes[3] = BELOW_CHILD;
+			arrInputTypes[4] = MIDDLE_CHILD;
+			arrInputTypes[5] = ABOVE_CHILD;
+			
+		}
+
+		private function enableButton(evt:Event):void
+		{
+			enabledButton = true;
+		}
+
+		private function isNewStatusChangeHandler(event:Event):void
+		{
+			initData();
+		}
+		
+
+		private function initData():void
+		{			
+			if (!isCreatedPrice)
+			{
+				CreatePricePanels();
+				isCreatedPrice = true;
+			}
+		}		
+
+		private function changeToAbsoluteState():void
+		{
+			metricLabel = model.locale.Rates_Packages_DetailsWindow_PricesForm_Euro;
+			updateMetricLabel();
+		}
+
+		private function changeToPersentState():void
+		{
+			metricLabel = model.locale.Rates_Packages_DetailsWindow_PricesForm_Percent;
+			updateMetricLabel();
+		}
+
+		/* private function clearFields():void
+		{
+			
+		} */
+
+        private function changeHandler(event:Event):void
+        {
+            var parentFocusManager:IFocusManager = (this as IFocusManagerContainer).focusManager;
+            if(parentFocusManager)
+            {
+                var component:* = parentFocusManager.getFocus();
+                if(component == event.target)
+                {
+                    changed();
+                }
+            }
+        }
+
+         public function changed():void
+        {
+			if (txtPackageName.length == 0)
+			{
+				enabledButton = false;
+			}
+			else
+			{
+				enabledButton = true;
+			}
+        } 
+
+		/**
+		 * Save package
+		 */ 		
+		private function savePackage():void
+		{
+			var tmpPackage:PackageGroupVO;
+			var savePackageEvent:SavePackageEvent = new SavePackageEvent();
+			savePackageEvent.packageOriginal = currentPackage;
+			if(!isEdit)
+			{
+				tmpPackage = new PackageGroupVO();
+				savePackageEvent.callBack = doAfterAdd;
+			}
+			else
+			{
+				tmpPackage = UtilsGolobal.clone(currentPackage) as PackageGroupVO;
+				savePackageEvent.callBack = doAfterAdd;
+			}
+
+			if(tmpPackage.iHotelId == 0)
+			{
+				tmpPackage.iHotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+			}
+			
+			readAllPrices();
+			tmpPackage.sPackageName = txtPackageName.text;
+			tmpPackage.sDateStart = DateField.dateToString(dfFrom.selectedDate, GlobalSettings.DATE_SERVER_FORMAT );
+			tmpPackage.sDateEnd = DateField.dateToString(dfTo.selectedDate, GlobalSettings.DATE_SERVER_FORMAT )
+			tmpPackage.aPricesForRoomTypes = allPrices;
+			tmpPackage.iMinStay = nsMinimumStay.value;
+			tmpPackage.iMaxStay = nsMaximumStay.value;
+			tmpPackage.sDescription = taDescription.text;
+			tmpPackage.bPriceIsRelative = rbPricePercent.selected;
+
+			tmpPackage.bPriceIsPerStay = rbPaymentTypePerStay.selected;
+			tmpPackage.bPriceIsRelative = rbPricePercent.selected;
+
+
+			savePackageEvent.packageForSave = tmpPackage;
+			CairngormEventDispatcher.getInstance().dispatchEvent(savePackageEvent);
+			
+			//doAfterAdd();
+		}
+
+		/**
+		 * Do after add
+		 */ 
+		private function doAfterAdd():void
+		{
+			if(closeAfterSave)
+			{
+				close();
+				return;
+			}
+			if(model.ratesModule.barModule.currentPackage != null)
+			{
+				currentPackage = model.ratesModule.barModule.currentPackage;
+				data = model.ratesModule.barModule.currentPackage;
+				isEdit = true;
+				initData();
+			}
+		}
+		
+			
+			/**
+			 * Get text inputs from Accordion. 
+			 * id- Room Type index, 
+			 * str - name of text input (oneAdult, twoAdult or extraAdult)
+			 */
+			 private function getNumericStepper(i:int, str:String):NumericTextInput
+			 {	
+			 	var fForm:Form = panelWithRTPrices.getChildByName('fForm'+i) as Form;			
+			 	var subForm:FormItem = fForm.getChildByName(str + i + "20") as FormItem;
+			 	var tempHBox:HBox = subForm.getChildByName(str + i + "HBox") as HBox;
+			 	var ourNum:NumericTextInput = tempHBox.getChildByName(str+i) as NumericTextInput;
+			 	return ourNum;			 	
+			 }
+			
+			/**
+			 * Update label metric.
+			 */
+			 private function updateMetricLabel():void
+			 {	
+			 	for (var i:int = 0; i < model.hotelsModule.hotelRoomTypes.length; i++)
+			 	{
+				 	var fForm:Form = panelWithRTPrices.getChildByName('fForm'+i) as Form;			
+				 	var subForm:FormItem = fForm.getChildByName(ONE_ADULT + i + "20") as FormItem;
+				 	var tempHBox:HBox = subForm.getChildByName(ONE_ADULT + i + "HBox") as HBox;
+				 	var ourLabel1:Label = tempHBox.getChildByName('metric'+i) as Label;	
+				 	ourLabel1.text = metricLabel;
+				 	
+				 	fForm = panelWithRTPrices.getChildByName('fForm'+i) as Form;			
+				 	subForm = fForm.getChildByName(TWO_ADULT + i + "20") as FormItem;
+				 	tempHBox = subForm.getChildByName(TWO_ADULT + i + "HBox") as HBox;
+				 	var ourLabel2:Label = tempHBox.getChildByName('metric'+i) as Label;	
+				 	ourLabel2.text = metricLabel;
+				 	
+				 	fForm = panelWithRTPrices.getChildByName('fForm'+i) as Form;			
+				 	subForm = fForm.getChildByName(EXTRA_ADULT + i + "20") as FormItem;
+				 	tempHBox = subForm.getChildByName(EXTRA_ADULT + i + "HBox") as HBox;
+				 	var ourLabel3:Label = tempHBox.getChildByName('metric'+i) as Label;	
+				 	ourLabel3.text = metricLabel;
+				 	
+				 	fForm = panelWithRTPrices.getChildByName('fForm'+i) as Form;			
+				 	subForm = fForm.getChildByName(BELOW_CHILD + i + "20") as FormItem;
+				 	tempHBox = subForm.getChildByName(BELOW_CHILD + i + "HBox") as HBox;
+				 	var ourLabel4:Label = tempHBox.getChildByName('metric'+i) as Label;	
+				 	ourLabel4.text = metricLabel;
+				 	
+				 	fForm = panelWithRTPrices.getChildByName('fForm'+i) as Form;			
+				 	subForm = fForm.getChildByName(MIDDLE_CHILD + i + "20") as FormItem;
+				 	tempHBox = subForm.getChildByName(MIDDLE_CHILD + i + "HBox") as HBox;
+				 	var ourLabel5:Label = tempHBox.getChildByName('metric'+i) as Label;	
+				 	ourLabel5.text = metricLabel;
+				 	
+				 	fForm = panelWithRTPrices.getChildByName('fForm'+i) as Form;			
+				 	subForm = fForm.getChildByName(ABOVE_CHILD + i + "20") as FormItem;
+				 	tempHBox = subForm.getChildByName(ABOVE_CHILD + i + "HBox") as HBox;
+				 	var ourLabel6:Label = tempHBox.getChildByName('metric'+i) as Label;	
+				 	ourLabel6.text = metricLabel;
+			 	}		 	
+			 }
+			
+			/**
+			 * Get check box from Accordion. 
+			 * id- Room Type index
+			 */
+			private function getCheckBox(i:int):CheckBox
+			{	
+			 	var fForm:Form = panelWithRTPrices.getChildByName('fForm'+i) as Form;			
+			 	var check:CheckBox = fForm.getChildByName('include' + i) as CheckBox;
+			 	return check;
+			}
+			
+			
+			/**
+			 *	Read Panels with Prices.
+			 */
+			private function readAllPrices():void
+			{
+			 	allPrices = [];
+				var currentPrices:PackagePricesVO = new PackagePricesVO();
+				for (var i:int = 0; i < model.hotelsModule.hotelRoomTypes.length; i++)
+			 	{
+ 			 		currentPrices.fPriceOneAdult = getNumericStepper(i, ONE_ADULT).value;
+			 		currentPrices.fPriceTwoAdults = getNumericStepper(i, TWO_ADULT).value;
+			 		currentPrices.fPriceExtraAdult = getNumericStepper(i, EXTRA_ADULT).value;
+			 		currentPrices.fPriceChildBelow = getNumericStepper(i, BELOW_CHILD).value;
+			 		currentPrices.fPriceChildMiddle = getNumericStepper(i, MIDDLE_CHILD).value;
+			 		currentPrices.fPriceChildAbove = getNumericStepper(i, ABOVE_CHILD).value;
+			 		currentPrices.iRoomQualityId = 	(model.hotelsModule.hotelRoomTypes.getItemAt(i) as HotelRoomWithBedTypesObjectVO).id; 		 		
+			 		currentPrices.bInclude = getCheckBox(i).selected;
+			 		
+			 		allPrices.push(currentPrices);
+			 		
+			 		currentPrices = new PackagePricesVO();
+			 	} 
+			}
+			
+			
+			/**
+			 *	Add listeners to manage buttons.
+			 */
+			private function addChangeListeners():void
+			{			 	
+				for (var i:int = 0; i < model.hotelsModule.hotelRoomTypes.length; i++)
+			 	{
+			 		for(var j:int = 0; j < arrInputTypes.length; j++)
+			 		{
+			 			getNumericStepper(i, arrInputTypes[j]).addEventListener(Event.CHANGE, enableButton);
+			 		}
+			 		getCheckBox(i).addEventListener(Event.CHANGE, enableButton);
+ 			 	} 
+			}
+			
+			/*
+			private function updateButtons(evt:Event):void
+			{
+				Alert.show("Data changed!", "Debug", mx.controls.Alert.OK);
+			}
+			*/
+			/**
+			 *	Create Panels with Prices.
+			 */
+			 private function CreatePricePanels():void
+			 {
+			 	//clean old
+			 	var i:int;
+			 	var pricePanels:Array = [];
+					while (panelWithRTPrices.numChildren != 0)panelWithRTPrices.removeChildAt(0); 
+			 	//create new
+			 	for (i = 0; i < model.hotelsModule.hotelRoomTypes.length; i++)
+			 	{
+			 		var index:int = 0;
+			 		
+			 		var tempHotelRoomQuality: HotelRoomWithBedTypesObjectVO = model.hotelsModule.hotelRoomTypes.getItemAt(i) as HotelRoomWithBedTypesObjectVO;
+			 		//search index, what correspond i
+			 		if (currentPackage)
+			 		{
+				 		for (var j:int = 0; j < currentPackage.aPricesForRoomTypes.length; j++)
+				 		{
+				 			if (tempHotelRoomQuality.id == (currentPackage.aPricesForRoomTypes[j] as PackagePricesVO).iRoomQualityId)
+				 			{
+				 				index = j;
+				 			}
+				 		}
+			 		}
+			 		else
+			 		{
+			 			index = i;
+			 		}
+			 		
+			 		//var a:Form = pricePanels[0] as Form;
+			 		
+			 		
+		 			var priceForm:Form = new Form();
+		 			
+		 			priceForm.label = tempHotelRoomQuality.oRoomQuality.sQualityName;
+		 			priceForm.name = "fForm" + i;
+		 			priceForm.percentWidth = 100;
+		 			priceForm.percentHeight = 100;
+		 			//priceForm.addEventListener(mx.events.FlexEvent.DATA_CHANGE, updateButtons);
+		 			
+		 			panelWithRTPrices.addChild(priceForm);
+		 			
+		 			var includeThisForm:CheckBox = new CheckBox();
+		 			includeThisForm.name = "include" + i;
+		 			includeThisForm.label = "Include";
+		 			if (currentPackage)
+		 			{
+		 				includeThisForm.selected = (currentPackage.aPricesForRoomTypes[index] as PackagePricesVO).bInclude;
+		 			}
+		 			else
+		 			{
+		 				includeThisForm.selected = true;
+		 			}
+		 			//includeThisForm.addEventListener(Event.CHANGE, checkValidInputDate);
+		 			
+		 			priceForm.addChild(includeThisForm);
+		 			//////////////////////////////////////////////////////////////////////////
+		 			var oneAdultFormItem:FormItem = new FormItem();
+		 			oneAdultFormItem.name = ONE_ADULT + i + "20";
+		 			oneAdultFormItem.direction = "horizontal";
+		 			oneAdultFormItem.label = model.locale.Rates_Packages_DetailsWindow_PricesForm_OneAdult;
+		 			oneAdultFormItem.percentWidth = 100;
+		 			
+		 			priceForm.addChild(oneAdultFormItem);
+		 			
+		 			var oneAdultHBox:HBox = new HBox();
+		 			oneAdultHBox.name = ONE_ADULT + i + "HBox";
+		 			
+		 			oneAdultFormItem.addChild(oneAdultHBox);		 			
+			
+		 			var adultPrice:NumericTextInput = new NumericTextInput();
+		 			adultPrice.id = ONE_ADULT+i;
+		 			adultPrice.width = 77;
+		 			adultPrice.name = ONE_ADULT+i;
+		 		/* 	adultPrice.maximum = 99999;
+		 			adultPrice.stepSize = 0.01; */		 			
+		 			if (currentPackage)
+		 			adultPrice.value = (currentPackage.aPricesForRoomTypes[index] as PackagePricesVO).fPriceOneAdult;
+		 				 			
+		 			var adultPriceMetric:Label = new Label();
+		 			adultPriceMetric.name = 'metric'+i;
+		 			adultPriceMetric.text = metricLabel;
+		 			
+		 			oneAdultHBox.addChild(adultPrice);
+		 			oneAdultHBox.addChild(adultPriceMetric);
+		 			/////////////////////////////////////////////////////////////////////////////
+		 			var twoAdultFormItem:FormItem = new FormItem();
+		 			twoAdultFormItem.name = TWO_ADULT+ i + "20";
+		 			twoAdultFormItem.direction = "horizontal";
+		 			twoAdultFormItem.label = model.locale.Rates_Packages_DetailsWindow_PricesForm_TwoAdults;
+		 			twoAdultFormItem.percentWidth = 100;
+		 			
+		 			priceForm.addChild(twoAdultFormItem);
+		 			
+		 			var twoAdultHBox:HBox = new HBox();
+		 			twoAdultHBox.name = TWO_ADULT + i + "HBox";
+		 			
+		 			twoAdultFormItem.addChild(twoAdultHBox);	
+		 		
+		 			var twoAdultPrice:NumericTextInput = new NumericTextInput();
+		 			twoAdultPrice.id = TWO_ADULT+i;
+		 			twoAdultPrice.width = 77;
+		 			twoAdultPrice.name = TWO_ADULT+i;
+		 			/* twoAdultPrice.maximum = 99999;
+		 			twoAdultPrice.stepSize = 0.01; */
+		 			if (currentPackage)
+		 			twoAdultPrice.value = (currentPackage.aPricesForRoomTypes[index] as PackagePricesVO).fPriceTwoAdults;
+		 			
+		 			var twoAdultPriceMetric:Label = new Label();
+		 			twoAdultPriceMetric.name = 'metric'+i;
+		 			twoAdultPriceMetric.text = metricLabel;
+		 			
+		 			twoAdultHBox.addChild(twoAdultPrice);
+		 			twoAdultHBox.addChild(twoAdultPriceMetric);
+		 			////////////////////////////////////////////////////////////////////////////
+		 			var extraAdultFormItem:FormItem = new FormItem();
+		 			extraAdultFormItem.name = EXTRA_ADULT+ i + "20";
+		 			extraAdultFormItem.direction = "horizontal";
+		 			extraAdultFormItem.label = model.locale.Rates_Packages_DetailsWindow_PricesForm_ExtraAdultMarkup
+		 			extraAdultFormItem.percentWidth = 100;			
+		 			
+		 			priceForm.addChild(extraAdultFormItem);
+		 			
+		 			var extraAdultHBox:HBox = new HBox();
+		 			extraAdultHBox.name = EXTRA_ADULT + i + "HBox";
+		 			
+		 			extraAdultFormItem.addChild(extraAdultHBox);
+		 			
+		 			var extraAdultPrice:NumericTextInput = new NumericTextInput();
+		 			extraAdultPrice.id = EXTRA_ADULT+i;
+		 			extraAdultPrice.width = 77;
+		 			extraAdultPrice.name = EXTRA_ADULT+i;
+		 			/* extraAdultPrice.maximum = 99999;
+		 			extraAdultPrice.stepSize = 0.01; */
+		 			if (currentPackage)
+		 			extraAdultPrice.value = (currentPackage.aPricesForRoomTypes[index] as PackagePricesVO).fPriceExtraAdult;
+		 					 			
+		 			var extraAdultPriceMetric:Label = new Label();
+		 			extraAdultPriceMetric.name = 'metric'+i;
+		 			extraAdultPriceMetric.text = metricLabel;
+		 			
+		 			extraAdultHBox.addChild(extraAdultPrice);
+		 			extraAdultHBox.addChild(extraAdultPriceMetric);
+		 			/////////////////////////////////////////////////////////////////////////////////////////////
+		 			var belowChildFormItem:FormItem = new FormItem();
+		 			belowChildFormItem.name = BELOW_CHILD + i + "20";
+		 			belowChildFormItem.direction = "horizontal";
+		 			belowChildFormItem.label = model.locale.Rates_Packages_DetailsWindow_PricesForm_Children + model.hotelsModule.hotelTotalInfo.iChildAge1;
+		 			belowChildFormItem.percentWidth = 100;
+		 			
+		 			priceForm.addChild(belowChildFormItem);
+		 			
+		 			var belowHBox:HBox = new HBox();
+		 			belowHBox.name = BELOW_CHILD + i + "HBox";
+		 			
+		 			belowChildFormItem.addChild(belowHBox);		 			
+			
+		 			var belowPrice:NumericTextInput = new NumericTextInput();
+		 			belowPrice.id = BELOW_CHILD+i;
+		 			belowPrice.width = 77;
+		 			belowPrice.name = BELOW_CHILD+i;
+		 			/* belowPrice.maximum = 99999;
+		 			belowPrice.stepSize = 0.01; */
+		 			if (currentPackage)
+		 			belowPrice.value = (currentPackage.aPricesForRoomTypes[index] as PackagePricesVO).fPriceChildBelow;
+		 				 			
+		 			var belowPriceMetric:Label = new Label();
+		 			belowPriceMetric.name = 'metric'+i;
+		 			belowPriceMetric.text = metricLabel;
+		 			
+		 			belowHBox.addChild(belowPrice);
+		 			belowHBox.addChild(belowPriceMetric);
+		 			//////////////////////////////////////////////////////////////////////////////////////////////
+		 			var middleChildFormItem:FormItem = new FormItem();
+		 			middleChildFormItem.name = MIDDLE_CHILD + i + "20";
+		 			middleChildFormItem.direction = "horizontal";
+		 			middleChildFormItem.label = model.locale.Rates_Packages_DetailsWindow_PricesForm_Children + model.hotelsModule.hotelTotalInfo.iChildAge2;
+		 			middleChildFormItem.percentWidth = 100;
+		 			
+		 			priceForm.addChild(middleChildFormItem);
+		 			
+		 			var middleHBox:HBox = new HBox();
+		 			middleHBox.name = MIDDLE_CHILD + i + "HBox";
+		 			
+		 			middleChildFormItem.addChild(middleHBox);		 			
+			
+		 			var middlePrice:NumericTextInput = new NumericTextInput();
+		 			middlePrice.id = MIDDLE_CHILD+i;
+		 			middlePrice.width = 77;
+		 			middlePrice.name = MIDDLE_CHILD+i;
+		 			/* middlePrice.maximum = 99999;
+		 			middlePrice.stepSize = 0.01; */
+		 			if (currentPackage)
+		 			middlePrice.value = (currentPackage.aPricesForRoomTypes[index] as PackagePricesVO).fPriceChildMiddle;
+		 			
+		 			var middlePriceMetric:Label = new Label();
+		 			middlePriceMetric.name = 'metric'+i;
+		 			middlePriceMetric.text = metricLabel;
+		 			
+		 			middleHBox.addChild(middlePrice);
+		 			middleHBox.addChild(middlePriceMetric);
+		 			//////////////////////////////////////////////////////////////////////////////////////////////
+		 			var aboveChildFormItem:FormItem = new FormItem();
+		 			aboveChildFormItem.name = ABOVE_CHILD + i + "20";
+		 			aboveChildFormItem.direction = "horizontal";;
+		 			aboveChildFormItem.label = model.locale.Rates_Packages_DetailsWindow_PricesForm_Children + model.hotelsModule.hotelTotalInfo.iChildAge3;
+		 			aboveChildFormItem.percentWidth = 100;
+		 			
+		 			priceForm.addChild(aboveChildFormItem);		 			
+			
+					var aboveHBox:HBox = new HBox();
+		 			aboveHBox.name = ABOVE_CHILD + i + "HBox";
+		 			
+		 			aboveChildFormItem.addChild(aboveHBox);	
+			
+		 			var abovePrice:NumericTextInput = new NumericTextInput();
+		 			abovePrice.id = ABOVE_CHILD+i;
+		 			abovePrice.width = 75;
+		 			abovePrice.name = ABOVE_CHILD+i;
+		 			/* abovePrice.maximum = 99999;
+		 			abovePrice.stepSize = 0.01; */
+		 			if (currentPackage)
+		 			abovePrice.value = (currentPackage.aPricesForRoomTypes[index] as PackagePricesVO).fPriceChildAbove;
+		 			
+		 			var abovePriceMetric:Label = new Label();
+		 			abovePriceMetric.name = 'metric'+i;
+		 			abovePriceMetric.text = metricLabel;
+		 			
+		 			aboveHBox.addChild(abovePrice);
+		 			aboveHBox.addChild(abovePriceMetric);	
+		 			
+		 			pricePanels.push(priceForm);
+			 	}
+			 	addChangeListeners();
+			 }
+
+	]]>
+</mx:Script>
+
+	<mx:TabNavigator id="tnPackageDetails"
+		resizeToContent="true"
+		width="100%" height="100%" creationPolicy="all"
+		change="{initData()}">
+
+		<mx:Form label="{model.locale.Rates_Packages_DetailsWindow_ConfigurationForm_Title}">
+			<mx:FormItem label="{model.locale.Rates_Packages_DetailsWindow_ConfigurationForm_From}">
+				<mx:HBox>
+					<mx:DateField id="dfFrom"
+						formatString="{GlobalSettings.DATE_FORMAT}"						
+						selectedDate="{!isEdit ?
+										model.businessDate :
+										DateField.stringToDate(currentPackage.sDateStart, GlobalSettings.DATE_SERVER_FORMAT)}"
+						change="{changeHandler(event)}"
+						width="{GlobalSettings.WIDTH_DATE_FIELD}"/>
+					<mx:Label text="{model.locale.Rates_Packages_DetailsWindow_ConfigurationForm_To}"/>
+					<mx:DateField id="dfTo"
+						formatString="{GlobalSettings.DATE_FORMAT}"
+						selectedDate="{!isEdit ?
+										DateUtils.dateAdd(DateUtils.DAY_OF_MONTH, 1, model.businessDate) :
+										DateField.stringToDate(currentPackage.sDateEnd, GlobalSettings.DATE_SERVER_FORMAT)}"
+						disabledRanges="{[ {rangeEnd: dfFrom.selectedDate} ]}"
+						change="{changeHandler(event)}"
+						width="{GlobalSettings.WIDTH_DATE_FIELD}"/>
+				</mx:HBox>
+			</mx:FormItem>
+			<mx:FormItem label="{model.locale.Rates_Packages_DetailsWindow_ConfigurationForm_PackageName}">
+				<mx:TextInput id="txtPackageName"
+					change="{changeHandler(event)}"
+					maxChars="50"
+					text="{currentPackage.sPackageName}"
+					width="100%"/>
+			</mx:FormItem>
+			<mx:FormItem label="{model.locale.Rates_Packages_DetailsWindow_ConfigurationForm_MinimumStay}">
+				<mx:NumericStepper id="nsMinimumStay"
+					change="{changed()}"
+					value="{!isEdit ? 1 : currentPackage.iMinStay}"
+					minimum="1"
+					maximum="{nsMaximumStay.value}"
+					width="100%"/>
+			</mx:FormItem>
+			<mx:FormItem label="{model.locale.Rates_Packages_DetailsWindow_ConfigurationForm_MaximumStay}">
+				<mx:NumericStepper id="nsMaximumStay"
+					change="{changed()}"
+					value="{!isEdit ? DateUtils.dateDiff(DateUtils.DAY_OF_MONTH,dfFrom.selectedDate,dfTo.selectedDate): currentPackage.iMaxStay}"
+					minimum="1"
+					maximum="{DateUtils.dateDiff(DateUtils.DAY_OF_MONTH,dfFrom.selectedDate,dfTo.selectedDate)}"
+					width="100%"/>
+			</mx:FormItem>
+			<mx:FormItem label="{model.locale.Rates_Packages_DetailsWindow_ConfigurationForm_Description}">
+				<mx:TextArea id="taDescription"
+					change="{changeHandler(event)}"
+					text="{currentPackage.sDescription}"
+					maxChars="500"
+					width="100%" height="90"/>
+			</mx:FormItem>
+			<mx:FormItem label="{model.locale.Rates_Packages_DetailsWindow_PricesForm_PriceType}">
+				<mx:HBox>
+					<mx:RadioButton id="rbPriceTypeAbsolute"
+						label="{model.locale.Rates_Packages_DetailsWindow_PricesForm_Absolute}"
+						change="{changeHandler(event);changeToAbsoluteState();}"
+						groupName="priceType" 
+						selected="{!isEdit?
+									true:
+									!currentPackage.bPriceIsRelative}"/>
+					<mx:RadioButton id="rbPricePercent"
+						label="{model.locale.Rates_Packages_DetailsWindow_PricesForm_PercentFromBar}"
+						change="{changeHandler(event);changeToPersentState();}"
+						groupName="priceType"
+						selected="{!isEdit?
+									false:
+									currentPackage.bPriceIsRelative}"/>
+				</mx:HBox>
+			</mx:FormItem>
+			<mx:FormItem label="{model.locale.Rates_Packages_DetailsWindow_PricesForm_PaymentType}">
+				<mx:HBox> <!--rbPaymentTypePerNight.selected ? rbPaymentTypePerStay.enabled = false : rbPaymentTypePerStay.enabled = true-->
+					<mx:RadioButton id="rbPaymentTypePerNight"
+						label="{model.locale.Rates_Packages_DetailsWindow_PricesForm_PerNight}"
+						selected="{UtilsMXML.or(!isEdit ? true: !currentPackage.bPriceIsPerStay, rbPricePercent.selected)}"
+						change="{changeHandler(event);}"
+						groupName="paymentType"/>
+					<mx:RadioButton id="rbPaymentTypePerStay"
+						label="{model.locale.Rates_Packages_DetailsWindow_PricesForm_PerStay}"
+						selected="{!isEdit?
+									true:
+									currentPackage.bPriceIsPerStay}"
+						enabled="{!rbPricePercent.selected}"
+						change="{changeHandler(event)}"
+						groupName="paymentType"/>
+				</mx:HBox>
+			</mx:FormItem>
+		</mx:Form>
+
+		<mx:Form label="{model.locale.Rates_Packages_DetailsWindow_PricesForm_Title}">
+			<mx:Accordion id="panelWithRTPrices" width="100%" height="100%">
+			</mx:Accordion>
+		</mx:Form>
+
+	</mx:TabNavigator>
+
+	<mx:ApplicationControlBar
+		width="100%">
+		<mx:Spacer width="100%"/>
+		<mx:Button id="btnOk"
+			label="{model.locale.Global_Button_Ok}"
+			click="{closeAfterSave = true; savePackage()}"
+			enabled="{enabledButton}"/>
+		<mx:Button id="btnApply"
+			label="{model.locale.Global_Button_Apply}"
+			click="{closeAfterSave = false; savePackage();}"
+			enabled="{enabledButton}"/>
+		<mx:Button id="btnCancel"
+			label="{model.locale.Global_Button_Cancel}"
+			click="{close()}"/>
+	</mx:ApplicationControlBar>
+
+</popup:DataPopupView>

@@ -1,0 +1,481 @@
+<?xml version="1.0" encoding="utf-8"?>
+<popup:DataPopupView xmlns:popup="framework.view.components.popups.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml" 
+	addTitle="{model.locale.Global_Button_Add}" editTitle="{model.locale.Global_Button_Edit}"	
+	creationComplete="handleInit()" xmlns:control="h2olib.control.*">
+	<mx:Script>
+		<![CDATA[
+			import mx.controls.Alert;
+		//TODO: need to add locale for labels
+			import services.vo.rates.companyRates.CompanyRatesRequestVO;
+			import services.vo.rates.companyRates.CompanyRateGroupVO;
+			import services.vo.rates.companyRates.CompanyPricesVO;
+			import mx.binding.utils.BindingUtils;
+			import mx.containers.Form;
+			import services.vo.hotels.HotelRoomWithBedTypesObjectVO;
+			import services.vo.hotels.HotelRoomTypeObjectVO;
+			import mx.containers.Canvas;
+			import framework.core.utils.UtilsMXML;
+			import mx.events.ValidationResultEvent;
+			import services.vo.backend.RoomQualityObjectVO;
+			import framework.model.AppModelLocator;
+			import com.adobe.cairngorm.model.ModelLocator;
+			import services.vo.rates.companyRates.CompanyRateObjectVO;
+			import services.events.rates.companyRates.SaveCompanyRateEvent;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import com.adobe.cairngorm.control.CairngormEvent;
+			import services.controller.AppController;
+			import services.vo.GlobalStorage;
+			import framework.managers.PopUpManagerExt;
+			import services.vo.GlobalFunctions;
+			import services.vo.GlobalSettings;
+			
+			public var companyId:Number = 0/* 1 */;
+			public var roomTypeId:Number = 0;
+			public var hotelIds:Array = [];
+						
+			/**
+			 *  All prices from form.
+			 *  
+			 */
+			[Bindable]
+			private var allPrices:Array = [];
+			
+			/**
+			 *  All states of validators.
+			 *  
+			 */
+			[Bindable]
+			private var validatorStates:Array = [];
+			
+			[Bindable]
+			private var threeState:Array = [true, true, true];
+			
+			
+			private var pricesForRoomType:Object;
+			/////////////////////////////////////////////////////////////
+			
+		
+			[Bindable]
+			private var submitEnable:Boolean = false;
+			
+			[Bindable]
+			/**
+			 *  Validation state of price input Breakfast.
+			 *  
+			 *  @default false
+			 */
+			private var priceValidBreakfast:Boolean = true;
+			
+			///////////////////////////currentCompanyRate////////////////////////////////
+			private var _currentCompanyRate:CompanyRateGroupVO = null;
+			
+			[Bindable(event="currentCompanyRateChanged")]
+			/**
+			 * current company rate.
+			 */
+			public function get currentCompanyRate():CompanyRateGroupVO
+			{
+			    return _currentCompanyRate;
+			}
+			/**
+			 *  @private
+			 */
+			
+			public function set currentCompanyRate(value:CompanyRateGroupVO):void
+			{
+			        _currentCompanyRate = value;
+			        dispatchEvent(new Event("currentCompanyRateChanged"));
+			}
+			/////////////////////////////////////////////////////////////////////////////////
+			
+			public function handleInit():void
+			{
+				if(currentCompanyRate == null)
+				{
+					currentCompanyRate = new CompanyRateGroupVO();
+					currentCompanyRate.sDateTo = DateField.dateToString(model.businessDate, GlobalSettings.DATE_SERVER_FORMAT);
+					currentCompanyRate.sDateFrom = DateField.dateToString(model.businessDate, GlobalSettings.DATE_SERVER_FORMAT);
+				}
+								
+				CreatePricePanels(); ////////////////////////////////////////
+			}
+			
+			override public function set data(value:Object):void
+			{
+				super.data = value;				
+				currentCompanyRate = data as CompanyRateGroupVO;
+				
+				dateFrom.selectedDate = DateField.stringToDate(currentCompanyRate.sDateFrom, GlobalSettings.DATE_SERVER_FORMAT);
+				dateTo.selectedDate = DateField.stringToDate(currentCompanyRate.sDateTo, GlobalSettings.DATE_SERVER_FORMAT)
+				
+				submitEnable = true;						
+			}
+			
+			/**
+			 *	Select depends on Date Fileds.
+			 * 	Called when Date Fields change.
+			 */
+			private function handleSelectedDateField():void
+			{
+				var curTime:Number=GlobalFunctions.getDate().time;				
+			/* 	if (dateFrom.selectedDate.time < curTime)
+					dateFrom.selectedDate.time = curTime; */
+				
+				if (dateTo.text.length > 0)
+				{
+					if (dateTo.selectedDate.time < curTime) 
+						dateTo.selectedDate.time = curTime;
+						
+					if (dateFrom.selectedDate.time > dateTo.selectedDate.time)
+						dateTo.selectedDate = dateFrom.selectedDate;
+				}
+				else dateTo.selectedDate = dateFrom.selectedDate;				
+			}
+			
+			
+			
+			/**
+			 * Add company rate
+			*/
+			private function AddCompanyRate():void
+			{
+				var newRate: CompanyRateGroupVO = new CompanyRateGroupVO();
+			
+				readAllPrices();/////////////////////////////////////////////////////// 
+				
+				newRate.iRateId = model.ratesModule.currentRate.iRateId;
+				newRate.aHotelIds = hotelIds;
+				newRate.iCompanyId = (model.ratesModule.currentRate && model.ratesModule.currentRate.iCompanyId) ? model.ratesModule.currentRate.iCompanyId : companyId ;
+				newRate.sDateFrom = DateField.dateToString(dateFrom.selectedDate, GlobalSettings.DATE_SERVER_FORMAT);
+				newRate.sDateTo = DateField.dateToString(dateTo.selectedDate, GlobalSettings.DATE_SERVER_FORMAT);
+				newRate.sName = nameRate.text;
+				newRate.aPricesForRoomTypes = allPrices;
+				if (selectB.selected)
+				{
+					newRate.bBreakfastIncluded = true;					
+				}
+				else
+				{
+					newRate.bBreakfastIncluded = false;
+				}				   
+				newRate.fBreakfastPrice = breakfast.value;
+				
+				var evt:SaveCompanyRateEvent = new SaveCompanyRateEvent (AppController.RATES_COMPANY_SAVE_EVENT);
+				evt.companyRate = newRate;
+				evt.callBack = completeCall;
+				CairngormEventDispatcher.getInstance().dispatchEvent( evt );
+			}
+			
+			////////////////////necessesery for room types///////////////////////////////////////////////
+			// Event listener for the valid and invalid events.
+			private function handlePriceValid(event:ValidationResultEvent, field:int):void
+			{
+				if (field == 1)
+				{
+					if (getCheckBox(panelWithRTPrices.selectedIndex).selected)// if includet
+					{
+						validatorStates[panelWithRTPrices.selectedIndex][0] = (event.type == ValidationResultEvent.VALID);
+					}
+					else
+					{
+						validatorStates[panelWithRTPrices.selectedIndex][0] = true;
+					}
+					 
+				}
+				else if (field == 2)
+				{
+					if (getCheckBox(panelWithRTPrices.selectedIndex).selected)// if includet
+					{
+						validatorStates[panelWithRTPrices.selectedIndex][1] = (event.type == ValidationResultEvent.VALID);
+					}
+					else
+					{
+						validatorStates[panelWithRTPrices.selectedIndex][1] = true;
+					}
+				}
+				else if (field == 3)
+				{
+					if (getCheckBox(panelWithRTPrices.selectedIndex).selected)// if includet
+					{
+						validatorStates[panelWithRTPrices.selectedIndex][2] = (event.type == ValidationResultEvent.VALID);
+					}
+					else
+					{
+						validatorStates[panelWithRTPrices.selectedIndex][2] = true;
+					}
+				}				
+				else if (field == 4)
+				{
+					priceValidBreakfast = (event.type == ValidationResultEvent.VALID);
+				}
+				checkValidInputDate();				
+			}
+			
+			private function checkValidInputDate(evt:Event=null):void
+			{
+				submitEnable = true;
+				for (var i:int = 0; i < model.roomTypesModule.roomTypesForRates.length; i++)
+			 	{
+			 		if (getCheckBox(i).selected)//if includet this room types
+			 		{
+				 		for (var j:int = 0; j < 3; j++)
+				 		{
+					 		if (validatorStates[i][j] == false)
+					 		{
+					 			submitEnable = false;
+					 			break;
+					 		}
+				 		}
+			 		}		
+			 	}
+			 	if (!priceValidBreakfast)
+			 	{
+			 		submitEnable = false;
+			 	}
+			 	if (nameRate.length == 0)
+			 	{
+			 		submitEnable = false;
+			 	}
+			 	
+			}
+			
+			
+			
+			private function readAllPrices():void
+			{
+			 	allPrices = [];
+				var currentPrices:CompanyPricesVO = new CompanyPricesVO();
+				for (var i:int = 0; i < model.roomTypesModule.roomTypesForRates.length; i++)
+			 	{
+			 		currentPrices.fPriceOneAdult = getTextInput(i, 'oneAdult').value;
+			 		currentPrices.fPriceTwoAdults = getTextInput(i, 'twoAdult').value;
+			 		currentPrices.fPriceExtraAdult = getTextInput(i, 'extraAdult').value;
+			 		currentPrices.iRoomQualityId = 	(model.roomTypesModule.roomTypesForRates.getItemAt(i) as RoomQualityObjectVO).lQualityId; 		 		
+			 		currentPrices.bInclude = getCheckBox(i).selected;
+			 		
+			 		allPrices.push(currentPrices);
+			 		
+			 		currentPrices = new CompanyPricesVO();
+			 		
+			 	} 
+			}
+			
+			/**
+			 *	Create Panels with Prices.
+			 */
+			 private function CreatePricePanels():void
+			 {
+			 	//clean old
+			 	var i:int;
+			 	var pricePanels:Array = [];
+			 	var pricesForRoomTypes:CompanyPricesVO = new CompanyPricesVO();
+				while (panelWithRTPrices.numChildren != 0)panelWithRTPrices.removeChildAt(0); 
+			 	//create new
+			 	for (i = 0; i < model.roomTypesModule.roomTypesForRates.length; i++)
+			 	{
+			 		pricesForRoomTypes = (currentCompanyRate.aPricesForRoomTypes[i]) ? currentCompanyRate.aPricesForRoomTypes[i] : new CompanyPricesVO();
+			 		pricesForRoomTypes.iRoomQualityId = (model.roomTypesModule.roomTypesForRates[i] as RoomQualityObjectVO).lQualityId;
+			 		validatorStates[i] = threeState; 
+			 		threeState = new Array();
+			 		threeState = [true, true, true];
+			 		
+			 		var tempHotelRoomQuality: RoomQualityObjectVO = model.roomTypesModule.roomTypesForRates.getItemAt(i) as RoomQualityObjectVO;
+			 	
+			 		var tempCanvas:Canvas = new Canvas();
+			 		tempCanvas.name = 'greateContainer'+i;
+		 			tempCanvas.label = tempHotelRoomQuality.sQualityName;
+		 			tempCanvas.percentWidth = 100;
+		 			tempCanvas.percentHeight = 100;
+		 			tempCanvas.horizontalScrollPolicy = "off";	
+		 			panelWithRTPrices.addChild(tempCanvas);
+		 			
+		 			
+		 			var firstForm:Form = new Form();
+		 			firstForm.name = "fForm" + i;
+		 			firstForm.percentWidth = 100;
+		 			firstForm.percentHeight = 100;
+		 			
+		 			tempCanvas.addChild(firstForm);
+		 			
+		 			var includeThisForm:CheckBox = new CheckBox();
+		 			includeThisForm.name = "include" + i;
+		 			includeThisForm.label = "Include";
+		 			includeThisForm.selected = pricesForRoomTypes.bInclude;
+		 			includeThisForm.addEventListener(Event.CHANGE, checkValidInputDate);
+		 			
+		 			firstForm.addChild(includeThisForm);
+		 			
+		 			var oneAdultFormItem:FormItem = new FormItem();
+		 			oneAdultFormItem.name = "oneAdult" + i + "20";
+		 			oneAdultFormItem.label = model.locale.Rates_Bar_PricesForm_OneAdult;
+		 			oneAdultFormItem.percentWidth = 100;
+		 			
+		 			firstForm.addChild(oneAdultFormItem);		 			
+			
+		 			var AdultTextInput:NumericTextInput = new NumericTextInput();
+		 			AdultTextInput.id = 'oneAdult'+i;
+		 			AdultTextInput.percentWidth = 100;
+		 			AdultTextInput.name = 'oneAdult'+i;
+		 			AdultTextInput.value = pricesForRoomTypes.fPriceOneAdult;			
+		 			
+		 			oneAdultFormItem.addChild(AdultTextInput);
+		 			
+		 			var twoAdultFormItem:FormItem = new FormItem();
+		 			twoAdultFormItem.name = "twoAdult"+ i + "20";
+		 			twoAdultFormItem.label = model.locale.Rates_Bar_PricesForm_TwoAdults;
+		 			twoAdultFormItem.percentWidth = 100;
+		 			
+		 			firstForm.addChild(twoAdultFormItem);
+		 			
+		 			var twoAdultTextInput:NumericTextInput = new NumericTextInput();
+		 			twoAdultTextInput.id = 'twoAdult'+i;
+		 			twoAdultTextInput.percentWidth = 100;
+		 			twoAdultTextInput.name = 'twoAdult'+i;
+		 			twoAdultTextInput.value = pricesForRoomTypes.fPriceTwoAdults;
+		 			
+		 			twoAdultFormItem.addChild(twoAdultTextInput);
+		 			
+		 			var extraAdultFormItem:FormItem = new FormItem();
+		 			extraAdultFormItem.name = "extraAdult"+ i + "20";
+		 			extraAdultFormItem.label = model.locale.Rates_Bar_PricesForm_ExtraAdultMarkup;
+		 			extraAdultFormItem.percentWidth = 100;			
+		 			
+		 			
+		 			firstForm.addChild(extraAdultFormItem);
+		 			
+		 			var extraAdultTextInput:NumericTextInput = new NumericTextInput();
+		 			extraAdultTextInput.id = 'extraAdult'+i;
+		 			extraAdultTextInput.percentWidth = 100;
+		 			extraAdultTextInput.name = 'extraAdult'+i;
+		 			extraAdultTextInput.value = pricesForRoomTypes.fPriceExtraAdult;
+		 		
+		 			
+		 			extraAdultFormItem.addChild(extraAdultTextInput);
+		 			
+		 			pricePanels.push(tempCanvas);
+			 	}
+			 	priceValidatorOne.source =  getTextInput(0, 'oneAdult');
+			 	priceValidatorTwo.source = getTextInput(0, 'twoAdult');
+			 	priceValidatorExtra.source = getTextInput(0, 'extraAdult');
+			 	
+			 }
+			
+			
+			/**
+			 * Get check box from Accordion. 
+			 * id- Room Type index
+			 */
+			private function getCheckBox(i:int):CheckBox
+			{
+				var canv:Canvas = panelWithRTPrices.getChildByName('greateContainer'+i) as Canvas;
+			 	var fForm:Form = canv.getChildByName('fForm'+i) as Form;			
+			 	var check:CheckBox = fForm.getChildByName('include' + i) as CheckBox;
+			 	return check;
+			}
+			
+			/**
+			 * Get text inputs from Accordion. 
+			 * id- Room Type index, 
+			 * str - name of text input (oneAdult, twoAdult or extraAdult)
+			 */
+			 private function getTextInput(i:int, str:String):NumericTextInput
+			 {
+			 	var canv:Canvas = panelWithRTPrices.getChildByName('greateContainer'+i) as Canvas;
+			 	var fForm:Form = canv.getChildByName('fForm'+i) as Form;			
+			 	var subForm:FormItem = fForm.getChildByName(str + i + "20") as FormItem;
+			 	var ourTextInput:NumericTextInput = subForm.getChildByName(str+i) as NumericTextInput;
+			 	return ourTextInput;			 	
+			 }
+			 
+			 private function newSourceValidation():void
+			 {
+			 	priceValidatorOne.source = getTextInput(panelWithRTPrices.selectedIndex, 'oneAdult');
+			 	priceValidatorTwo.source = getTextInput(panelWithRTPrices.selectedIndex, 'twoAdult');
+			 	priceValidatorExtra.source = getTextInput(panelWithRTPrices.selectedIndex, 'extraAdult');
+			 }
+		]]>
+	</mx:Script>
+		<mx:Form width="100%" height="100%">
+			<mx:FormItem label="" width="100%" direction="horizontal">
+				<mx:Label text="From:" fontWeight="bold"/>								
+					<mx:DateField id="dateFrom" restrict="0-9" 
+					selectedDate="{DateField.stringToDate(currentCompanyRate.sDateFrom, GlobalSettings.DATE_SERVER_FORMAT)}"					 
+					formatString="{GlobalSettings.DATE_FORMAT}" 
+					change="handleSelectedDateField()"
+					width="{GlobalSettings.WIDTH_DATE_FIELD}"/>
+				<mx:Label text="To:" fontWeight="bold"/>
+				<mx:DateField id="dateTo" restrict="0-9" 
+					selectedDate="{DateField.stringToDate(currentCompanyRate.sDateTo, GlobalSettings.DATE_SERVER_FORMAT)}" 
+					disabledRanges="{[ {rangeEnd: dateFrom.selectedDate} ]}" 
+					formatString="{GlobalSettings.DATE_FORMAT}" 
+					change="handleSelectedDateField()"
+					width="{GlobalSettings.WIDTH_DATE_FIELD}"/>			
+			</mx:FormItem>	
+			<mx:FormItem label="Name:" width="100%">
+				<mx:TextInput id="nameRate" 
+					change="checkValidInputDate()" 
+					text="{currentCompanyRate.sName}" 
+					width="100%" maxChars="30"/>
+			</mx:FormItem>
+			<mx:FormItem label="Breakfast:" width="100%" direction="horizontal">
+				<control:NumericTextInput id="breakfast" value = "{currentCompanyRate.fBreakfastPrice}"/>
+				<mx:Label text="euro" />
+				<mx:CheckBox id="selectB" selected="{currentCompanyRate.bBreakfastIncluded}"/>
+				<mx:Label text="Included:" />
+			</mx:FormItem>		
+		<mx:Accordion id="panelWithRTPrices" width="100%" height="100%" change="{newSourceValidation()}">
+
+		</mx:Accordion>
+		</mx:Form>
+		<mx:HBox width="100%" horizontalAlign="right">
+			<mx:Button id="saveCompanyRatePopupView" 
+				label="Save" width="150" enabled="{submitEnable}" click="AddCompanyRate()" />
+			<mx:Button id="cancelCompanyRatePopupView" 
+				label="Cancel" width="120" click="close()" />
+		</mx:HBox>
+		<mx:NumberValidator
+		id="priceValidatorOne"
+		property="text"
+		domain="real"
+		minValue="0.00"
+		maxValue="9999999"
+		precision="2"
+		triggerEvent="change"
+		invalid="callLater(handlePriceValid, [event,1])"
+		valid="callLater(handlePriceValid, [event,1])"/>
+		
+		<mx:NumberValidator
+		id="priceValidatorTwo"
+		property="text"
+		domain="real"
+		minValue="0.00"
+		maxValue="9999999"
+		precision="2"
+		triggerEvent="change"
+		invalid="callLater(handlePriceValid, [event,2])"
+		valid="callLater(handlePriceValid, [event,2])"/>
+		
+		<mx:NumberValidator
+		id="priceValidatorExtra"
+		property="text"
+		domain="real"
+		minValue="0.00"
+		maxValue="9999999"
+		precision="2"
+		triggerEvent="change"
+		invalid="{handlePriceValid(event,3)}"
+		valid="{handlePriceValid(event,3)}"/>
+		
+		<mx:NumberValidator
+		id="priceValidatorBreakfast"
+		property="text"
+		source="{breakfast}"
+		domain="real"
+		minValue="0.00"
+		maxValue="9999999"
+		precision="2"
+		triggerEvent="change"
+		invalid="callLater(handlePriceValid, [event,4])"
+		valid="callLater(handlePriceValid, [event,4])"/>
+</popup:DataPopupView>

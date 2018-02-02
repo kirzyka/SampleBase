@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8"?>
+<sub:VSubWindow xmlns:sub="framework.core.view.*" xmlns:mx="http://www.adobe.com/2006/mxml" width="100%" xmlns:components="framework.view.components.*">
+
+	<mx:Script>
+		<![CDATA[
+			import services.vo.reports.TreeItemVO;
+			import services.vo.reports.TransactionCodeReportVO;
+			import services.vo.reports.NoShowsReportVO;
+			import services.vo.reports.InHouseReportVO;
+			import services.vo.common.loyaltyPrograms.LoyaltyProgramsVO;
+			import framework.model.AppModelLocator;
+			import services.vo.GlobalFunctions;
+			import services.events.reports.GetReportEvent;
+			import services.vo.backend.ReportVO;
+			import services.vo.common.SourceCodesVO;
+			import services.vo.backend.RoomSettingObjectVO;
+			import services.vo.common.MarketCodesVO;
+			import services.vo.hotels.HotelRoomWithBedTypesObjectVO;
+			import services.vo.GlobalSettings;
+			import services.vo.GlobalStorage;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.events.miscellaneous.loyaltyPrograms.GetLoyaltyProgramsEvent;
+			import services.controller.AppController;
+			import services.events.roomSettings.GetRoomSettingsDataEvent;
+			import mx.collections.ArrayCollection;
+			import services.vo.reports.ArrivalReportVO;
+
+			//config
+  			[Bindable]
+  			public var indicatorGapFormItem:int = 14;
+
+  			/**
+			 *	Get reports. This function we have in parent.
+			*/
+  			public var getReports:Function = new Function();
+
+  			/**
+			 *	Get selected All for all list. This function we have in parent.
+			*/
+  			public var allClick:Function = new Function();
+
+			public var reportType:int;
+		
+  			public function init():void
+			{
+
+			}
+
+			/**
+			 * print of revenue transact
+			 */ 
+			private function handlePrintRevenueTransact():void
+			{
+				var transactionCodeReport:TransactionCodeReportVO = new TransactionCodeReportVO();
+				var itemTree:Array = model.reportsModule.itemTree;
+				transactionCodeReport.bShowLastYear = revenueShow.selected;
+				if (!revenueTransactAllGroup.selected)
+				{
+					for (var i:int = 0; i < itemTree.length; i++)
+					{
+						if (itemTree[i].selected || itemTree[i].middle)
+						{
+							transactionCodeReport.aGroup.push((itemTree[i] as TreeItemVO).iReturnId);
+							for (var j:int = 0; j < itemTree[i].children.length; j++)
+							{
+								if (itemTree[i].children[j].selected || itemTree[i].children[j].middle)
+								{
+									transactionCodeReport.aSubGroup.push((itemTree[i].children[j] as TreeItemVO).iReturnId);
+									for (var z:int = 0; z < itemTree[i].children[j].children.length; z++)
+									{
+										if (itemTree[i].children[j].children[z].selected)
+										{
+											transactionCodeReport.aTransactionCode.push((itemTree[i].children[j].children[z] as TreeItemVO).iReturnId);
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+				getReports( transactionCodeReport, reportType,  DateField.dateToString(revenueTransactDate.selectedDate, GlobalSettings.DATE_SERVER_FORMAT));
+			}
+
+		]]>
+	</mx:Script>
+
+
+		<mx:Panel label="Revenue Transact Report" width="100%" height="100%" layout="vertical" styleName="reportPanel">
+			<mx:HBox>
+				<mx:Form>
+					<mx:FormItem label="Date of report:" labelWidth="120">
+						<mx:DateField id="revenueTransactDate" width="{GlobalSettings.WIDTH_DATE_FIELD}"
+							selectedDate="{GlobalFunctions.getDate()}" formatString="{GlobalSettings.DATE_FORMAT}"/>
+					</mx:FormItem>
+					<mx:FormItem label="Show last year:" labelWidth="120">
+						<mx:CheckBox id="revenueShow"/>
+					</mx:FormItem>
+				</mx:Form>
+
+					<mx:Form>
+					<mx:FormItem label="Group:" labelWidth="120" indicatorGap="{indicatorGapFormItem}">
+					<components:ThreeStateTreeView id="revenueTransactTree" width="500" enabled="false"
+				        	treeDataProvider="{model.reportsModule.itemTree}" height="400" y="54"/>
+				    <mx:CheckBox id="revenueTransactAllGroup" label="All groups" selected="true"
+							change="{allClick(revenueTransactAllGroup, revenueTransactTree)}"/>
+					</mx:FormItem>
+				</mx:Form>
+				</mx:HBox>
+
+			<mx:HBox width="100%" horizontalAlign="right" paddingRight="15">
+				<mx:Button label="Print Report" click="handlePrintRevenueTransact()"/>
+			</mx:HBox>
+		</mx:Panel>
+</sub:VSubWindow>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow xmlns:mx="http://www.adobe.com/2006/mxml" layout="vertical" width="100%" height="100%">
+	
+	<mx:HBox width="100%">
+		
+	</mx:HBox>
+	
+	<mx:DataGrid width="100%" height="100%">
+		
+	</mx:DataGrid>
+	
+</mx:TitleWindow>

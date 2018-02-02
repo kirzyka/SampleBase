@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:HBox xmlns:mx="http://www.adobe.com/2006/mxml">
+	<mx:Script>
+		<![CDATA[
+			import services.vo.reservation.OrderVO;
+			import services.vo.GlobalFunctions;
+		]]>
+	</mx:Script>
+	<mx:Label text="{(data as OrderVO).sStartDateUIFormat + ' - ' + (data as OrderVO).sEndDateUIFormat}"/>
+</mx:HBox>

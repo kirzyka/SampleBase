@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Label
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	text="{(data as RegionVO).sRegionName}"
+	toolTip="{(data as RegionVO).sRegionName}">
+	
+	<mx:Script>
+		<![CDATA[
+			import services.vo.common.RegionVO;
+		]]>
+	</mx:Script>
+</mx:Label>

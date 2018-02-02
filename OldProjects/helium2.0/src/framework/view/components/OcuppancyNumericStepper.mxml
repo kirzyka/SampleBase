@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:NumericStepper 
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	
+	creationComplete="onCreationComplete()"
+	change="onChange()"
+
+	>
+
+<mx:Script>
+	<![CDATA[
+		import services.controller.AppController;
+		import framework.view.pages.reservationCreate.data.OccupancyItem;
+		import mx.events.NumericStepperEvent;
+		import framework.view.pages.reservationCreate.popups.OccupancyView;
+
+		[Bindable]
+		public var parentView:OccupancyView;
+
+		private var oldValue:int;
+		private var iRoomCount:int;
+		
+		
+		override public function set data(value:Object):void
+		{
+			super.data = value;
+			if(value is OccupancyItem)
+			{
+				iRoomCount = (value as OccupancyItem).iRoomCount;
+				oldValue = iRoomCount;
+				maximum = OccupancyView.total - OccupancyView.allocateTotal + iRoomCount;
+			}
+		}		
+		
+		private function onCreationComplete():void
+		{
+			parentView.addEventListener(OccupancyView.OCCUPPANCY_VIEW_CALCULATE_MAXIMUM_EVENT, calculateMaximum);
+		}
+		
+		private function onChange():void
+		{
+			OccupancyView.allocateTotal -= oldValue;
+			OccupancyView.allocateTotal += value;
+			iRoomCount = value;
+			oldValue = value;
+			(super.data as OccupancyItem).iRoomCount = value;
+			trace("---------- CHANGE: ");
+			trace("Total: " + OccupancyView.total);
+			trace("Allocate total: " + OccupancyView.allocateTotal);
+			trace("PValue: " + previousValue);
+			trace("Value: " + iRoomCount);	
+			
+			parentView.dispatchEvent(new Event(OccupancyView.OCCUPPANCY_VIEW_CALCULATE_MAXIMUM_EVENT, calculateMaximum));		
+		}		
+
+		private function calculateMaximum(event:Event):void
+		{
+			maximum = OccupancyView.total - OccupancyView.allocateTotal + value;
+			trace("---------- Calculate Maximum: ");
+			trace("Total: " + OccupancyView.total);
+			trace("Allocate total: " + OccupancyView.allocateTotal);
+			trace("Value: " + iRoomCount);
+			trace("Maximum: " + maximum);
+		}		
+	]]>
+</mx:Script>
+	
+</mx:NumericStepper>

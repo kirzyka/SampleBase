@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<view:BasePopup
+        xmlns:fx="http://ns.adobe.com/mxml/2009"
+        xmlns:s="library://ns.adobe.com/flex/spark"
+        xmlns:view="kitaec.view.*"
+        xmlns:layouts="spark.layouts.*"
+
+        showCloseButton="false"
+        width="180" height="80"
+        title="Ожидайте...">
+
+    <view:layout>
+        <layouts:VerticalLayout paddingTop="10"/>
+    </view:layout>
+
+    <s:Label text="Запрос обробатывается." verticalAlign="middle" width="100%" textAlign="center"/>
+</view:BasePopup>

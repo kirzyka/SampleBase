@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="utf-8"?>
+<popup:DataPopupView
+	xmlns:popup="framework.view.components.popups.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:tabs="framework.view.pages.profiles.popups.company.tabs.*"
+	xmlns:common="framework.view.pages.profiles.popups.common.*"
+	width="800" height="760">
+	
+	<mx:Script>
+		<![CDATA[
+			import mx.utils.ObjectUtil;
+			import services.vo.common.MarketCodesVO;
+			import framework.view.components.address.LocationChooser;
+			import framework.view.components.address.data.LocationData;
+			import framework.view.components.address.data.ContactData;
+			import services.vo.profiles.CompanyAddressVO;
+			import services.business.profiles.ProfileDelegate;
+			import services.vo.common.SourceCodesGroupVO;
+			import services.vo.common.MarketCodesGroupVO;
+			import services.vo.common.SourceCodesVO;
+			import services.vo.GlobalSettings;
+			import framework.core.utils.UtilsMXML;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			
+			import services.controller.AppController;
+			import services.events.profiles.company.SaveCompanyProfileEvent;
+			import services.vo.common.LanguageVO;
+			import services.vo.profiles.CompanyProfileVO;
+			
+			import mx.collections.ArrayCollection;
+			
+			public var selectedIndex:int = -1;
+			
+			// ================================================================= //
+			//                        OVERRIDE METHODS                           //
+			// ================================================================= //
+			/**
+			 *  @override
+			 *  
+			 *  @see framework.view.components.popups.BasePopupView#data
+			 */
+			override public function set data(value:Object):void
+			{
+				super.data = value;
+				// update view for edit mode.
+				companyInfo.data = data;
+				if (data)
+				{
+					callerInfo.callers = new ArrayCollection((data as CompanyProfileVO).aCallers);
+					addressInfo.additionalAddress = new ArrayCollection((data as CompanyProfileVO).aAddresses);
+				}
+			}
+			
+			public function show():void
+			{
+				companyInfo.lcLocation.show();
+			}
+			
+			private function handleAddProfile():void
+			{
+				if (isEdit && !isDirty)
+				{
+					//completeCall();
+					//return;
+				}
+				
+				var profile:CompanyProfileVO = (isEdit) ? data as CompanyProfileVO : new CompanyProfileVO();
+				
+				profile.sName = companyInfo.tiCompanyName.text;
+				if (companyInfo.cmbLanguage.selectedItem)
+				{
+					profile.lLanguageId = (companyInfo.cmbLanguage.selectedItem as LanguageVO).lId;
+				}
+				
+				profile.sCorporateId = companyInfo.tiCorporateId.text;
+				profile.sBookingCode = companyInfo.tiBookingCode.text;
+				
+				profile.lSourceCodeId = (companyInfo.cmbSourceCodes.selectedItem as SourceCodesVO).iId;
+				profile.lMarketCodeId = (companyInfo.cmbMarketCodes.selectedItem as MarketCodesVO).iId;
+				
+				// home address
+				var lc:LocationChooser = companyInfo.lcLocation;
+				var address:CompanyAddressVO = lc.location.toCompanyAddress(true);
+				address.aContacts = ContactData.toCompanyContact(lc.contacts, true);
+				profile.aAddresses = [];
+				profile.aAddresses[0] = address;
+				
+				profile.aCallers = callerInfo.callers.toArray();
+				
+				var additionalAddress:ArrayCollection = ObjectUtil.copy(addressInfo.additionalAddress) as ArrayCollection;
+				additionalAddress.filterFunction = null;
+				additionalAddress.refresh();
+				var addresses:ArrayCollection = new ArrayCollection(additionalAddress.toArray());
+				for(var i:int = 0; i < addresses.length; i++)
+				{
+					profile.aAddresses.push(addresses.getItemAt(i));
+				}
+				
+				profile.bIsCanGuarantee = companyInfo.cbAllowed.selected;
+				
+				var event:SaveCompanyProfileEvent = new SaveCompanyProfileEvent(ProfileDelegate.SAVE_COMPANY_PROFILE);
+				event.profile = profile;
+				event.index = (isEdit) ? selectedIndex : model.profilesModule.companyProfileList.length;
+				event.callBack = completeCall;
+				CairngormEventDispatcher.getInstance().dispatchEvent(event);
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:TabNavigator
+		paddingBottom="5" paddingLeft="5" paddingRight="5" paddingTop="5"
+		width="100%" height="100%">
+		<tabs:CompanyInfoTabView id="companyInfo"/>
+		<common:CallerTabView id="callerInfo"/>
+		<common:SecondaryBillingAddressTabView id="addressInfo"/>
+	</mx:TabNavigator>
+	
+	<mx:HBox horizontalAlign="right" width="100%">
+		<mx:Button
+			label="Save"
+			click="handleAddProfile()"
+			enabled="{UtilsMXML.and(companyInfo.tiCompanyName.text.length != 0,
+						companyInfo.lcLocation.isFillFields)}"
+			width="{GlobalSettings.BUTTON_WIDTH_APPLY}"/>
+		<mx:Button
+			label="{model.locale.Global_Button_Cancel}"
+			click="close()"
+			width="{GlobalSettings.BUTTON_WIDTH}"/>
+	</mx:HBox>
+</popup:DataPopupView>

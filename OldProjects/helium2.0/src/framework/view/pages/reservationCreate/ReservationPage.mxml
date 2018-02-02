@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8"?>
+<BaseWindow
+	xmlns="framework.core.view.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:reservation="framework.view.pages.reservationCreate.*"	
+	xmlns:subview="framework.view.pages.reservationCreate.subview.*"
+	 
+	styleName="PageBig"
+	width="100%" height="100%"
+	creationComplete="init()"
+	 >
+
+	<mx:Script>
+		<![CDATA[
+			import flash.sampler.isGetterSetter;
+			import framework.model.AppModelLocator;
+
+			private function init():void
+			{
+
+			}
+
+			override public function show():void
+			{
+				if(isCreated && !model.reservationModule.openGRFromSearch)
+				{
+					model.reservationModule.currPage = 0;
+					if(reservation == null)
+					{
+						reservation = new ReservationView();
+					}
+					else
+					{
+						reservation.loadData();
+					}
+				}
+				model.reservationModule.openGRFromSearch = false;
+			}
+
+			private function handleShow():void
+			{
+				if(model.reservationModule.currPage > 0)
+				{
+					return;
+				}
+
+				reservation.handleShow();
+			}
+
+			private function changeReserationCurrentPage():void
+			{
+				if(model.reservationModule.currPage == 0)
+				{
+					if(reservation != null)
+					{
+						reservation.loadData();
+					}
+				}				
+				if(model.reservationModule.currPage == 1)
+				{
+					/*if(!reservation.basket.isGroupReservationMode)
+					{
+						if(information != null)
+						{
+							information.clearForm();
+						}						
+					}
+					else
+					{
+						
+					}*/
+				}
+			}
+			
+			private function groupPersonalInfoBackFunction():void
+			{
+				model.reservationModule.currPage = 0;
+				model.reservationModule.reservationMode = 0;
+				
+			}
+		]]>
+	</mx:Script>
+
+	<mx:ViewStack width="100%"
+		height="100%"
+		selectedIndex="{model.reservationModule.currPage}"
+		change="{changeReserationCurrentPage()}"
+		show="handleShow()">
+		<subview:ReservationView id="reservation"
+			width="100%" height="100%"/>
+		<mx:ViewStack width="100%" height="100%"
+			selectedIndex="{model.reservationModule.reservationMode}">
+			<subview:PersonalInformationView id="information"
+				width="100%" height="100%"/>
+			<subview:GroupPersonalInformationView id="groupInformation"
+				width="100%" height="100%"
+				backFunction="{groupPersonalInfoBackFunction}"/>			
+		</mx:ViewStack>
+
+	</mx:ViewStack>
+</BaseWindow>

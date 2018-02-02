@@ -1,0 +1,601 @@
+<?xml version="1.0" encoding="utf-8"?>
+<SubWindow xmlns="framework.core.view.*" 
+	xmlns:mx="http://www.adobe.com/2006/mxml" 
+	width="100%"	
+	initialize="init()"
+	creationComplete="onCreationComplete()"
+	xmlns:controls="framework.view.components.controls.*" xmlns:control="h2olib.control.*">
+	
+	<mx:Metadata>
+		[Event (name="newOrderAddedEvent", type="flash.events.Event")]
+		[Event (name="orderSavedEvent", type="flash.events.Event")]
+	</mx:Metadata>
+	
+	<mx:Script>
+		<![CDATA[
+			import framework.core.utils.UtilsGolobal;
+			import framework.core.utils.UtilsMXML;
+			import framework.view.pages.reservationCreate.data.RoomingListItem;
+			import framework.module.CommonModule;
+			import services.vo.GlobalSettings;
+			import flash.profiler.profile;
+			import framework.view.pages.reservationCreate.popups.WishesList;
+			import services.vo.rates.CommonRateVO;
+			import framework.module.ReservationModule;
+			import h2olib.control.enum.MessageShowType;
+			import h2olib.control.enum.MessageKind;
+			import services.events.MsgEvent;
+			import services.vo.hotels.HotelRoomTypeObjectVO;
+			import services.vo.reservation.ReservationRoomBlockedVO;
+			import mx.collections.ArrayCollection;
+			import services.vo.hotels.HotelRoomObjectVO;
+			import framework.view.pages.reservationCreate.caller.FindCompanyProfilesPopupView;
+			import mx.core.Application;
+			import framework.managers.PopUpManagerExt;
+			import framework.view.pages.reservationCreate.popups.FindProfilesPopupViewForReservation;
+			import services.vo.hotels.HotelRoomWithBedTypesObjectVO;
+			import services.vo.profiles.CompanyProfileVO;
+			import services.vo.reservation.RsvRoomPersonVO;
+			import services.vo.profiles.ProfilePersonalVO;
+			import mx.controls.Alert;
+			import services.vo.reservation.DateVO;
+			import services.vo.reservation.OrderDateVO;
+			import h2olib.utils.DateUtils;
+			import services.vo.reservation.OrderVO;
+			import services.vo.GlobalImageAssets;
+			import services.vo.GlobalStorage;
+			
+			public static const NEW_ORDER_ADDED_EVENT:String = "newOrderAddedEvent";
+			public static const ORDER_SAVED_EVENT:String = "orderSavedEvent";
+			
+			private const ADD_ORDER:String = "Add Order";
+			private const SAVE_ORDER:String = "Save Order";
+			private const SAVE_PERSON:String = "Save";
+			
+			[Bindable]
+			public var isEditMode:Boolean;
+			[Bindable]
+			public var isEditPersonMode:Boolean;
+			
+			private var orderIdForEdit:int;
+			private var personForEdit:ProfilePersonalVO;
+			[Bindable]
+			private var person:ProfilePersonalVO = new ProfilePersonalVO();	
+			[Bindable]
+			private var aSalutation:ArrayCollection = new ArrayCollection([{sName:"none"}]);			
+			private var editItem:RoomingListItem = new RoomingListItem();
+			
+			
+			
+			private var idForNewOrder:int = -1;
+			
+			private function init():void
+			{
+				if(GlobalStorage.language.length == 0)
+				{
+					GlobalStorage.getLanguage();
+				}
+			}
+			
+			private function onCreationComplete():void
+			{
+				dfArrival.selectedDate = DateField.stringToDate(model.reservationModule.currentGroupReservation.sArrivalDate, DateUtils.DATE_SERVER_FORMAT);
+				dfDeparture.selectedDate = DateField.stringToDate(model.reservationModule.currentGroupReservation.sDepartureDate, DateUtils.DATE_SERVER_FORMAT);
+			}
+
+			//	--------------------------------------- Dialogs
+			private function createNewOrder():void
+			{
+				isEditMode = false;
+				clearNewOrderForm();
+			}
+			
+			public function setItemForEdit(item:RoomingListItem):void
+			{
+				dfArrival.selectedDate = DateField.stringToDate(item.sArrivalDate, DateUtils.DATE_SERVER_FORMAT);
+				dfDeparture.selectedDate = DateField.stringToDate(item.sDepartureDate, DateUtils.DATE_SERVER_FORMAT);
+				
+				orderIdForEdit = item.iOrderId;
+				personForEdit = item.oProfile;
+				person = item.oProfile;
+				cmbSalutation.salutationId = item.oProfile.lSalutationId;
+				cmbLanguage.setItemByField("lId", person.lLanguageId);
+				changeLanguage();
+				person.lSalutationId = item.oProfile.lSalutationId;
+				nsChildren1.value = item.iChildBefore;
+				nsChildren2.value = item.iChildMiddle;
+				nsChildren3.value = item.iChildAbove;
+			}
+
+			public function changeLanguage():void
+			{
+				var lanId:Number = cmbLanguage.selectedItem.lId;
+				aSalutation = model.commonModule.salutationByLanguage(lanId, true);
+				person.lLanguageId = lanId;
+				//person.lSalutationId = 0;				
+			}	
+			public function changeSalutation():void
+			{
+				person.lSalutationId = cmbSalutation.selectedItem.lId;
+			}
+
+			private function openFindProfileDialog():void 
+			{
+				var pop:FindProfilesPopupViewForReservation = PopUpManagerExt.createPopUp(model.owner.mainView, FindProfilesPopupViewForReservation) as FindProfilesPopupViewForReservation;
+				pop.callBack = setProfile;
+				PopUpManagerExt.centerPopUp( pop );
+			}
+			private function setProfile(profile:ProfilePersonalVO):void 
+			{
+				person = profile;
+				cmbSalutation.salutationId = profile.lSalutationId;
+				cmbLanguage.setItemByField("lId", person.lLanguageId);
+				changeLanguage();
+				person.lSalutationId = profile.lSalutationId;
+			}	
+			private function openFindCompanyDialog():void 
+			{
+				var pop:FindCompanyProfilesPopupView = PopUpManagerExt.createPopUp(model.owner.mainView, FindCompanyProfilesPopupView) as FindCompanyProfilesPopupView;
+				pop.callBack = setCompany;
+				PopUpManagerExt.centerPopUp( pop );
+			}
+			private function setCompany(company:CompanyProfileVO):void 
+			{
+				person.sCompanyName = company.sName;
+				person.lCompanyId = company.lMainId;
+			}
+						
+			private function showWishesList():void
+			{					
+	        	var pop:WishesList = PopUpManagerExt.createPopUp(model.owner, WishesList, true) as WishesList;
+	        	pop.profile = person;
+	        	PopUpManagerExt.centerPopUp(pop);
+			}	
+			
+				
+			//	---------------------------------------
+			//	SAVE NEW ORDER
+			
+			private function isValidForAdd():Boolean
+			{
+				var result:Boolean = true;
+				
+				if(!isValidName())
+				{
+					return false;
+				}
+				
+				if(DateUtils.getMaxDate(dfArrival.selectedDate, dfDeparture.selectedDate) == dfArrival.selectedDate)
+				{
+					new MsgEvent(MessageKind.ERROR,
+						"Error",
+						"Departure date must be later than arrival date!",
+						MessageShowType.UNKNOWN).dispatch();
+					return false;					
+				}					
+				
+				result = checkBlockedRooms(cmbRoomType.selectedItem as HotelRoomTypeObjectVO, dfArrival.selectedDate, dfDeparture.selectedDate);
+				
+				return result;
+			}
+			
+			private function isValidForSave():Boolean
+			{
+				var result:Boolean = true;
+				if(!isValidName())
+				{
+					return false;
+				}				
+				return result;
+			}
+			
+			private function isValidName():Boolean
+			{
+				if(txtName.text == "")
+				{
+					new MsgEvent(MessageKind.ERROR,
+						"Error",
+						"Name is required field!",
+						MessageShowType.UNKNOWN).dispatch();
+					return false;
+				}				
+				return true;
+			}			
+			
+			private function checkBlockedRooms(roomType:HotelRoomTypeObjectVO, startDate:Date, endDate:Date):Boolean
+			{
+				var result:Boolean = true;
+				
+				var dDiff:int = DateUtils.dateDiff(DateUtils.DAY_OF_MONTH, startDate, endDate);
+				
+				for(var i:int = 0; i < dDiff; i++)
+				{
+					var sDate:String = DateField.dateToString(DateUtils.dateAdd(DateUtils.DAY_OF_MONTH,i,startDate), DateUtils.DATE_SERVER_FORMAT);
+					var isExistForDate:Boolean;
+					for each(var room:ReservationRoomBlockedVO in model.reservationModule.currentGroupReservation.aRoomBlocked)
+					{						
+						if(room.iRoomType == roomType.iRoomTypeId && room.sDate == sDate && room.iRoomQuantityAvail > 0)
+						{
+							isExistForDate = true;
+							break;
+						}
+					}
+					if(!isExistForDate)
+					{
+						result = false;
+						
+						new MsgEvent(MessageKind.ERROR,
+							"Error",
+							"There are no available rooms for selected room type!",
+							MessageShowType.UNKNOWN).dispatch();						
+						break;
+					}					
+				}				
+				
+				return result;
+			}
+			
+			
+			
+			private function addOrder():void
+			{
+				if(isValidForAdd())
+				{
+					var idForNewProfile:int = -1;
+					var newOrder:OrderVO = new OrderVO();
+					
+					//	Order
+					newOrder.iOrderId = idForNewOrder;
+					idForNewOrder--;
+
+					newOrder.sStartDate = DateField.dateToString(dfArrival.selectedDate, DateUtils.DATE_SERVER_FORMAT);
+					newOrder.sEndDate = DateField.dateToString(dfDeparture.selectedDate, DateUtils.DATE_SERVER_FORMAT);
+					newOrder.iRoomTypeId = (cmbRoomType.selectedItem as HotelRoomTypeObjectVO).iRoomTypeId;
+					
+					newOrder.aProfileList = new Array();
+					if(person.lMainId == 0)
+					{
+						person.lMainId = idForNewProfile;
+						person.lId =0;
+					}
+					
+					newOrder.aProfileList.push(/*UtilsGolobal.clone(*/person.clone()/*)*/);
+									
+					
+					//	OrderDate List
+					var dateDiff:int = DateUtils.dateDiff(DateUtils.DAY_OF_MONTH, dfArrival.selectedDate, dfDeparture.selectedDate);
+					var orderDate:OrderDateVO;		
+					newOrder.aOrderDateList = new Array();
+					
+					for(var i:int = 0; i < dateDiff; i++)
+					{
+						orderDate = new OrderDateVO();					
+						orderDate.iRoomTypeId = newOrder.iRoomTypeId;
+						orderDate.oDate	= new DateVO(DateField.dateToString(DateUtils.dateAdd(DateUtils.DAY_OF_MONTH, i, dfArrival.selectedDate), DateUtils.DATE_SERVER_FORMAT ) );
+						var rateType:int;
+						for each(var room:ReservationRoomBlockedVO in model.reservationModule.currentGroupReservation.aRoomBlocked)
+						{
+							if(room.iRoomType == orderDate.iRoomTypeId && room.sDate == orderDate.oDate.sDate && room.iRoomQuantity > 0)
+							{
+								if(room.oRateObject != null)
+								{
+									orderDate.oCommonRateObject = room.oRateObject;
+									room.iRoomAllocateQuantity++;;
+									if(room.oRateObject.oMapBarPrice != null)
+									{
+										rateType = ReservationModule.BAR;
+										orderDate.oCommonRateObject.iBarPriceId = room.oRateObject.oMapBarPrice.iRateId;
+										orderDate.iMarketCodeId = room.iMarketCodeId;
+										break;										
+									}
+									if(room.oRateObject.oMapCompanyRate != null)
+									{
+										rateType = ReservationModule.COMPANY_RATE;
+										orderDate.oCommonRateObject.iCompanyPriceId = room.oRateObject.oMapCompanyRate.iRateId;
+										orderDate.iMarketCodeId = room.iMarketCodeId;
+										break;										
+									}
+									if(room.oRateObject.oMapPackage != null)
+									{
+										rateType = ReservationModule.PACKAGE_RATE;
+										orderDate.oCommonRateObject.iPackagePriceId = room.oRateObject.oMapPackage.iPackageId;
+										orderDate.iMarketCodeId = room.iMarketCodeId;
+										break;										
+									}
+								}
+							}
+						}
+						
+						if(i == 0)
+						{
+							newOrder.iRateType = rateType;
+							switch(rateType)
+							{
+								case ReservationModule.BAR:
+									newOrder.iRateId = newOrder.iBarId = orderDate.oCommonRateObject.iBarPriceId;									 
+								break;
+								case ReservationModule.COMPANY_RATE:
+									newOrder.iRateId = newOrder.iCompanyRateId = orderDate.oCommonRateObject.iCompanyPriceId;									 
+								break;
+								case ReservationModule.PACKAGE_RATE:
+									newOrder.iRateId = newOrder.iPackageRateId = orderDate.oCommonRateObject.iPackagePriceId;									 
+								break;
+							}							
+						}						
+						
+						
+						orderDate.oHotelRoom = new HotelRoomObjectVO();	//TODO not ready
+						//orderDate.oHotelRoom.sRoomName = "empty";
+						orderDate.aProfileList = new Array();
+						for each(var personItem:ProfilePersonalVO in newOrder.aProfileList)
+						{
+							orderDate.aProfileList.push(new RsvRoomPersonVO(0,personItem.lMainId));
+						}
+						orderDate.iAdults = 1;
+						orderDate.iChildBefore = nsChildren1.value;
+						orderDate.iChildMiddle = nsChildren2.value;
+						orderDate.iChildAbove = nsChildren3.value;
+						
+						newOrder.aOrderDateList.push(orderDate);
+					}
+					
+					newOrder.iTotalChildBefore = nsChildren1.value;
+					newOrder.iTotalChildMiddle = nsChildren2.value;
+					newOrder.iTotalChildAbove = nsChildren3.value;
+					
+					if(model.reservationModule.currentGroupReservation.oMapReservation.aOrders == null)
+					{
+						model.reservationModule.currentGroupReservation.oMapReservation.aOrders = new Array();
+					}				
+					model.reservationModule.currentGroupReservation.oMapReservation.aOrders.push(newOrder);	
+					dispatchEvent(new Event(NEW_ORDER_ADDED_EVENT));
+					clearNewOrderForm();		
+				}	
+			}
+			
+			
+			private function saveOrder():void
+			{
+				if(isValidForSave())
+				{
+					for(var i:int = 0; i < model.reservationModule.currentGroupReservation.oMapReservation.aOrders.length; i++)
+					{
+						var order:OrderVO = model.reservationModule.currentGroupReservation.oMapReservation.aOrders[i] as OrderVO;
+						if(order.iOrderId == orderIdForEdit)
+						{
+							for(var j:int = 0; j < order.aProfileList.length; j++)
+							{	
+								var profile:ProfilePersonalVO = order.aProfileList[j] as ProfilePersonalVO;							
+								if(profile.lMainId == personForEdit.lMainId)
+								{
+									(model.reservationModule.currentGroupReservation.oMapReservation.aOrders[i] as OrderVO).aProfileList[j] = person.clone();
+									//profile = person.clone();
+									break;									
+								}
+							}
+							
+							for each(var orderDate:OrderDateVO in order.aOrderDateList)
+							{
+								for each(var rsvRoomPerson:RsvRoomPersonVO in orderDate.aProfileList)
+								{
+									if(rsvRoomPerson.iProfileId == personForEdit.lMainId)
+									{
+										rsvRoomPerson.iProfileId = person.lMainId;
+										break;
+									}
+								}
+							}						
+						}						
+					}					
+					dispatchEvent(new Event(ORDER_SAVED_EVENT));
+					clearNewOrderForm();
+				}				
+			}		
+			
+			public function clearNewOrderForm():void
+			{
+				cmbRoomType.selectedIndex = 0;
+				cmbLanguage.selectedIndex = 0;
+				dfArrival.selectedDate = DateField.stringToDate(model.reservationModule.currentGroupReservation.sArrivalDate, DateUtils.DATE_SERVER_FORMAT);
+				dfDeparture.selectedDate = DateField.stringToDate(model.reservationModule.currentGroupReservation.sDepartureDate, DateUtils.DATE_SERVER_FORMAT);
+			
+				person = new ProfilePersonalVO();
+				aSalutation = model.commonModule.salutationByLanguage(0, true);
+				person.sName = "";
+				person.sSurname = "";
+				person.sCompanyName = "";
+				person.smokerField = 0;
+				nsChildren1.value = 0;
+				nsChildren2.value = 0;
+				nsChildren3.value = 0;
+			}
+			
+
+		]]>
+	</mx:Script>
+	
+	
+	<mx:HBox width="100%">
+	
+		<!-- column # 1 -->
+		<mx:VBox>
+			<mx:FormItem label="Room Type:"
+				labelStyleName="textToRight"
+				labelWidth="70">
+				<control:ComboBoxEx id="cmbRoomType"
+					dataProvider="{model.reservationModule.aRoomTypesForCurrentGroupReservation}"
+					enabled="{!isEditMode}"
+					labelField="sLocale"
+					width="120"/>
+			</mx:FormItem>			
+			<mx:FormItem label="Language:"				
+				labelStyleName="textToRight"
+				labelWidth="70">
+				<control:ComboBoxEx id="cmbLanguage"
+					dataProvider="{CommonModule.validateLanguage(GlobalStorage.language)}"
+					change="{changeLanguage()}"
+					labelField="sCode"
+					width="120"/>
+			</mx:FormItem>	
+			<mx:FormItem label="Salutation:"
+				labelStyleName="textToRight"
+				labelWidth="70">
+				<controls:SalutationComboBox id="cmbSalutation"
+					dataProvider="{aSalutation}"
+					change="{changeSalutation()}"
+					labelField="sName"
+					width="120"/>
+			</mx:FormItem>				
+		</mx:VBox>			
+			
+		<!-- column # 2 -->
+		<mx:VBox>
+			<mx:FormItem label="Arrival:"
+				labelStyleName="textToRight"
+				labelWidth="70"
+				width="100%">
+				<mx:DateField id="dfArrival"	
+					formatString="{GlobalSettings.DATE_FORMAT}"
+					enabled="{!isEditMode}"
+					disabledRanges="{[ {rangeEnd: DateUtils.dateAdd(DateUtils.DAY_OF_MONTH,-1, model.businessDate)},
+										{rangeStart: DateField.stringToDate(model.reservationModule.currentGroupReservation.sDepartureDate, DateUtils.DATE_SERVER_FORMAT)} ]}"						
+					width="120"/>											
+			</mx:FormItem>				
+			<mx:FormItem label="Departure:"
+				labelStyleName="textToRight"
+				labelWidth="70"
+				width="100%">
+				<mx:DateField id="dfDeparture"
+					formatString="{GlobalSettings.DATE_FORMAT}"
+					enabled="{!isEditMode}"
+					disabledRanges="{[ {rangeEnd: DateUtils.getMaxDate(dfArrival.selectedDate,DateUtils.dateAdd(DateUtils.DAY_OF_MONTH,-1, model.businessDate))},
+									   {rangeStart: DateUtils.dateAdd(DateUtils.DAY_OF_MONTH,1,DateField.stringToDate(model.reservationModule.currentGroupReservation.sDepartureDate, DateUtils.DATE_SERVER_FORMAT))} ]}"
+					width="120"/>							
+			</mx:FormItem>	
+			<mx:FormItem
+				labelStyleName="textToRight"
+				labelWidth="70"
+				width="100%">			
+				<mx:Button
+					width="100"
+					label="Payment Ins."
+					enabled="{false}"
+					click="{Alert.show('Payment Ins.')}"/>
+			</mx:FormItem>				
+			<mx:FormItem
+				labelStyleName="textToRight"
+				labelWidth="70"
+				width="100%">				
+				<mx:Button
+					width="100"
+					label="S.Wishes"
+					click="{showWishesList()}"/>	
+			</mx:FormItem>							
+		</mx:VBox>
+		
+		<!-- column # 3 -->
+		<mx:VBox>
+			<mx:FormItem label="Name:"
+				labelStyleName="textToRight"
+				labelWidth="70"
+				width="100%"
+				direction="horizontal"
+				required="true">
+				<mx:TextInput id="txtName"
+					text="{person.sSurname}"
+					change="{person.sSurname = txtName.text; isEditMode ? person.lMainId = person.lMainId : person.lMainId = 0;}"
+					width="200"/>
+				<mx:Image
+					width="24"
+					buttonMode="true"
+					useHandCursor="true"
+					click="{openFindProfileDialog()}">
+					<mx:source>
+						{GlobalImageAssets.getInstance().searchIcon}
+					</mx:source>
+				</mx:Image>
+			</mx:FormItem>				
+			<mx:FormItem label="First Name:"
+				labelStyleName="textToRight"
+				labelWidth="70"
+				width="100%"
+				direction="horizontal">
+				<mx:TextInput id="txtFirstName"
+					text="{person.sName}"						
+					change="{person.sName = txtFirstName.text; isEditMode ? person.lMainId = person.lMainId : person.lMainId = 0;}"
+					width="200"/>
+				<mx:Spacer width="16"/>
+			</mx:FormItem>	
+			<mx:FormItem label="Company:"
+				labelStyleName="textToRight"
+				labelWidth="70"
+				width="100%"
+				direction="horizontal">
+				<mx:TextInput id="txtCompany"
+					text="{person.sCompanyName}"
+					change="{person.sCompanyName = txtCompany.text; isEditMode ? person.lCompanyId = person.lCompanyId : person.lCompanyId = 0;}"
+					width="200"/>
+				<mx:Image
+					width="24"
+					buttonMode="true"
+					useHandCursor="true"
+					click="{openFindCompanyDialog()}">
+					<mx:source>
+						{GlobalImageAssets.getInstance().searchIcon}
+					</mx:source>
+				</mx:Image>
+			</mx:FormItem>							
+		</mx:VBox>				
+
+				
+		<!-- column # 4 -->
+		<mx:VBox>
+			<mx:FormItem label="{'Children &lt; ' + model.hotelsModule.hotelTotalInfo.iChildAge1}: "
+				labelStyleName="textToRight"
+				labelWidth="120">
+				<mx:NumericStepper id="nsChildren1"
+					enabled="{!isEditMode}"
+					width="100"/>
+			</mx:FormItem>	
+			<mx:FormItem label="{'Children &lt; ' + model.hotelsModule.hotelTotalInfo.iChildAge2}: "
+				labelStyleName="textToRight"
+				labelWidth="120">
+				<mx:NumericStepper id="nsChildren2"
+					enabled="{!isEditMode}"
+					width="100"/>
+			</mx:FormItem>				
+			<mx:FormItem label="{'Children &lt; ' + model.hotelsModule.hotelTotalInfo.iChildAge3}: "
+				labelStyleName="textToRight"
+				labelWidth="120">
+				<mx:NumericStepper id="nsChildren3"
+					enabled="{!isEditMode}"
+					width="100"/>
+			</mx:FormItem>	
+			<mx:FormItem label="Smoker: "
+				labelStyleName="textToRight"
+				labelWidth="120">
+				<mx:ComboBox id="cmbSmoker"  
+					dataProvider="{GlobalStorage.smokerField}" 
+					change="{person.smokerField = cmbSmoker.selectedIndex}"
+					selectedIndex="{person.smokerField}"
+					labelField="sName" 
+					width="100"/>	
+			</mx:FormItem>							
+		</mx:VBox>	
+		
+		<!-- column # 6 -->			
+		<mx:VBox>
+			<mx:Button id="btnNewOrder"
+				label="Clear"
+				width="100"
+				toolTip="Clear order form"
+				click="{createNewOrder()}"/>
+			<mx:Button id="btnAddOrder"
+				label="{isEditMode ? (isEditPersonMode ? SAVE_PERSON : SAVE_ORDER) : ADD_ORDER}"
+				width="100"
+				fontWeight="bold"
+				click="{isEditMode ? saveOrder() : addOrder()}"/>
+		</mx:VBox>		
+	</mx:HBox>
+
+</SubWindow>

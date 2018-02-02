@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:HBox xmlns:mx="http://www.adobe.com/2006/mxml" width="100%" horizontalAlign="center" verticalAlign="middle"
+	>
+	<mx:Script>
+		<![CDATA[
+			import framework.view.pages.hotels.events.HotelCheckBedTypeEvent;
+			import services.vo.backend.BedTypeObjectVO;
+			
+			private function handleCheck():void
+			{
+				data.bIsChecked = isChecked.selected;
+				var evt:HotelCheckBedTypeEvent = new HotelCheckBedTypeEvent(HotelCheckBedTypeEvent.CHECK_CLICK);				
+				owner.dispatchEvent( evt );
+			}
+			
+			override public function set data(value:Object):void
+			{
+				super.data = value;
+				
+				if(data)
+				{
+					isChecked.selected = data.bIsChecked;
+				}
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:CheckBox id="isChecked" click="handleCheck()" />
+</mx:HBox>

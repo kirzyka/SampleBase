@@ -1,0 +1,212 @@
+<?xml version="1.0" encoding="utf-8"?>
+<popup:BasePopupView
+	xmlns:popup="framework.view.components.popups.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:searchBox="h2olib.control.searchBox.*"
+	xmlns:pager="h2olib.control.pager.*"
+	title="Choose company..."
+	creationComplete="update()"
+	width="800" height="600">
+	
+	<mx:Script>
+		<![CDATA[
+			import framework.view.pages.profiles.popups.travelAgency.SaveTAProfilesPopupView;
+			import mx.managers.PopUpManagerChildList;
+			import framework.managers.PopUpManagerExt;
+			import framework.view.pages.profiles.popups.company.SaveCompanyProfilesPopupView;
+			import services.cairngorm.BaseEvent;
+			import services.events.profiles.company.GetCompanyByIdEvent;
+			import services.events.profiles.company.GetAllListEvent;
+			import services.business.profiles.ProfileDelegate;
+			import services.vo.profiles.CompanyProfileViewVO;
+			import framework.view.pages.profiles.events.CompanyEvent;
+			import services.vo.GlobalSettings;
+			import h2olib.control.pager.event.PagerEvent;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.controller.AppController;
+			import services.events.profiles.company.GetCompanyListEvent;
+			
+			/**
+			 *  This property is name of company.
+			 *  
+			 *  @default ""
+			 */
+			private var _sCompanyName:String = "";
+			/**
+			 *  This property is state of possible edit profiles by double
+			 *  click
+			 *  
+			 *  @default false
+			 */
+			private var _isCanEdit:Boolean = false;
+			/**
+			 *  This property is visiblw row in main grid for view companies
+			 *  and travel agencies.
+			 *  
+			 *  @default 0
+			 */
+			private var _visibleRow:int = 0;
+			
+			public function update():void
+			{
+				
+				var event:GetAllListEvent = new GetAllListEvent(ProfileDelegate.GET_ALL_LIST);
+				event.pattern = searchField.text;
+				event.page = 1;
+				event.count = pager.pageViewCount;
+				CairngormEventDispatcher.getInstance().dispatchEvent(event); 
+			}
+			
+			/**
+			 *  Handle for get new block of company profiles by settings of pager.
+			 *  
+			 *  @param e:PagerEvent 
+			 */
+			private function handleGetProfiles(e:PagerEvent):void
+			{
+				var event:GetAllListEvent = new GetAllListEvent(ProfileDelegate.GET_ALL_LIST);
+				event.page = e.index;
+				event.count = e.count;
+				CairngormEventDispatcher.getInstance().dispatchEvent(event);
+			}
+			
+			private function selectCompany():void
+			{
+				var event:CompanyEvent = new CompanyEvent(CompanyEvent.CHOOSE_COMPANY);
+				event.id = (dgCompanyList.selectedItem as CompanyProfileViewVO).lMainId;
+				event.name = (dgCompanyList.selectedItem as CompanyProfileViewVO).sName;
+				event.data = (dgCompanyList.selectedItem as CompanyProfileViewVO);
+				dispatchEvent(event);
+				
+				completeCall();
+			}
+			
+			private function tryEditCompany():void
+			{
+				var event:BaseEvent;
+				if (isCanEdit)
+				{
+					if ((dgCompanyList.selectedItem as CompanyProfileViewVO).bIsTa)
+					{
+						event = new GetCompanyByIdEvent(ProfileDelegate.GET_TRAVEL_AGENCY_BY_ID);
+						(event as GetCompanyByIdEvent).id = (dgCompanyList.selectedItem as CompanyProfileViewVO).lMainId;
+						event.callBack = openEditTAPopup;
+					}
+					else
+					{
+						event = new GetCompanyByIdEvent(ProfileDelegate.GET_COMPANY_PROFILE_BY_ID);
+						(event as GetCompanyByIdEvent).id = (dgCompanyList.selectedItem as CompanyProfileViewVO).lMainId;
+						event.callBack = openEditCompanyPopup;
+					}
+					CairngormEventDispatcher.getInstance().dispatchEvent(event);
+				}
+				else
+				{
+					selectCompany();
+				}
+			}
+			
+			private function openEditCompanyPopup():void
+			{
+				var pop:SaveCompanyProfilesPopupView = PopUpManagerExt.createPopUp(this, SaveCompanyProfilesPopupView) as SaveCompanyProfilesPopupView;
+				pop.data = model.profilesModule.curCompanyProfile;
+			}
+			
+			private function openEditTAPopup():void
+			{
+				var pop:SaveTAProfilesPopupView = PopUpManagerExt.createPopUp(this, SaveTAProfilesPopupView) as SaveTAProfilesPopupView;
+				pop.data = model.profilesModule.curTravelAgency;
+			}
+			
+			/**
+			 *  Label function for view type of company profile.
+			 *  
+			 *  @param item:Object - item of dataprovider for caller table.
+			 *  @param column:DataGridColumn - column in grid.
+			 *  
+			 *  @result formated date as String.
+			 */
+			private function funcTypeView(item:Object, column:DataGridColumn):String
+			{
+				return (item as CompanyProfileViewVO).bIsTa ? "Travel Agency" : "Company";
+			}
+			
+			/**
+			 *  The name of company.
+			 */
+			public function get companyName():String
+			{
+				return _sCompanyName;
+			}
+			public function set companyName(value:String):void
+			{
+				_sCompanyName = value;
+				
+				searchField.text = _sCompanyName;
+			}
+			
+			[Bindable(event="editModeChanged")]
+			/**
+			 *  The state of edit mode for popup.
+			 */
+			public function get isCanEdit():Boolean
+			{
+				return _isCanEdit;
+			}
+			public function set isCanEdit(value:Boolean):void
+			{
+				_isCanEdit = value;
+				
+				dispatchEvent(new Event("editModeChanged"));
+			}
+		]]>
+	</mx:Script>
+	
+	
+	<searchBox:SearchBox
+		id="searchField"
+		label="{model.locale.Profiles_Company_SearchBox_CompanyName}"
+		enter="update()"
+		width="250"/>
+	
+	<mx:DataGrid id="dgCompanyList"
+		dataProvider="{model.profilesModule.companyProfileList}"
+		doubleClickEnabled="true"
+		doubleClick="tryEditCompany()"
+		width="100%" height="100%" >
+		<mx:columns>
+			<mx:DataGridColumn
+				headerText="{model.locale.Profiles_Company_Columns_CompanyName}"
+				dataField="sName"/>
+			<mx:DataGridColumn
+				headerText="Profile Type"
+				labelFunction="funcTypeView"/>
+			<mx:DataGridColumn
+				headerText="{model.locale.Profiles_Company_Columns_City}"
+				dataField="sCity"/>
+			<mx:DataGridColumn
+				headerText="{model.locale.Profiles_Company_Columns_Country}"
+				dataField="sCountry"/>
+			<mx:DataGridColumn
+				headerText="{model.locale.Profiles_Company_Columns_Phone}"
+				dataField="sPhone"/>
+			<mx:DataGridColumn
+				headerText="{model.locale.Profiles_Company_Columns_Email}"
+				dataField="sEmail"/>
+		</mx:columns>
+	</mx:DataGrid>
+	
+	<mx:HBox width="100%" horizontalAlign="right">
+		<mx:Button
+			label="{model.locale.Global_Button_Ok}"
+			fontWeight="bold"
+			enabled="{dgCompanyList.selectedItem}"
+			click="selectCompany()"
+			width="{GlobalSettings.BUTTON_WIDTH_APPLY}"/>
+		<mx:Spacer width="100%"/>
+		<pager:Pager id="pager"
+			count="{model.profilesModule.companyProfileCount}"
+			pageChange="handleGetProfiles(event)"
+			fit="20"/>
+	</mx:HBox>
+</popup:BasePopupView>

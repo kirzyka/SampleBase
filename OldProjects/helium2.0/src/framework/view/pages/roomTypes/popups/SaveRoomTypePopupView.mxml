@@ -1,0 +1,565 @@
+<?xml version="1.0" encoding="utf-8"?>
+<popup:DataPopupView 
+	xmlns:popup="framework.view.components.popups.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml" layout="vertical" horizontalScrollPolicy="off" 
+	creationComplete="handleInit()"	showCloseButton="true" close="closeWindow()" show="handleInit()" 
+	editTitle="Edit Room Type" addTitle="Create Room Type">
+	
+	<mx:Script>
+		<![CDATA[
+			import services.events.roomTypes.AddRoomTypeEvent;
+			import framework.view.pages.roomTypes.renderer.BedTypeCheckItemRendererView;
+			import framework.view.pages.roomTypes.renderer.BedTypeBaseItemRendererView;
+			import framework.view.pages.roomTypes.renderer.BedTypeDeleteItemRendererView;
+			import framework.view.pages.hotels.events.HotelCheckBedTypeEvent;
+			import mx.formatters.SwitchSymbolFormatter;
+			import services.events.roomTypes.AddBedTypeEvent;
+			import services.events.roomTypes.DeleteBedTypeEvent;
+			import services.events.roomTypes.EditRoomTypeEvent;
+			import mx.events.ListEvent;
+			import mx.events.ScrollEvent;
+			import framework.view.pages.roomTypes.events.BaseClickEvent;
+			import mx.events.DataGridEvent;
+			import mx.controls.Alert;
+			import mx.events.CollectionEvent;
+			import services.vo.backend.RoomTypesObjectVO;
+			import services.vo.backend.RoomWithBedTypesObjectVO;
+			import services.vo.backend.RoomQualityObjectVO;
+			import mx.collections.ArrayCollection;
+			import framework.managers.PopUpManagerExt;
+			import services.vo.backend.BedTypeObjectVO;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.controller.AppController;
+			import framework.model.AppModelLocator;
+			
+			[Bindable]
+			private var clickCancel:Boolean = false;
+			
+			[Bindable]
+			private var roomType:RoomWithBedTypesObjectVO = new RoomWithBedTypesObjectVO();
+			
+			private var flagAddNewBedType:Boolean=false;
+			
+			[Bindable]
+			private var descriptions:ArrayCollection = new ArrayCollection();
+			
+			private var elementOfDescriptions:Object = new Object();			
+			
+			private var nameBedTypePrevSost:String="";
+			
+			/**
+			 * Initialize for add or edit bed type
+			 */ 
+			private function handleInit():void
+			{
+				var i:int = 0;
+				descriptions = model.roomTypesModule.currentDescriptions;
+				var roomBedTypes:ArrayCollection = model.roomTypesModule.roomBedTypes;
+				var roomBedTypesLength:int = roomBedTypes.length;
+				if (isEdit)
+				{
+					roomType = model.roomTypesModule.currentRoomWithBedTypes;				
+					for(i = 0; i < roomBedTypes.length; i++)
+					{
+						(roomBedTypes.getItemAt(i) as BedTypeObjectVO).bIsChecked = false;	
+					}
+					roomBedTypes.refresh();
+					
+					roomTypeName.text = roomType.oRoomQuality.sQualityName;
+					if (roomType.oRoomQuality.bIsUsedStandalone)
+					{
+						standalonCapacity.text = String(roomType.flx_oRoomStandalone.iRoomCapacity);
+						standalonDescription.text = roomType.flx_oRoomStandalone.sDescription;
+					}
+					else
+					{
+						standalonCapacity.text = '';
+						standalonDescription.text = '';
+						standalonCapacity.enabled = false;
+						standalonDescription.enabled = false;
+					}					
+					var bedsDP:ArrayCollection = new ArrayCollection();		
+					for (i = 0; i < bedTypes.dataProvider.length; i++)
+					{
+						if (!roomType.oRoomQuality.bIsUsedStandalone)
+						{
+							for (var j:int=0; j<roomType.aRoomWithBedTypes.length; j++)
+							if ((bedTypes.dataProvider.getItemAt(i) as BedTypeObjectVO).iTypeId == (roomType.aRoomWithBedTypes[j] as RoomTypesObjectVO).iBedType)
+								{
+								(bedTypes.dataProvider.getItemAt(i) as BedTypeObjectVO).bIsChecked = true;
+								
+								(bedTypes.dataProvider.getItemAt(i) as BedTypeObjectVO).___iCapacity = (roomType.aRoomWithBedTypes[j] as RoomTypesObjectVO).iRoomCapacity;
+								
+								elementOfDescriptions = new Object();
+								
+								elementOfDescriptions.sDescription = (roomType.aRoomWithBedTypes[j] as RoomTypesObjectVO).sDescription;				
+								elementOfDescriptions.iDescription = (roomType.aRoomWithBedTypes[j] as RoomTypesObjectVO).iDescription;
+								
+								if (i < descriptions.length && descriptions.getItemAt(i) != null)
+									descriptions.setItemAt(elementOfDescriptions, i);
+								else
+									descriptions.addItemAt(elementOfDescriptions, i);
+								}
+							else
+								{
+								if ((bedTypes.dataProvider.getItemAt(i) as BedTypeObjectVO).___iCapacity == 0)
+								(bedTypes.dataProvider.getItemAt(i) as BedTypeObjectVO).___iCapacity = 1;
+								//(bedTypes.dataProvider.getItemAt(i) as BedTypeObjectVO).iTypeId = roomType.flx_oRoomStandalone.iId;
+								
+								elementOfDescriptions = new Object();
+								
+								elementOfDescriptions.sDescription = "";
+								elementOfDescriptions.iDescription = 0;				
+								
+								if (i == descriptions.length )								
+									descriptions.addItemAt(elementOfDescriptions, i);	
+								}
+						}
+						else
+						{
+								elementOfDescriptions = new Object();
+									
+								elementOfDescriptions.sDescription = "";
+								elementOfDescriptions.iDescription = 0;				
+								
+								if (i == descriptions.length )								
+									descriptions.addItemAt(elementOfDescriptions, i);							
+						}
+					}
+				}
+				else
+				{
+					for(i = 0; i < roomBedTypesLength; i++)
+					{
+						(roomBedTypes.getItemAt(i) as BedTypeObjectVO).bIsChecked = false;
+						(roomBedTypes.getItemAt(i) as BedTypeObjectVO).___iCapacity = 1;
+					}	
+					roomBedTypes.refresh();
+					
+					standalonCapacity.text = "1";
+					standalonDescription.text = "";
+					
+					for (i = 0; i < roomBedTypesLength; i++)
+					{
+						elementOfDescriptions = new Object();
+						elementOfDescriptions.sDescription = "";				
+						descriptions.addItem(elementOfDescriptions);
+					}					
+				}
+				descriptionList.addEventListener(ScrollEvent.SCROLL, connectDescToBed);
+				bedTypes.addEventListener(ScrollEvent.SCROLL, connectBedToDesc);
+				
+				bedTypes.addEventListener(BaseClickEvent.BASE_CLICK, updateBaseList);
+				bedTypes.addEventListener(HotelCheckBedTypeEvent.CHECK_CLICK, updateStandalonFields);
+			}
+			
+			/**
+			 * Connect scroll of description to scroll of bed types
+			 */ 
+			private function connectDescToBed(evt: ScrollEvent):void
+			{
+				bedTypes.verticalScrollPosition = descriptionList.verticalScrollPosition;
+			}
+			
+			private function connectBedToDesc(evt: ScrollEvent):void
+			{
+				descriptionList.verticalScrollPosition = bedTypes.verticalScrollPosition;
+			}
+			/////////////////////////////////////////////////////////
+			
+			/**
+			 * Update base list
+			 */ 
+			public function updateBaseList(evt: BaseClickEvent):void
+			{
+				var roomBedTypesLength:int = model.roomTypesModule.roomBedTypes.length;
+				for (var i:int = 0; i < roomBedTypesLength; i++)
+				{
+					if ((bedTypes.dataProvider.getItemAt(i) as BedTypeObjectVO).iTypeId == evt.bedTypeId)
+					{
+						(bedTypes.dataProvider.getItemAt(i) as BedTypeObjectVO).bIsDefault = true;
+					}
+					else
+					{
+						//base.selected = false;
+						(bedTypes.dataProvider.getItemAt(i) as BedTypeObjectVO).bIsDefault = false;
+					}
+				}
+				bedTypes.dataProvider.refresh();
+			}
+			
+			public function updateStandalonFields(evt: HotelCheckBedTypeEvent = null):void
+			{
+				if (standalonCapacity.text == '')
+					standalonCapacity.text = '1';
+				standalonCapacity.enabled = true;
+				standalonDescription.enabled = true;
+				var roomBedTypesLength:int = model.roomTypesModule.roomBedTypes.length; 
+				for (var i:int = 0; i < roomBedTypesLength; i++)
+				{					
+					if ((bedTypes.dataProvider.getItemAt(i) as BedTypeObjectVO).bIsChecked)
+					{
+						standalonCapacity.enabled = false;
+						standalonDescription.enabled = false;
+						standalonCapacity.text = '';
+						standalonDescription.text = '';	
+					}
+				}				
+			}
+			
+			private function getExistedRoomWithBedType(bedTypeName:String):RoomTypesObjectVO
+			{
+/* 				for(var k:int = 0;k<roomType.aRoomWithBedTypes.length;k++)
+				{
+					var roomWithBT:RoomWithBedTypesObjectVO = roomType.aRoomWithBedTypes[k] as RoomWithBedTypesObjectVO;
+					var bedType:BedTypeObjectVO = roomWithBT.oBedType;
+					
+					if(bedType != null)
+						if(bedType.sTypeName == bedTypeName)
+							return roomWithBT;
+				}*/
+				
+				return null; 
+			}
+			
+			private function closeWindow():void
+			{
+				
+				bedTypes.removeEventListener(DataGridEvent.ITEM_EDIT_BEGIN, handleStartEditBedType);
+				bedTypes.removeEventListener(DataGridEvent.ITEM_EDIT_END, handleEditBedType);
+				
+				for (var i:int = 0; i < bedTypes.dataProvider.length; i++)
+				{
+					if (bedTypes.dataProvider.getItemAt(i).sTypeName == '')
+					{
+						model.roomTypesModule.roomBedTypes.removeItemAt(i);
+						descriptionList.dataProvider.removeItemAt(i);					
+					}
+				}				
+				
+				clickCancel = true;
+				PopUpManagerExt.removePopUp( this );
+			}
+			
+			/** 
+			 * Add new bed type. Add in temp list capacity.
+			 **/
+			private function handleAddBedType():void
+			{
+				var addNewBedType:BedTypeObjectVO = new BedTypeObjectVO();
+				addNewBedType.___iCapacity = 1;
+				addNewBedType.bIsChecked = false;
+				addNewBedType.bIsDefault = false;
+				addNewBedType.iTypeId = 0;
+				addNewBedType.sTypeName = "";
+				
+				addBedType.enabled = false;
+				roomTypeName.enabled = false;
+				apply_AddRoomTypePopupView.enabled = false;				
+				
+				model.roomTypesModule.roomBedTypes.addItem(addNewBedType);
+				bedTypes.verticalScrollPosition = bedTypes.maxVerticalScrollPosition;
+				
+				
+				flagAddNewBedType=true;				
+				
+				bedTypes.editedItemPosition = {rowIndex:bedTypes.dataProvider.length-1, columnIndex:1};
+				
+				// add not fill discription	
+				elementOfDescriptions = new Object();		
+				elementOfDescriptions.sDescription = "";
+				elementOfDescriptions.iDescription = 0;				
+									
+				descriptions.addItem(elementOfDescriptions);
+			}
+			
+			private function handleStartEditBedType (evt:DataGridEvent):void
+			{					
+				nameBedTypePrevSost = model.roomTypesModule.roomBedTypes.getItemAt(evt.rowIndex).sTypeName;				
+			}
+			
+			/**
+			 * edit bed type
+			 */ 
+			private function handleEditBedType (evt:DataGridEvent):void
+			{				
+				var item:BedTypeObjectVO = evt.itemRenderer.data as BedTypeObjectVO;
+				if (item.sTypeName.length == 0)
+				{
+					if (clickCancel)
+					{
+						model.roomTypesModule.roomBedTypes.removeItemAt(model.roomTypesModule.roomBedTypes.length-1);
+						descriptionList.dataProvider.removeItemAt(bedTypes.dataProvider.length-1);
+					}
+					else 
+					{
+					bedTypes.editedItemPosition = {rowIndex:evt.rowIndex, columnIndex:evt.columnIndex};
+					bedTypes.dataProvider.getItemAt(evt.rowIndex).sTypeName = nameBedTypePrevSost;
+					}
+					return;
+				}
+				// if this item alredy exist
+				for (var i:int = 0; i < bedTypes.dataProvider.length; i++)
+				{
+					if (bedTypes.dataProvider.getItemAt(evt.rowIndex).sTypeName == bedTypes.dataProvider.getItemAt(i).sTypeName && evt.rowIndex != i)
+					{
+						bedTypes.editedItemPosition = {rowIndex:evt.rowIndex, columnIndex:evt.columnIndex};
+						bedTypes.dataProvider.getItemAt(evt.rowIndex).sTypeName = nameBedTypePrevSost;						
+						return;						
+					}
+				}
+				
+				if (nameBedTypePrevSost!=bedTypes.dataProvider.getItemAt(evt.rowIndex).sTypeName)
+				{
+					var event:AddBedTypeEvent = new AddBedTypeEvent( AppController.ADD_BED_TYPE_EVENT );
+					
+					event.bedType.iTypeId = bedTypes.dataProvider.getItemAt(evt.rowIndex).iTypeId;
+					event.bedType.sTypeName = bedTypes.dataProvider.getItemAt(evt.rowIndex).sTypeName;
+					event.bedType.___iCapacity = bedTypes.dataProvider.getItemAt(evt.rowIndex).___iCapacity;
+					event.bedType.bIsChecked = bedTypes.dataProvider.getItemAt(evt.rowIndex).bIsChecked;
+					
+					if (flagAddNewBedType)
+					bedTypes.dataProvider.removeItemAt(bedTypes.dataProvider.length-1);
+					
+					flagAddNewBedType=false;					
+					addBedType.enabled = true;
+					roomTypeName.enabled = true;
+					apply_AddRoomTypePopupView.enabled = true;
+					CairngormEventDispatcher.getInstance().dispatchEvent( event );
+				}
+			}
+			
+			/**
+			 * Date preparation and request to server for save a room type
+			 */ 
+			private function handleApply():void
+			{
+				if (isEdit)
+				{
+					var evt:EditRoomTypeEvent = new EditRoomTypeEvent( AppController.EDIT_ROOM_TYPE_EVENT);				
+					var roomQuality:RoomQualityObjectVO = new RoomQualityObjectVO();					
+					roomQuality.bIsUsedStandalone = isStandalone();
+					roomQuality.lQualityId =  roomType.oRoomQuality.lQualityId;
+					roomQuality.sQualityName = roomTypeName.text;
+					
+					var roomWithBedTypesArray:Array = [];
+					var roomWithBedTypes:RoomTypesObjectVO = new RoomTypesObjectVO();
+					
+					var listBedTypes:ArrayCollection = bedTypes.dataProvider as ArrayCollection;
+					
+					var tempRoomQuality:RoomWithBedTypesObjectVO = model.roomTypesModule.currentRoomWithBedTypes;
+					var tempRoomType:RoomTypesObjectVO = model.roomTypesModule.currentRoomType;
+					
+					
+					if (roomQuality.bIsUsedStandalone)
+					{
+							roomWithBedTypes.oBedType = null;
+							roomWithBedTypes.sDescription = standalonDescription.text;
+							roomWithBedTypes.iRoomCapacity = int(standalonCapacity.text);
+							if (roomType.flx_oRoomStandalone && roomType.flx_oRoomStandalone.iId)
+								roomWithBedTypes.iId = roomType.flx_oRoomStandalone.iId;
+							roomWithBedTypes.sShortName = getShortName(roomTypeName.text, "");
+							evt.roomType.flx_oRoomStandalone = roomWithBedTypes;
+							roomWithBedTypesArray.push( roomWithBedTypes );
+					}
+					else
+					{
+						for(var i:int = 0;i<listBedTypes.length;i++)
+						{						
+							if(!(listBedTypes.getItemAt(i) as BedTypeObjectVO).bIsChecked) continue;
+	
+							roomWithBedTypes = new RoomTypesObjectVO();
+							
+							roomWithBedTypes.oBedType = listBedTypes.getItemAt(i) as BedTypeObjectVO;
+							
+							roomWithBedTypes.sDescription = descriptionList.dataProvider.getItemAt(i).sDescription;
+							
+							roomWithBedTypes.iRoomCapacity = (listBedTypes.getItemAt(i) as BedTypeObjectVO).___iCapacity;
+							roomWithBedTypes.sShortName = getShortName(roomTypeName.text, (listBedTypes.getItemAt(i) as BedTypeObjectVO).sTypeName);
+							
+							roomWithBedTypes.iId = 0;	
+							if (tempRoomQuality)
+							{
+								if (tempRoomQuality.aRoomWithBedTypes == null)
+								{
+									tempRoomQuality.aRoomWithBedTypes = new Array();
+									tempRoomQuality.aRoomWithBedTypes.push(roomWithBedTypes);
+								}
+								for (var j:int = 0; j<tempRoomQuality.aRoomWithBedTypes.length; j++)
+								if (roomWithBedTypes.oBedType.iTypeId == tempRoomQuality.aRoomWithBedTypes[j].oBedType.iTypeId) // if room quality have room types
+									roomWithBedTypes.iId = tempRoomQuality.aRoomWithBedTypes[j].iId;
+							}
+							
+							roomWithBedTypesArray.push( roomWithBedTypes );
+						}										
+					}
+					
+					evt.roomType.RoomTypesConstructor(roomQuality, roomWithBedTypesArray);
+					CairngormEventDispatcher.getInstance().dispatchEvent( evt );
+				}
+				else
+				{
+					var evt2:AddRoomTypeEvent = new AddRoomTypeEvent( AppController.ADD_ROOM_TYPE_EVENT);
+					roomQuality = new RoomQualityObjectVO();				
+					roomQuality.bIsUsedStandalone = isStandalone();
+					roomQuality.lQualityId = 0;
+					roomQuality.sQualityName = roomTypeName.text;
+					
+					roomWithBedTypesArray = [];
+					roomWithBedTypes = new RoomTypesObjectVO();
+					
+					listBedTypes = bedTypes.dataProvider as ArrayCollection;
+					
+					if (roomQuality.bIsUsedStandalone)
+					{
+							roomWithBedTypes.oBedType = null;
+							roomWithBedTypes.sDescription = standalonDescription.text;
+							roomWithBedTypes.iRoomCapacity = int(standalonCapacity.text);
+							roomWithBedTypes.sShortName = getShortName(roomTypeName.text, "");
+							
+							evt2.roomType.flx_oRoomStandalone = roomWithBedTypes;
+							roomWithBedTypesArray.push( roomWithBedTypes );
+					}
+					else
+					{
+						for(i = 0;i<listBedTypes.length;i++)
+						{
+							if(!(listBedTypes.getItemAt(i) as BedTypeObjectVO).bIsChecked) continue;
+	
+							roomWithBedTypes = new RoomTypesObjectVO();
+							
+							roomWithBedTypes.oBedType = listBedTypes.getItemAt(i) as BedTypeObjectVO;
+							roomWithBedTypes.sDescription = descriptions.getItemAt(i).sDescription;
+							roomWithBedTypes.iRoomCapacity = (listBedTypes.getItemAt(i) as BedTypeObjectVO).___iCapacity;
+							roomWithBedTypes.sShortName = getShortName(roomTypeName.text, (listBedTypes.getItemAt(i) as BedTypeObjectVO).sTypeName);
+							
+							roomWithBedTypesArray.push( roomWithBedTypes );
+						}										
+					}
+					
+					evt2.roomType.RoomTypesConstructor(roomQuality, roomWithBedTypesArray);
+					CairngormEventDispatcher.getInstance().dispatchEvent( evt2 );
+				}
+				
+				closeWindow();
+			}
+			
+			private function isStandalone():Boolean
+			{
+				var items:ArrayCollection = bedTypes.dataProvider as ArrayCollection;
+				var result:Boolean = false;
+				
+				for(var i:int=0; i<items.length; i++)
+				{
+					result = items.getItemAt(i).bIsChecked;
+					
+					if(result)  return !result;
+				}				
+				return !result;
+			}
+			
+			private function getShortName(firstName:String, secondName:String):String
+			{
+				if (secondName=="")	return onlyConsonants(firstName, 2);
+				else return onlyConsonants(firstName, 2) + onlyConsonants(secondName, 3);
+			}
+			
+			/** splice only consonants from string
+			* 
+			**/
+			private function onlyConsonants(str:String, count:int):String
+			{
+				var tempStr:String = '';
+				for (var i:int = 0; i < str.length; i++)
+				{
+					var tempChar:String = str.charAt(i);
+					if (tempChar != 'o' && tempChar != 'a' && tempChar != 'u' && tempChar != 'e' && tempChar != 'i' && tempStr.length < count)
+					tempStr = tempStr + tempChar;
+				}
+				return tempStr;
+			}
+			
+			private function testCapacity():void
+			{
+				if (standalonCapacity.text == '0' || standalonCapacity.text == '')
+				{
+					standalonCapacity.text = '1';
+				}
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:HBox>
+		<mx:FormItem label="Name of Room Type">
+			<mx:TextInput id="roomTypeName" width="110" maxChars="25"/>
+		</mx:FormItem>
+		<mx:FormItem label="Capacity">
+			<mx:TextInput id="standalonCapacity" 
+				maxChars="2" 
+				change="{testCapacity()}" 
+				restrict="0-9"/>
+		</mx:FormItem>	
+		<mx:FormItem label="Description">
+			<mx:TextInput id="standalonDescription" 
+				maxChars="50"/>
+		</mx:FormItem>			
+	</mx:HBox>
+	
+	<mx:HBox>
+		<mx:DataGrid id="bedTypes"  
+			itemEditBegin="handleStartEditBedType(event)"			
+			itemEditEnd="callLater(handleEditBedType, [event])" 
+			width="80%" height="100%" rowHeight="24" 
+			 editable="true"
+			 dataProvider="{model.roomTypesModule.roomBedTypes}">
+			<mx:columns>
+				<mx:DataGridColumn
+					headerText=" "
+					dataField="bIsChecked"
+					sortable="false"
+					editable="false"
+					itemRenderer="{new ClassFactory(BedTypeCheckItemRendererView)}"/>
+				<mx:DataGridColumn
+					headerText="Name"
+					sortable="false"
+					dataField="sTypeName"/>
+				<mx:DataGridColumn
+					headerText="Room capacity"
+					sortable="false"
+					dataField="___iCapacity" />
+				<mx:DataGridColumn
+					headerText="Basic"
+					editable="false"
+					sortable="false"
+					itemRenderer="{new ClassFactory(BedTypeBaseItemRendererView)}"/>
+				<mx:DataGridColumn
+					headerText=""
+					editable="false"
+					sortable="false"
+					visible="{addBedType.enabled}"
+					itemRenderer="{new ClassFactory(BedTypeDeleteItemRendererView)}"/>
+			</mx:columns>
+		</mx:DataGrid>
+		<mx:DataGrid id="descriptionList" 
+			dataProvider="{descriptions}"
+			verticalScrollPolicy="off" 
+			width="20%" rowHeight="24" height="100%" 
+			editable="true">
+			<mx:columns>
+				<mx:DataGridColumn headerText="Description" sortable="false" dataField="sDescription"/>
+			</mx:columns>
+		</mx:DataGrid>
+	</mx:HBox>
+	<mx:Button label="Add New Bed Type" id="addBedType" click="handleAddBedType()" width="200"/>
+	<mx:HBox width="100%">
+		<mx:Button id="apply_AddRoomTypePopupView" 
+			label="Save" click="handleApply()" 
+			enabled="{roomTypeName.text.length > 0}" 
+			width="100" />
+		<mx:Spacer width="100%"/>
+		<mx:Button id="cancel_AddRoomTypePopupView" 
+			label="Cancel" 
+			click="closeWindow()" 
+			width="100" />		
+	</mx:HBox>
+</popup:DataPopupView>

@@ -1,0 +1,81 @@
+<?xml version="1.0"?>
+<view:MainBase
+        xmlns:view="kitaec.view.*"
+        xmlns:fx="http://ns.adobe.com/mxml/2009"
+        xmlns:mx="library://ns.adobe.com/flex/mx"
+        xmlns:s="library://ns.adobe.com/flex/spark"
+        xmlns:order="kitaec.view.order.*"
+        xmlns:dish="kitaec.view.dish.*"
+        xmlns:offer="kitaec.view.offer.*"
+
+        width="100%" height="100%"
+        >
+
+    <fx:Declarations>
+        <s:Parallel id="showEff">
+            <s:Fade alphaFrom="0.0" alphaTo="1.0" />
+        </s:Parallel>
+
+        <s:Parallel id="hideEff">
+            <s:Fade alphaFrom="1.0" alphaTo="0.0" />
+        </s:Parallel>
+    </fx:Declarations>
+
+
+    <view:states>
+        <s:State name="orderList"/>
+
+        <s:State name="dishList"/>
+        <s:State name="offerList"/>
+    </view:states>
+
+
+    <!-- menu -->
+
+    <mx:MenuBar labelField="@label" width="100%"
+                itemClick="onSubMenuSelection(event)">
+        <fx:XMLList>
+            <menuitem label="Заказы">
+                <menuitem label="Список заказов" mnuCode="orderList"/>
+            </menuitem>
+            <menuitem label="Меню">
+                <menuitem label="Список блюд" mnuCode="dishList"/>
+                <menuitem label="Список предложений" mnuCode="offerList"/>
+
+            </menuitem>
+
+        </fx:XMLList>
+    </mx:MenuBar>
+
+    <!-- navigation -->
+
+    <view:BaseView width="100%" height="26" backgroundColor="0x444444">
+        <view:layout>
+            <s:HorizontalLayout verticalAlign="middle" paddingLeft="10" paddingRight="10"/>
+        </view:layout>
+        <s:Label text="Список заказов"
+                 text.dishList="Список блюд"
+                 text.offerList="Список предложений"
+
+                 fontWeight="bold" color="white"/>
+
+        <s:Spacer width="100%"/>
+
+        <s:HGroup id="notifyPanel"
+                  showEffect="{showEff}" hideEffect="{hideEff}"
+                  visible="false" verticalAlign="middle">
+            <s:Image source="{notifyIcon}"/>
+            <s:Label text="{notifyMSG}" color="white"/>
+        </s:HGroup>
+
+    </view:BaseView>
+
+    <!-- content -->
+
+    <order:OrdersView includeIn="orderList"/>
+    <dish:DishesView includeIn="dishList"/>
+    <offer:OffersView includeIn="offerList"/>
+
+
+
+</view:MainBase>

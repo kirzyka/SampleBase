@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="utf-8"?>
+<sub:VSubWindow xmlns:sub="framework.core.view.*"  xmlns:mx="http://www.adobe.com/2006/mxml" width="100%" creationComplete="init()">
+
+	<mx:Script>
+		<![CDATA[
+			import h2olib.utils.DateUtils;
+			import framework.core.utils.UtilsSecurity;
+			import framework.core.utils.UtilsGolobal;
+			import services.vo.reports.InHouseReportVO;
+			import services.vo.common.loyaltyPrograms.LoyaltyProgramsVO;
+			import framework.model.AppModelLocator;
+			import services.vo.GlobalFunctions;
+			import services.events.reports.GetReportEvent;
+			import services.vo.backend.ReportVO;
+			import services.vo.common.SourceCodesVO;
+			import services.vo.backend.RoomSettingObjectVO;
+			import services.vo.common.MarketCodesVO;
+			import services.vo.hotels.HotelRoomWithBedTypesObjectVO;
+			import services.vo.GlobalSettings;
+			import services.vo.GlobalStorage;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.events.miscellaneous.loyaltyPrograms.GetLoyaltyProgramsEvent;
+			import services.controller.AppController;
+			import services.events.roomSettings.GetRoomSettingsDataEvent;
+			import mx.collections.ArrayCollection;
+			import services.vo.reports.ArrivalReportVO;
+
+			
+			//config
+  			[Bindable]
+  			public var indicatorGapFormItem:int = 14;
+
+  			/**
+			 *	Get reports. This function we have in parent.
+			*/
+  			public var getReports:Function = new Function();
+
+  			/**
+			 *	Get selected All for all list. This function we have in parent.
+			*/
+  			public var allClick:Function = new Function();
+
+			public var reportType:int;
+	
+  			[Bindable]
+  			private var houseRoomTypes:ArrayCollection = new ArrayCollection();
+
+			public function init():void
+			{
+				 houseRoomTypes = UtilsGolobal.clone(model.hotelsModule.hotelRoomTypes) as ArrayCollection;
+			}
+			
+			/**
+			 * print of in house report
+			 */ 
+			private function handlePrintInHouseReport():void
+			{
+				var inHouseReport:InHouseReportVO = new InHouseReportVO();
+
+				inHouseReport.iVip = int(houseVIP.selected);
+				
+				if (inHouseCheckOutOnlyRB.selected)
+				{
+					inHouseReport.iCheckStatus = 1;
+				}
+				if (inHouseCheckInOnlyRB.selected)
+				{
+					inHouseReport.iCheckStatus = 2;
+				}
+				if (inHouseAllRB.selected)
+				{
+					inHouseReport.iCheckStatus = 3;
+				}
+				
+				if (!inHouseAllRoomType.selected)
+				{
+				var tempLength:int;
+				tempLength = houseRoomTypes.length;	
+				for (var i:int = 0; i < tempLength; i++)
+					if ((houseRoomTypes.getItemAt(i) as HotelRoomWithBedTypesObjectVO).oRoomQuality.bIsSelected)
+						inHouseReport.aRoomType.push((houseRoomTypes.getItemAt(i) as HotelRoomWithBedTypesObjectVO).oRoomQuality.lQualityId);
+				}
+				
+				if (!inHouseAllMemberType.selected)
+				{
+					tempLength = GlobalStorage.loyaltyPrograms.length;
+					for (i = 0; i < tempLength; i++)
+						if (( GlobalStorage.loyaltyPrograms.getItemAt(i) as LoyaltyProgramsVO).bIsSelected)
+						{
+							inHouseReport.aMembershipType.push(( GlobalStorage.loyaltyPrograms.getItemAt(i) as LoyaltyProgramsVO).lId);
+						}
+				}
+				getReports( inHouseReport, reportType, DateField.dateToString(inHouseDate.selectedDate, GlobalSettings.DATE_SERVER_FORMAT) );
+			}
+
+
+			/**
+			 *	Get selected references for RoomTypes (in House).
+			*/
+			public function updateSelectionHouseRoomType(index:int ,selected:Boolean):void
+			{
+				var tempSelect:Boolean = (houseRoomTypes.getItemAt(index) as HotelRoomWithBedTypesObjectVO).oRoomQuality.bIsSelected;
+
+				if (tempSelect) tempSelect = false
+				else tempSelect = true;
+				(houseRoomTypes.getItemAt(index) as HotelRoomWithBedTypesObjectVO).oRoomQuality.bIsSelected = tempSelect;
+			}
+
+			/**
+			 *	Get selected references for LoyaltyProgram  (in House).
+			*/
+			public function updateSelectionHouseLoyaltyProgram (index:int,selected:Boolean):void
+			{
+				var tempSelect:Boolean = (GlobalStorage.loyaltyPrograms.getItemAt(index) as LoyaltyProgramsVO).bIsSelected;
+
+				if (tempSelect) tempSelect = false
+				else tempSelect = true;
+
+				(GlobalStorage.loyaltyPrograms.getItemAt(index) as LoyaltyProgramsVO).bIsSelected = tempSelect;
+			}
+		]]>
+	</mx:Script>
+
+		<mx:Panel label="In House Report"
+			width="100%"
+			layout="vertical"
+			styleName="reportPanel">
+			<mx:HBox>
+				<mx:Form>
+					<mx:FormItem label="Date of report:" labelWidth="120" >
+						<mx:DateField id="inHouseDate" width="{GlobalSettings.WIDTH_DATE_FIELD}"
+							selectedDate="{model.businessDate}" formatString="{GlobalSettings.DATE_FORMAT}" disabledRanges="{[{rangeEnd: DateUtils.dateSub(DateUtils.DAY_OF_MONTH, 1, model.businessDate)}]}"/>
+					</mx:FormItem>
+					
+					<mx:FormItem label="VIP:" labelWidth="120">
+						<mx:CheckBox id="houseVIP" />
+					</mx:FormItem>
+					<mx:FormItem label="Show:" labelWidth="120">
+						<mx:RadioButton id="inHouseCheckOutOnlyRB" label="Departure guests" groupName="filtr"/>
+						<mx:RadioButton id="inHouseCheckInOnlyRB" label="Stay over guests" groupName="filtr"/>
+						<mx:RadioButton id="inHouseAllRB" label="All guests" groupName="filtr" selected="true"/>
+					</mx:FormItem>
+				</mx:Form>
+				<mx:Form>
+					<mx:FormItem label="Room Types:" labelWidth="120" indicatorGap="{indicatorGapFormItem}">
+						<mx:List id="inHouseRoomType" enabled="false"
+								dataProvider="{houseRoomTypes}"
+								width="150" height="100">
+								<mx:itemRenderer>
+									<mx:Component>
+										<mx:CheckBox
+											label="{data.label}"
+											selected="{data.oRoomQuality.bIsSelected}"
+											change="{outerDocument.updateSelectionHouseRoomType( outerDocument.inHouseRoomType.selectedIndex, this.selected)}"/>
+									</mx:Component>
+								</mx:itemRenderer>
+							</mx:List>
+						<mx:CheckBox id="inHouseAllRoomType" label="All room types" selected="true"
+								change="{allClick(inHouseAllRoomType, inHouseRoomType)}"/>
+					</mx:FormItem>
+					</mx:Form>
+					<mx:Form>
+					<mx:FormItem label="Loyalty Program:" labelWidth="120" indicatorGap="{indicatorGapFormItem}">
+						<mx:List id="houseMemberType" enabled="false"
+								dataProvider="{GlobalStorage.loyaltyPrograms}"
+								width="150" height="100">
+								<mx:itemRenderer>
+									<mx:Component>
+										<mx:CheckBox
+											label="{data.sName}"
+											selected="{data.bIsSelected}"
+											change="{outerDocument.updateSelectionHouseLoyaltyProgram(outerDocument.houseMemberType.selectedIndex, this.selected)}"/>
+									</mx:Component>
+								</mx:itemRenderer>
+						</mx:List>
+						<mx:CheckBox id="inHouseAllMemberType" label="All loyalty programs" selected="true"
+								change="{allClick(inHouseAllMemberType, houseMemberType)}"/>
+					</mx:FormItem>
+				</mx:Form>
+			</mx:HBox>
+			<mx:HBox width="100%" horizontalAlign="right" paddingRight="15">
+				<mx:Button label="Print Report" click="handlePrintInHouseReport()"/>
+			</mx:HBox>
+		</mx:Panel>
+</sub:VSubWindow>

@@ -1,0 +1,252 @@
+<?xml version="1.0" encoding="utf-8"?>
+<BaseWindow
+	xmlns="framework.core.view.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:control="h2olib.control.*"
+	xmlns:pager="h2olib.control.pager.*"
+
+	label="Invoices"
+	>
+<mx:Script>
+	<![CDATA[
+		import services.vo.GlobalSettings;
+		import services.vo.invoiceManagment.InvoiceSearchVO;
+		import services.events.invoiceManagment.GetInvoiceListEvent;
+		import services.vo.invoiceManagment.InvoiceFileSearchVO;
+		import services.events.invoiceManagment.GetInvoiceFileEvent;
+		import framework.view.pages.inHouse.popups.ItemRoutingPopupView;
+		import services.vo.invoiceManagment.InvoiceListVO;
+		import framework.view.pages.cashShift.data.CashShiftConstants;
+
+		import mx.managers.PopUpManagerChildList;
+		import framework.managers.PopUpManagerExt;
+
+		import mx.controls.Alert;
+		import h2olib.control.pager.event.PagerEvent;
+		import framework.core.utils.UtilsMXML;
+		import mx.controls.dataGridClasses.DataGridColumn;
+
+		import mx.core.Application;
+		import flash.net.navigateToURL;
+		import h2olib.utils.DateUtils;
+
+		import com.adobe.cairngorm.control.CairngormEventDispatcher;
+		import framework.model.AppModelLocator;
+
+		[Bindable]
+		private var visibleRowCount:int;
+
+		private function calcVisibleRow():void
+		{	
+			visibleRowCount = Math.round((dgInvoices.height - dgInvoices.headerHeight - 16) / dgInvoices.rowHeight);
+		}
+
+		private function searchInvoices():void
+		{
+			var event:GetInvoiceListEvent = new GetInvoiceListEvent();
+			var invoiceSearch:InvoiceSearchVO = new InvoiceSearchVO();
+
+			invoiceSearch.sArrivalDate = DateField.dateToString( dfArrivalDate.selectedDate,GlobalSettings.DATE_SERVER_FORMAT);
+			invoiceSearch.sDepartureDate = DateField.dateToString( dfDepartureDate.selectedDate,GlobalSettings.DATE_SERVER_FORMAT);
+
+			invoiceSearch.sGuestSurName = txtGuestName.text;
+			invoiceSearch.sGuestName = txtGuestFirstName.text;
+
+			invoiceSearch.sCompanyName = txtCompany.text;
+			invoiceSearch.sTAName = txtTA.text;
+
+			invoiceSearch.iInvoiceNumber = int(txtInvoice.text);
+			invoiceSearch.iCurrentPage = pager.selectedPage + 1;
+			invoiceSearch.iResultsPerPage = pager.itemPerPageCount;
+
+			event.invoiceSearch = invoiceSearch;
+			CairngormEventDispatcher.getInstance().dispatchEvent(event);
+		}
+
+		private function onSelectPage(event:PagerEvent):void {
+			searchInvoices();
+		}
+
+		private function getInvoiceFile():void
+		{
+			if(dgInvoices.selectedItem)
+			{
+				if((dgInvoices.selectedItem as InvoiceListVO).aInvoiceNumbers.length > 0)
+				{
+					var e:GetInvoiceFileEvent = new GetInvoiceFileEvent();
+					var invoiceFileSearch:InvoiceFileSearchVO = new InvoiceFileSearchVO();
+					invoiceFileSearch.iHotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+					invoiceFileSearch.aInvoiceNumbers = (dgInvoices.selectedItem as InvoiceListVO).aInvoiceNumbers;
+					//invoiceFileSearch.aDebitorNumber = (dgInvoices.selectedItem as InvoiceListVO).aDebitorNumber;
+					//invoiceFileSearch.aDebitorShowNumber = (dgInvoices.selectedItem as InvoiceListVO).aDebitorShowNumber;
+					//invoiceFileSearch.iPlnNumber = (dgInvoices.selectedItem as InvoiceListVO).iPlnNumber;
+					invoiceFileSearch.sUrlDate = (dgInvoices.selectedItem as InvoiceListVO).sUrl;
+					e.invoiceFileSearch = invoiceFileSearch;
+					e.callBack = openPDF;
+					CairngormEventDispatcher.getInstance().dispatchEvent(e);
+				}
+			}
+		}
+
+		private function openItemRouting():void
+		{
+			var popup:ItemRoutingPopupView = PopUpManagerExt.createPopUp(AppModelLocator.getInstance().owner, ItemRoutingPopupView, true) as ItemRoutingPopupView;
+			PopUpManagerExt.centerPopUp(popup);
+
+		}
+
+		private function openPDF():void
+		{
+		   //"http://dev.ramada.ameria.de/H2O_WEB.html";//
+		   for each(var fileName:String in model.invoiceManagmentModule.aIinvoiceFileURL)
+		   {
+			   var fullURL:String = AppModelLocator.getInstance().owner.loaderInfo.url;
+	
+			   var lastIndexOfSlash:int = fullURL.lastIndexOf("/", fullURL.length-1);
+			   var firstPart:String = fullURL.substring(0, lastIndexOfSlash);
+			   var url:String = firstPart + "/" + fileName; //http://qa-ng.ramada.ameria.de/1.1/web
+				
+				navigateToURL(new URLRequest(url), url);
+		   }
+		}
+
+		private function setArrivalDate():void
+		{
+			var i:int = DateUtils.dateDiff(DateUtils.DAY_OF_MONTH, dfArrivalDate.selectedDate, dfDepartureDate.selectedDate);
+
+			if(i < 0)
+			{
+				dfArrivalDate.selectedDate = dfDepartureDate.selectedDate;
+			}
+		}
+
+		private function invoiceLabelFunction(item:InvoiceListVO, column:DataGridColumn):String
+		{
+			return (item.aInvoiceNumbers.length > 0 ) ? item.aInvoiceNumbers.join(",") : "no invoice";
+		}		
+
+		private function arrivalDateLabelFunction(item:InvoiceListVO, column:DataGridColumn):String
+		{
+			return DateField.dateToString(DateField.stringToDate(item.sArrivalDate, DateUtils.DATE_SERVER_FORMAT), DateUtils.DATE_CLIENT_FORMAT);
+		}
+
+		private function departureDateLabelFunction(item:InvoiceListVO, column:DataGridColumn):String
+		{
+			
+			return DateField.dateToString(DateField.stringToDate(item.sDepartureDate, DateUtils.DATE_SERVER_FORMAT), DateUtils.DATE_CLIENT_FORMAT);
+		}
+
+	]]>
+</mx:Script>
+<control:Frame label="Search" width="100%">
+	<mx:HBox width="100%">
+		<mx:VBox width="100%">
+			<mx:FormItem label="Arrival Date:"
+				labelWidth="120">
+				<mx:DateField id="dfArrivalDate"
+					formatString="{GlobalSettings.DATE_FORMAT}"
+					selectedDate="{DateUtils.dateAdd(DateUtils.DAY_OF_MONTH, -7, model.businessDate)}"
+					disabledRanges="{[ {rangeStart: DateUtils.dateAdd(DateUtils.DAY_OF_MONTH,1, dfDepartureDate.selectedDate)} ]}"
+					width="{GlobalSettings.WIDTH_DATE_FIELD}"/>
+			</mx:FormItem>
+			<mx:FormItem label="Departure Date:"
+				labelWidth="120">
+				<mx:DateField id="dfDepartureDate"
+					formatString="{GlobalSettings.DATE_FORMAT}"
+					selectedDate="{model.businessDate}"
+					change="{setArrivalDate()}"
+					disabledRanges="{[ {rangeStart: DateUtils.dateAdd(DateUtils.DAY_OF_MONTH,1, model.businessDate)} ]}"
+					width="{GlobalSettings.WIDTH_DATE_FIELD}"/>
+			</mx:FormItem>
+		</mx:VBox>
+
+		<mx:VBox width="100%">
+			<mx:FormItem label="Guest Name:"
+				labelWidth="120">
+				<mx:TextInput id="txtGuestName"
+					maxChars="25" restrict="\-A-Z a-zßβÄäÖöÜü0-9'"/>
+			</mx:FormItem>
+			<mx:FormItem label="Guest First Name:"
+				labelWidth="120">
+				<mx:TextInput id="txtGuestFirstName"
+					maxChars="25" restrict="\-A-Z a-zßβÄäÖöÜü'"/>
+			</mx:FormItem>
+		</mx:VBox>
+
+		<mx:VBox width="100%">
+			<mx:FormItem label="Company:"
+				labelWidth="120">
+				<mx:TextInput id="txtCompany"
+					maxChars="25"/>
+			</mx:FormItem>
+			<mx:FormItem label="Travel Agency:"
+				labelWidth="120">
+				<mx:TextInput id="txtTA"
+					maxChars="25"/>
+			</mx:FormItem>
+		</mx:VBox>
+
+		<mx:VBox width="100%">
+			<mx:FormItem label="Invoice:"
+				labelWidth="120">
+				<mx:TextInput id="txtInvoice"
+					maxChars="8" restrict="0-9"/>
+			</mx:FormItem>
+			<mx:FormItem
+				labelWidth="120">
+				<mx:Button id="btnSearch"
+					label="Search"
+					click="{searchInvoices()}"/>
+			</mx:FormItem>
+		</mx:VBox>
+	</mx:HBox>
+</control:Frame>
+
+<mx:DataGrid id="dgInvoices"
+	width="100%" height="100%"
+	dataProvider="{model.invoiceManagmentModule.invoices}"
+	doubleClickEnabled="true"
+	doubleClick="{getInvoiceFile()}"
+	creationComplete="calcVisibleRow()"
+	>
+	<mx:columns>
+		<mx:DataGridColumn dataField="sGuestName"
+			headerText="Guest Name"/>
+		<mx:DataGridColumn dataField="sCompanyName"
+			headerText="Company"
+			width="250"/>
+		<mx:DataGridColumn dataField="sConfirmationCode"
+			headerText="Confirmation Code"
+			width="100" />
+		<mx:DataGridColumn
+			headerText="Invoice Number"
+			labelFunction="invoiceLabelFunction"
+			width="200"/>
+		<mx:DataGridColumn dataField="sArrivalDate"
+			headerText="Arrival Date"
+			width="{GlobalSettings.WIDTH_DATE_FIELD}"
+			labelFunction="arrivalDateLabelFunction"/>
+		<mx:DataGridColumn dataField="sDepartureDate"
+			headerText="Departure Date"
+			width="{GlobalSettings.WIDTH_DATE_FIELD}"
+			labelFunction="departureDateLabelFunction"/>
+	</mx:columns>
+</mx:DataGrid>
+
+<mx:ApplicationControlBar width="100%">
+	<mx:Button id="btnOpen"
+		label="Open Invoice"
+		click="{getInvoiceFile()}"
+		enabled="{UtilsMXML.and(dgInvoices.selectedItem, 
+								((dgInvoices.selectedItem as InvoiceListVO).aInvoiceNumbers.length > 0)
+								
+								)}"/>
+	<mx:Spacer width="100%"/>
+	<pager:Pager id="pager"
+		pageChange="{onSelectPage(event)}"
+		count="{model.invoiceManagmentModule.invoicesCount}"
+		fit="{visibleRowCount}"
+		/>
+</mx:ApplicationControlBar>
+
+</BaseWindow>

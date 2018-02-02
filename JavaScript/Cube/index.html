@@ -1,0 +1,40 @@
+<!doctype html>
+<html ng-app="app">
+  <head>  
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.5.0/css/font-awesome.min.css">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.4.5/angular.min.js"></script>
+    <script src="app.js"></script>
+  </head>
+  <body>
+    <div ng-controller="MainCtrl as app" ng-init="app.init()">
+        <p ng-bind="app.hi"></p>
+        <div>            
+            <div class="side side-1">
+                <div ng-repeat="item in app.S1 track by $index" class="side-cell {{item}}"></div>
+            </div>
+            <div class="side side-2 clearfix">
+                <div ng-repeat="item in app.S2 track by $index" class="side-cell {{item}}"></div>
+            </div>
+            <div class="side side-3 clearfix">
+                <div ng-repeat="item in app.S3 track by $index" class="side-cell {{item}}"></div>
+            </div>
+            <div class="side side-4 clearfix">
+                <div ng-repeat="item in app.S4 track by $index" class="side-cell {{item}}"></div>
+            </div>
+            <div class="side side-5 clearfix">
+                <div ng-repeat="item in app.S5 track by $index" class="side-cell {{item}}"></div>
+            </div>
+            <div class="side side-6 clearfix">
+                <div ng-repeat="item in app.S6 track by $index" class="side-cell {{item}}"></div>
+            </div>
+        </div>
+        <div>
+            <span class="fa fa-arrow-up fa-2x" ng-click="app.spinUp()"></span>
+            <span class="fa fa-arrow-down fa-2x" ng-click="app.spinDown()"></span>
+            <span class="fa fa-arrow-left fa-2x" ng-click="app.spinLeft()"></span>
+            <span class="fa fa-arrow-right fa-2x" ng-click="app.spinRight()"></span>
+        </div>
+    </div>
+  </body>
+</html>

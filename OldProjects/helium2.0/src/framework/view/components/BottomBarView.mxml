@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<view:HSubWindow
+	xmlns:view="framework.core.view.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:components="framework.view.components.*"
+	xmlns:control="h2olib.control.*"
+	styleName="BottomBarView"
+	creationComplete="handleInit()"
+	verticalScrollPolicy="off"
+	width="100%" height="52">
+
+	<mx:Script>
+		<![CDATA[
+			import services.vo.GlobalFunctions;
+			import h2olib.control.enum.MessageShowType;
+			import services.events.MsgEvent;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import com.adobe.cairngorm.control.CairngormEvent;
+			import framework.model.AppModelLocator;
+			import mx.binding.utils.ChangeWatcher;
+			import services.vo.GlobalImageAssets;
+			
+			private function handleInit():void
+			{
+				CairngormEventDispatcher.getInstance().addEventListener(MsgEvent.NAME,showError);
+			}
+			
+			private function showError(event:MsgEvent):void 
+			{
+				if(event.showType == MessageShowType.MSG_BAR)
+				{
+					msgBar.show(1, event.title, event.title);
+				}
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:Image
+		source="{GlobalImageAssets.getInstance().smallLogo}"
+		width="100" height="55"/>
+	<mx:Spacer width="20"/>
+	<mx:VRule
+		height="55"
+		strokeColor="#CCCCCC"
+		strokeWidth="2"/>
+	<mx:Label id="adressHotel"
+		text="{GlobalFunctions.createAdressOfHotel(model.hotelsModule.hotelTotalInfo)}"/>
+	<control:MessageBar id="msgBar"/>
+	<mx:VRule
+		height="55"
+		strokeColor="#CCCCCC"
+		strokeWidth="2"/>
+	<mx:Spacer width="14"/>
+	<components:MainTimerView/>
+</view:HSubWindow>

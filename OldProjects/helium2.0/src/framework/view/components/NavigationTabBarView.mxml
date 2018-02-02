@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:HBox  xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:control="h2olib.control.*"
+	width="100%" horizontalGap="0"
+	horizontalScrollPolicy="off" verticalScrollPolicy="off"
+	creationComplete="init()" xmlns:events="flash.events.*">
+	<!--
+	/*
+	* NavigationTabBarView.mxml
+	*
+	* @author Anton Kirzyk / Ramada
+	*
+	* @version $Revision 1.0 $ $Date: 2009-07-18 11:52:03 +0300 (Сб, 18 июл 2009) $
+	*
+	*/
+	Description:
+	-->
+
+
+	<mx:Script >
+		<![CDATA[
+			import mx.events.ItemClickEvent;
+			import mx.charts.chartClasses.DualStyleObject;
+			import mx.core.Application;
+			import mx.containers.ViewStack;
+			import mx.collections.ArrayCollection;
+
+			[Event(name="itemClick", type="mx.events.ItemClickEvent")]
+
+			[Bindable]
+			public var dataProvider:Array;
+
+			private var isToPrev:Boolean = false;
+			private var isToNext:Boolean = false;
+
+			override protected function updateDisplayList(unscaledWidth:Number, unscaledHeight:Number):void
+			{
+				var oldWidth:Number = tabBar.getStyle("tabWidth");
+				var tabWidth:Number = Application.application.width / tabBar.dataProvider.length;
+				tabBar.setStyle("tabWidth", Math.min(120, tabWidth));
+				
+				super.updateDisplayList(unscaledWidth, unscaledHeight);
+			}
+			
+			private function init():void
+			{				
+				/*tabBarContainer.width = this.parent.width - lbToPrev.width - lbToPrev.width;
+
+				lbToPrev.addEventListener(MouseEvent.MOUSE_OVER, function (event:Event):void { isToPrev = true; });
+				lbToPrev.addEventListener(MouseEvent.MOUSE_DOWN, moveTabBar);
+				lbToPrev.addEventListener(MouseEvent.MOUSE_OUT, function (event:Event):void { isToPrev = false; });
+				lbToNext.addEventListener(MouseEvent.MOUSE_UP, function (event:Event):void { isToPrev = false; });
+
+				lbToNext.addEventListener(MouseEvent.MOUSE_OVER, function (event:Event):void { isToNext = true; });
+				lbToNext.addEventListener(MouseEvent.MOUSE_DOWN, moveTabBar);
+				lbToNext.addEventListener(MouseEvent.MOUSE_OUT, function (event:Event):void { isToNext = false; });
+				lbToNext.addEventListener(MouseEvent.MOUSE_UP, function (event:Event):void { isToNext = false; });	*/
+
+			}
+
+			private function moveTabBar(event:Event):void
+			{
+
+				/*if(isToNext && (tabBarContainer.horizontalScrollPosition < tabBarContainer.maxHorizontalScrollPosition )  )
+				{
+					tabBarContainer.horizontalScrollPosition++;
+
+					moveTabBar(event);
+				}
+
+				if(isToPrev && ( tabBarContainer.horizontalScrollPosition > 0 )  )
+				{
+					tabBarContainer.horizontalScrollPosition--;
+					moveTabBar(event);
+				}	*/
+			}
+
+			private function tabChange(event:ItemClickEvent):void
+			{
+				trace(event.label); //outputs the label of the selected tab
+				trace(event.item); //outputs the item in the dataprovider of the selected tab
+				trace(event.index); // outputs the index of the selected navigation item
+				this.dispatchEvent(event);
+			}
+			
+			public function set selectedIndex(value:int):void
+			{
+				tabBar.selectedIndex = value;
+			}
+		]]>
+	</mx:Script>
+
+
+
+	<!--mx:LinkButton id="lbToPrev" click="{moveTabBar(event)}" width="22">
+		<mx:icon>@Embed(source='../../../assets/prev.png')</mx:icon>
+	</mx:LinkButton-->
+	<mx:HBox id="tabBarContainer"
+		width="100%" height="100%" horizontalScrollPolicy="off"
+		>
+		<control:TabBarEx id="tabBar"
+			dataProvider="{dataProvider}"
+			itemClick="tabChange(event)"
+
+			styleName="NavigationTabBarView"/>
+		<mx:Spacer width="100%"/>
+	</mx:HBox>
+	<!--mx:LinkButton id="lbToNext" click="{moveTabBar(event)}" width="22">
+		<mx:icon>@Embed(source='../../../assets/next.png')</mx:icon>
+	</mx:LinkButton-->
+</mx:HBox>

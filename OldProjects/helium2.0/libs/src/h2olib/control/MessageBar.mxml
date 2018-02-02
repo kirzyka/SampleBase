@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:HBox
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	width="100%"
+	creationComplete="init()"
+	horizontalScrollPolicy="off"
+	verticalScrollPolicy="off"
+	enterState="enterBaseState(event)"
+	horizontalGap="0"
+	currentState="timeoutState" visible="false">
+	<mx:Script>
+		<![CDATA[
+			import services.vo.GlobalImageAssets;
+		]]>
+	</mx:Script>
+	<mx:Script source="controller/MessageBarController.as"/>
+    <mx:Spacer width="100%"/>
+    <mx:HBox id="content" backgroundColor="#ff1111"
+            borderStyle="solid"
+            borderColor="#ffffff"            
+            verticalAlign="middle"
+            horizontalGap="2"
+            horizontalScrollPolicy="off"
+            verticalScrollPolicy="off"
+            alpha="1.0"
+            backgroundAlpha="1.0"
+            cornerRadius="10"
+            paddingLeft="2"
+            paddingTop="2"
+            paddingBottom="2"
+            paddingRight="2">
+        <mx:Image id="imgKind"
+            source="{kindIconClass}"
+            scaleContent="true"
+            width="20" height="20"
+            click="showDetails()"/>
+        <mx:Label id="lblError"
+            text="{message}"
+            toolTip="{shortDetails}"
+            fontWeight="bold" fontSize="11"
+            doubleClickEnabled="true"
+            doubleClick="showDetails()"
+            alpha="0.8" color="#3e3e3e"/>
+        <mx:Spacer width="100%"/>
+        <mx:HBox id="buttons" includeInLayout="false" horizontalGap="2"/>
+        <mx:Image id="imgClose"
+            source="{GlobalImageAssets.getInstance().cancelIcon}"
+            useHandCursor="true"
+            buttonMode="true"
+            toolTip="{'closeLabel'}"
+            click="dispatchEvent(new MessageBarEvent(MessageBarEvent.HIDE))">
+        </mx:Image>
+    </mx:HBox>
+    <mx:Spacer width="100%"/>
+
+    <mx:states>
+        <mx:State name="timeoutState">
+            <mx:SetProperty target="{content}" name="alpha" value="1.0"/>
+            <mx:SetStyle target="{lblError}" name="color" value="#373737"/>
+            <mx:SetProperty target="{lblError}" name="alpha" value="0.2"/>
+        </mx:State>
+        <mx:State name="invisibleState">
+            <mx:SetProperty target="{this}" name="visible" value="false"/>
+        </mx:State>
+    </mx:states>
+
+    <mx:transitions>
+        <mx:Transition fromState="" toState="timeoutState">
+            <mx:AnimateProperty target="{content}" property="backgroundAlpha" isStyle="true"
+                fromValue="1" toValue="0.7"
+                duration="1500"/>
+        </mx:Transition>
+        <mx:Transition fromState="timeoutState" toState="invisibleState">
+            <mx:Sequence target="{this}">
+                <mx:AnimateProperty target="{this}" property="alpha" isStyle="true"
+                    fromValue="1.0" toValue="0.0"
+                    duration="2500"/>
+                <mx:SetPropertyAction target="{this}" name="visible" value="false"/>
+            </mx:Sequence>
+        </mx:Transition>
+    </mx:transitions>
+</mx:HBox>

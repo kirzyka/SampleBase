@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="utf-8"?>
+<BasePopupView 
+	xmlns="framework.view.components.popups.*" 
+	xmlns:mx="http://www.adobe.com/2006/mxml" 
+	xmlns:searchBox="h2olib.control.searchBox.*" 
+	xmlns:pager="h2olib.control.pager.*"
+	
+	layout="vertical" 
+	showCloseButton="true" 
+	
+	title="Edit transaction" 
+
+	creationComplete="{update()}" 
+	>
+	
+	<mx:Script>
+		<![CDATA[
+			import services.vo.rates.companyRates.CompanyRateItemVO;
+			import com.adobe.cairngorm.view.ViewHelper;
+			import services.events.rates.companyRates.GetItemPageCompanyRatesEvent;
+			import services.events.rates.companyRates.GetItemCountCompanyRatesEvent;
+			import services.events.rates.companyRates.GetGroupListCompanyRatesEvent;
+			import services.events.rates.companyRates.SaveTransactionCompanyRateEvent;
+
+
+
+			import services.events.items.management.GetSystemTransactionsEvent;
+			import services.events.items.management.GetSystemTransactionsCountEvent;
+			import services.events.items.itemGroups.GetSystemGroupsListEvent;
+			
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			
+			import services.controller.AppController;
+			import framework.model.AppModelLocator;
+			import services.vo.items.ItemsGroupVO;
+			import services.vo.items.HotelItemVO;
+			
+			import h2olib.control.pager.event.PagerEvent;
+			
+			import mx.events.ListEvent;
+			import mx.events.TreeEvent;
+			import mx.events.ItemClickEvent;
+			import mx.collections.ArrayCollection;
+			import mx.controls.advancedDataGridClasses.AdvancedDataGridColumn;
+			import mx.controls.treeClasses.TreeListData;
+			import mx.controls.treeClasses.TreeItemRenderer;
+			import mx.core.IFlexDisplayObject;
+			import mx.managers.PopUpManagerChildList;
+			import framework.managers.PopUpManagerExt;
+			
+			[Bindable]
+			private var _temp:ArrayCollection = new ArrayCollection();
+			
+			[Bindable]
+			public var editTransaction:CompanyRateItemVO = new CompanyRateItemVO();;
+			
+			private function update():void
+			{
+				if (editTransaction.sName == "Breakfast" || editTransaction.sName == "Accomodation")
+				roomPersone.enabled = false;
+				if(editTransaction.sCodeDirect == "ACCOMODATION")
+				{
+					editTransaction.bRctIsIncluded = true;
+					chbInclude.enabled = false;					
+				}
+				else
+				{
+					chbInclude.enabled = true;
+				}
+			}			
+			
+			private function handleApply():void
+			{
+				var tempItem: CompanyRateItemVO = new CompanyRateItemVO();
+				
+			/* 	tempItem = ; */
+				tempItem.iId = editTransaction.iId;
+				tempItem.iItemId = editTransaction.iItemId;
+				tempItem.sName = editTransaction.sName;
+				tempItem.sCode = editTransaction.sCode;
+				tempItem.fPrice = Number(priceItem.text);
+				if (perP.selected) tempItem.bPerPerson = true;
+				else tempItem.bPerPerson = false;
+				tempItem.aCodeArrangement = editTransaction.aCodeArrangement;
+				tempItem.bRctIsIncluded = chbInclude.selected;
+				tempItem.sDescription = description.text;
+				
+				var evt:SaveTransactionCompanyRateEvent = new SaveTransactionCompanyRateEvent(AppController.SAVE_TRANSACTION_COMPANY_RATE);
+				evt.remId = model.ratesModule.currentRate.iRateId;
+				evt.newItem = tempItem;
+				CairngormEventDispatcher.getInstance().dispatchEvent(evt);
+				
+				completeCall();
+			}
+		]]>
+	</mx:Script>
+	
+
+	<mx:Form width="100%" height="100%" paddingBottom="5" paddingLeft="5" paddingRight="5" paddingTop="5">		
+		<mx:FormItem width="100%" label="Name:" enabled="false">
+			<mx:TextInput id="nameItem" 
+				editable="false" 
+				text="{editTransaction.sName}"/>
+		</mx:FormItem>
+		
+		<mx:FormItem label="Code:" 
+			width="100%" 
+			enabled="false">
+			<mx:TextInput id="codeItem" 
+				text="{editTransaction.sCode}"/>
+		</mx:FormItem>
+		
+		<mx:FormItem width="100%" label="Price:" >
+			<mx:HBox verticalAlign="middle">
+				<mx:TextInput id="priceItem" 
+					text="{String(editTransaction.fPrice)}"  
+					restrict="0-9" />
+				<mx:Label text="euro" />
+			</mx:HBox>
+		</mx:FormItem>
+		
+		<mx:FormItem id="roomPersone"
+			width="100%">
+				<mx:RadioButton id="perR" 
+					groupName="perR" 
+					selected="{!editTransaction.bPerPerson}" 
+					label="per Room"/>
+				<mx:RadioButton id="perP" 
+					groupName="perR" 
+					selected="{editTransaction.bPerPerson}" 
+					label="per Person"/>			
+		</mx:FormItem>
+
+		<mx:FormItem width="100%" >
+				<mx:CheckBox id="chbInclude"  
+					selected="{editTransaction.bRctIsIncluded}" 
+					label="{model.locale.Rates_CompanyRates_AddTransaction_Included}"/>
+		</mx:FormItem>
+
+		<mx:FormItem label="Description:" 
+			width="100%" height="85" >
+			<mx:TextArea id="description" 
+				text="{editTransaction.sDescription}" height="100%"/>
+		</mx:FormItem>
+	</mx:Form>
+	<mx:HBox>
+		<mx:Button label="Apply" 
+			click="handleApply()" 
+			enabled="{codeItem.text.length != 0}" 
+			width="100"/>
+			<mx:Spacer width="100%"/>
+			<mx:Button label="Cancel" 
+				click="close()" 
+				width="100"/>		
+	</mx:HBox>
+</BasePopupView>

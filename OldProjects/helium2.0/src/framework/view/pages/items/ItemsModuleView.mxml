@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<BaseWindow
+	xmlns="framework.core.view.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:items="framework.view.pages.items.*"
+	xmlns:subview="framework.view.pages.items.subview.*"
+	xmlns:tabnav="h2olib.control.advancedTabNavigator.*"
+	verticalScrollPolicy="off" horizontalScrollPolicy="off"
+	styleName="PageBigWithTopPadding"
+	creationComplete="{groupNavigator.selectedIndex = 0}">
+	
+	<mx:Script>
+		<![CDATA[
+			import framework.core.view.VSubWindow;
+			
+			override public function show():void
+			{
+				if (groupNavigator.selectedChild is VSubWindow)
+				{
+					(groupNavigator.selectedChild as VSubWindow).update();
+				}
+			}
+		]]>
+	</mx:Script>
+	
+	<tabnav:AdvancedTabNavigator id="groupNavigator"
+		tabPosition="leftTop" tabWidth="140"
+		creationPolicy="queued"
+		change="show()"
+		styleName="verticalTabNavigator"
+		width="100%" height="100%">
+		<subview:ItemsSystemGroupsView label="Groups"/>
+		<subview:ItemsManagmentView label="Transaction"/>
+		<subview:ItemsArragementCodesView label="Arrangement codes"/>
+	</tabnav:AdvancedTabNavigator>
+</BaseWindow>

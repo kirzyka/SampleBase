@@ -1,0 +1,233 @@
+<?xml version="1.0" encoding="utf-8"?>
+<VSubWindow
+	xmlns="framework.core.view.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:pager="h2olib.control.pager.*"
+	xmlns:searchBox="h2olib.control.searchBox.*"
+
+	label="{model.locale.Profiles_Company_Title}"
+	creationComplete="{onCreationComplete()}">
+	
+	<mx:Script>
+		<![CDATA[
+			import framework.view.pages.inHouse.events.AssignProfileEvent;
+			import services.business.profiles.ProfileDelegate;
+			import services.events.profiles.company.DeleteCompanyEvent;
+			import framework.view.components.popups.events.PopupEvent;
+			import framework.view.components.popups.DeletePopupView;
+			import services.vo.profiles.CompanyProfileVO;
+			import services.vo.profiles.CompanyProfileViewVO;
+			import services.events.profiles.company.GetCompanyByIdEvent;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.controller.AppController;
+			import services.events.profiles.company.GetCompanyListEvent;
+			import services.vo.GlobalSettings;
+			import mx.managers.PopUpManagerChildList;
+			import framework.view.pages.profiles.popups.company.SaveCompanyProfilesPopupView;
+			import framework.managers.PopUpManagerExt;
+			import mx.core.IFlexDisplayObject;
+			import h2olib.control.pager.event.PagerEvent;
+			import framework.module.ProfilesModule;
+			import framework.model.AppModelLocator;
+			
+			[Bindable]
+			public var lock:Boolean = false;
+			[Bindable]
+			public var visibleRowCount:Number = 20;
+			
+			private var isOpen:Boolean = false;
+			
+			private function onCreationComplete():void
+			{
+				var event:GetCompanyListEvent = new GetCompanyListEvent(ProfileDelegate.GET_COMPANY_LIST);
+				event.pattern = searchField.text;
+				event.page = 1;
+				event.count = visibleRowCount;
+				event.callBack = addPager;
+				CairngormEventDispatcher.getInstance().dispatchEvent(event);
+			}
+			
+			private function addPager():void
+			{
+				currentState = "TEST";			
+			}
+			
+			override public function update():void
+			{
+				searchField.text = "";
+				
+				// check need update viewed profiles
+				if (isOpen)
+				{
+					//handleSearch();
+				}
+				
+				super.update();
+			}
+			
+			private function calcVisibleRow():void
+			{
+				visibleRowCount = Math.round((companyProfileList.height - companyProfileList.headerHeight - 16) / companyProfileList.rowHeight);
+				isOpen = true;
+			}
+			
+			private function handleSearch():void
+			{
+				var event:GetCompanyListEvent = new GetCompanyListEvent(ProfileDelegate.GET_COMPANY_LIST);
+				event.pattern = searchField.text;
+				event.page = 1;
+				event.count = pager.itemPerPageCount;
+				CairngormEventDispatcher.getInstance().dispatchEvent(event); 
+			}
+			/**
+			 *  The handle to open popup for add new company.
+			 */
+			private function openAddCompanyPopup():void
+			{
+				var pop:SaveCompanyProfilesPopupView = PopUpManagerExt.createPopUp(this, SaveCompanyProfilesPopupView) as SaveCompanyProfilesPopupView;
+				pop.show();
+			}
+			
+			private function openEditCompanyPopup():void
+			{
+				if (!lock)
+				{
+					var event:GetCompanyByIdEvent = new GetCompanyByIdEvent(ProfileDelegate.GET_COMPANY_PROFILE_BY_ID);
+					event.id = (companyProfileList.selectedItem as CompanyProfileViewVO).lMainId;
+					event.callBack = editCompanyProfile;
+					CairngormEventDispatcher.getInstance().dispatchEvent(event);
+				}
+				else
+				{
+					var evt:AssignProfileEvent = new AssignProfileEvent(AssignProfileEvent.PROFILE_SELECTED);
+					evt.profileId = (companyProfileList.selectedItem as CompanyProfileViewVO).lMainId;
+					evt.isCompany = true;
+					owner.dispatchEvent(evt);
+				}
+			}
+			
+			private function editCompanyProfile():void
+			{
+				var pop:SaveCompanyProfilesPopupView = PopUpManagerExt.createPopUp(this, SaveCompanyProfilesPopupView) as SaveCompanyProfilesPopupView;
+				pop.data = model.profilesModule.curCompanyProfile;
+				pop.selectedIndex = companyProfileList.selectedIndex;
+			}
+			/**
+			 *  The handle to open popup for try to delete selected company in the
+			 *  list.
+			 */
+			private function openDeleteCompanyPopup():void
+			{
+				var pop:DeletePopupView = PopUpManagerExt.createPopUp(this, DeletePopupView) as DeletePopupView;
+				pop.title = model.locale.Profiles_Company_Popups_Delete_Title;
+				pop.description = model.locale.Profiles_Company_Popups_Delete_Description;
+				pop.addEventListener(PopupEvent.DELETE_HANDLER, handleDelete);
+			}
+			/**
+			 *  Confirmation handler for delete selected company.
+			 */
+			private function handleDelete(e:PopupEvent):void
+			{
+				(e.target as DeletePopupView).removeEventListener(PopupEvent.DELETE_HANDLER, handleDelete);
+				
+				var event:DeleteCompanyEvent = new DeleteCompanyEvent(ProfileDelegate.DELETE_COMPANY_PROFILE);
+				
+				event.id = (companyProfileList.selectedItem as CompanyProfileViewVO).lMainId;
+				event.index = companyProfileList.selectedIndex;;
+				event.callBack = (e.target as DeletePopupView).completeCall;
+				
+				CairngormEventDispatcher.getInstance().dispatchEvent(event);
+			}
+			
+			
+			
+			/**
+			 *  Handle for get new block of 
+			 */
+			private function handleGetProfiles(e:PagerEvent):void
+			{
+				var event:GetCompanyListEvent = new GetCompanyListEvent(ProfileDelegate.GET_COMPANY_LIST);
+				event.pattern = searchField.text;
+				event.page = e.index;
+				event.count = e.count;
+				CairngormEventDispatcher.getInstance().dispatchEvent(event);
+			}
+			
+			private function onPagerCreated():void 
+			{
+				pager.addEventListener(PagerEvent.PAGE_CHANGE, handleGetProfiles);
+			}
+		]]>
+	</mx:Script>
+	<states>
+		<mx:State name="TEST">
+			<mx:AddChild position="lastChild" relativeTo="{boxButtons}">
+				<pager:Pager id="pager"
+					creationComplete="{onPagerCreated()}"
+					count="{model.profilesModule.companyProfileCount}"
+					
+					fit="{visibleRowCount}"/>			
+				
+			</mx:AddChild>
+		</mx:State>
+	</states>
+
+	<searchBox:SearchBox
+		id="searchField"
+		label="{model.locale.Profiles_Company_SearchBox_CompanyName}"
+		enter="handleSearch()"
+		changeByFocus="handleSearch()"
+		width="250"
+		height="24"/>
+	
+	<mx:DataGrid
+		id="companyProfileList"
+		dataProvider="{model.profilesModule.companyProfileList}"
+		doubleClickEnabled="true"
+		doubleClick="openEditCompanyPopup()"
+		creationComplete="calcVisibleRow()"
+		width="100%" height="100%" headerHeight="22" rowHeight="33" styleName="grid">
+		<mx:columns>
+			<mx:DataGridColumn
+				headerText="{model.locale.Profiles_Company_Columns_CompanyName}"
+				dataField="sName"/>
+			<mx:DataGridColumn
+				headerText="{model.locale.Profiles_Company_Columns_City}"
+				dataField="sCity"/>
+			<mx:DataGridColumn
+				headerText="{model.locale.Profiles_Company_Columns_Country}"
+				dataField="sCountry"/>
+			<mx:DataGridColumn
+				headerText="{model.locale.Profiles_Company_Columns_Phone}"
+				dataField="sPhone"/>
+			<mx:DataGridColumn
+				headerText="{model.locale.Profiles_Company_Columns_Email}"
+				dataField="sEmail"/>
+		</mx:columns>
+	</mx:DataGrid>
+	
+	
+	<mx:HBox id="boxButtons" width="100%" horizontalAlign="right">
+		<mx:Button
+			label="{model.locale.Global_Button_Add}"
+			fontWeight="bold"
+			click="openAddCompanyPopup()"
+			width="{GlobalSettings.BUTTON_WIDTH_APPLY}"/>
+		<mx:Button
+			label="{model.locale.Global_Button_Edit}"
+			fontWeight="bold"
+			enabled="{companyProfileList.selectedItem}"
+			visible="{!lock}"
+			click="openEditCompanyPopup()"
+			width="{GlobalSettings.BUTTON_WIDTH_APPLY}"/>
+		<mx:Button
+			label="{model.locale.Global_Button_Delete}"
+			fontWeight="bold"
+			enabled="{companyProfileList.selectedItem}"
+			visible="{!lock}"
+			click="openDeleteCompanyPopup()"
+			width="{GlobalSettings.BUTTON_WIDTH_APPLY}"/>
+		<mx:Spacer width="100%"/>
+
+	</mx:HBox>
+</VSubWindow>

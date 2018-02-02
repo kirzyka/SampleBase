@@ -1,0 +1,248 @@
+<?xml version="1.0" encoding="utf-8"?>
+<view:VSubWindow
+	xmlns:view="framework.core.view.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:control="h2olib.control.*"
+	xmlns:dataGrid="h2olib.control.itemRenderer.dataGrid.*"
+	xmlns:controls="framework.view.components.controls.*"
+	
+	width="100%" height="100%"
+	paddingBottom="5" paddingLeft="5" paddingRight="5" paddingTop="5" 
+	>
+	<mx:Script>
+		<![CDATA[
+			import services.events.security.GetUserListEvent;
+			import framework.view.pages.security.popups.UserRoleEditView;
+			import services.business.hotels.HotelsDelegate;
+			import mx.core.Application;
+			import mx.managers.PopUpManager;
+			import services.events.security.SetStatusSystemUserEvent;
+			import services.events.security.AddSystemUserEvent;
+			import services.events.security.GetSystemRoleListEvent;
+			import services.events.security.DeleteUserHotelRoleEvent;
+			import framework.view.components.popups.DeletePopupView;
+			import mx.managers.PopUpManagerChildList;
+			import framework.view.components.popups.events.PopupEvent;
+			import services.vo.hotels.HotelInfoTotalVO;
+			import services.events.hotels.GetHotelsListEvent;
+			import services.vo.GlobalSettings;
+			import mx.events.CollectionEventKind;
+			import mx.events.CollectionEvent;
+			import mx.binding.utils.ChangeWatcher;
+			import framework.core.utils.UtilsMXML;
+			import services.vo.frontend.RoleVO;
+			import services.vo.frontend.UserProfileVO;
+			import services.events.security.SetUserHotelRoleEvent;
+			import framework.managers.PopUpManagerExt;
+			import mx.controls.Alert;
+			import mx.events.CloseEvent;
+			import h2olib.control.Confirmation;
+			import services.events.security.DeleteUserHotelRoleEvent;
+			import com.adobe.cairngorm.control.CairngormEvent;
+
+			import h2olib.control.headerRenderer.FilterObject;
+			import h2olib.control.headerRenderer.HeaderRendererDDL;
+			import h2olib.control.headerRenderer.HeaderRendererEdit;
+			import h2olib.control.factory.HeaderRendererClassFactory;
+			import services.vo.frontend.UserVO;
+			import mx.controls.dataGridClasses.DataGridColumn;
+			import services.controller.AppController;
+			import services.events.security.GetUserListInHotelEvent;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.vo.frontend.UserHotelsVO;
+			import framework.model.AppModelLocator;
+			import services.vo.GlobalStorage;
+			import mx.collections.ArrayCollection;
+			import services.vo.GlobalImageAssets;
+
+		    [Bindable]
+            private var filteredValues:FilterObject = new FilterObject();
+            private var userRoleEditWindow:UserRoleEditView;
+
+			public function show():void
+			{
+				if(model.hotelsModule.hotels.length == 0)
+				{
+					var event:GetHotelsListEvent = new GetHotelsListEvent(HotelsDelegate.GET_HOTELS_LIST);
+					CairngormEventDispatcher.getInstance().dispatchEvent(event);
+				}
+				getUserList();
+				getSystemRoleList();
+
+			}
+
+			private function hotelNameLabelFunction(item:Object):String
+			{
+				return (item as HotelInfoTotalVO).sHotelName;
+			}
+
+			private function getUserList():void
+			{
+				var getUserListEvent:GetUserListEvent = new GetUserListEvent();
+				getUserListEvent.dispatch();
+				//CairngormEventDispatcher.getInstance().dispatchEvent(new CairngormEvent(AppController.SECURITY_GET_USER_LIST_EVENT));
+			}
+
+			private function getSystemRoleList():void
+			{
+				CairngormEventDispatcher.getInstance().dispatchEvent(new GetSystemRoleListEvent());
+			}
+
+			private function dgUserNameLabelFunction(item:Object, column:DataGridColumn):String
+			{
+				return (item as UserVO).oUser.sUserLogin;
+			}
+
+			private function dgUserRoleLabelFunction(item:Object, column:DataGridColumn):String
+			{
+				return (item as UserVO).oSysRole != null ? (item as UserVO).oSysRole.sName : "nothing";
+			}
+
+			private function addNewUserToSystem():void
+			{
+				if(txtNewUser.text.length > 0)
+				{
+					var addSystemUserEvent:AddSystemUserEvent = new AddSystemUserEvent();
+					addSystemUserEvent.sLogin = txtNewUser.text;
+					addSystemUserEvent.iRoleId = (cmbRole.selectedItem as RoleVO).lId;
+					addSystemUserEvent.callBack = getUserList;
+					CairngormEventDispatcher.getInstance().dispatchEvent(addSystemUserEvent);
+					txtNewUser.text = "";
+				}
+			}
+
+
+            public function editItem():void
+            {
+            	userRoleEditWindow = PopUpManagerExt.createPopUp(this, UserRoleEditView) as UserRoleEditView;
+            	userRoleEditWindow.currentUser = dgUsers.selectedItem as UserVO;
+            	userRoleEditWindow.isSystemRole = true;
+            	userRoleEditWindow.data = model.securityModule.systemRoleList;
+            	userRoleEditWindow.callBack = getUserList;
+            	//userRoleEditWindow.hotelID = (lstHotels.selectedItem as HotelInfoTotalVO).iHotelId;
+            	PopUpManagerExt.centerPopUp(userRoleEditWindow);
+            }
+
+            public function deleteItem():void
+            {
+                var pop:DeletePopupView = PopUpManagerExt.createPopUp(this, DeletePopupView) as DeletePopupView;
+				pop.title = "Delete?";
+				pop.description = "Would you like to delete this User?";
+				pop.addEventListener(PopupEvent.DELETE_HANDLER, delItem);
+            }
+
+            public function delItem(e:PopupEvent):void
+            {
+            	(e.target as DeletePopupView).removeEventListener(PopupEvent.DELETE_HANDLER, delItem);
+            	var setStatusSystemUserEvent:SetStatusSystemUserEvent = new SetStatusSystemUserEvent();
+            	setStatusSystemUserEvent.iUserId = (dgUsers.selectedItem as UserVO).oUser.lId;
+            	setStatusSystemUserEvent.bStatus = true;
+            	CairngormEventDispatcher.getInstance().dispatchEvent(setStatusSystemUserEvent);
+            	(e.target as DeletePopupView).completeCall();
+            }
+
+			[Bindable]
+			[Embed(source='/assets/assets.swf', symbol='EditIcon')]
+			public var editIcon:Class;
+			
+			[Bindable]
+			[Embed(source='/assets/assets.swf', symbol='RemoveIcon')]
+			public var deleteIcon:Class;
+
+            private function editIconFunction(item:Object, column:DataGridColumn):String {
+                return "editIcon";
+            }
+
+            private function deleteIconFunction(item:Object, column:DataGridColumn):String {
+                return "deleteIcon";
+            }
+
+            private function refreshUserDataProvider(event:CollectionEvent):void
+            {
+            	//event.kind = CollectionEventKind.ADD
+            	//(cmbUser.dataProvider as ArrayCollection).refresh();
+            }
+
+            private function userFilterFunction(item:UserProfileVO):Boolean
+            {
+            	var result:Boolean = true;
+
+            	for each(var user:UserVO in model.securityModule.userListInHotel)
+            	{
+            		if(user.oUser.sUserLogin == item.sUserLogin)
+            		{
+            			result = false;
+            			break;
+            		}
+            	}
+
+            	return result;
+            }
+
+		   private function calcRowColor(item:Object, rowIndex:int, dataIndex:int, color:uint):uint
+		   {
+		   			//trace((item as UserVO).oUser.sUserLogin + " " + (item as UserVO).oUser.bIsDisabled);
+		    		return ((item as UserVO).oUser.bIsDisabled) ? 0xf4b9e4 : color;
+		   }
+
+		]]>
+	</mx:Script>
+	<control:Frame
+		label="Users"
+		width="100%" height="100%">
+		<mx:HBox id="boxAddUser"
+			width="100%">
+			<control:PromptingTextInput id="txtNewUser"
+				maxChars="{GlobalSettings.LOGIN_MAX_LOGIN_LENGTH}"
+				prompt="New User"/>
+			<control:ComboBoxEx id="cmbRole"
+				labelField="sName"
+				dataProvider="{model.securityModule.systemRoleList}"/>
+			<mx:Button id="btnAddNewUser"
+				label="Add New User"
+				enabled="{UtilsMXML.and(txtNewUser.text.length >= GlobalSettings.LOGIN_MIN_LOGIN_LENGTH, cmbRole.selectedIndex > -1) }"
+				click="{addNewUserToSystem()}"/>
+		</mx:HBox>
+		<controls:ColoredDataGrid id="dgUsers"
+			dataProvider="{model.securityModule.userList}"
+			rowColorFunction="calcRowColor"
+			width="100%" height="100%">
+			<controls:columns>
+				<mx:DataGridColumn
+					headerText="User"
+					labelFunction="dgUserNameLabelFunction"/>
+				<mx:DataGridColumn
+					sortable="false"
+					headerText="Role"
+					headerRenderer="{new HeaderRendererClassFactory(HeaderRendererDDL, filteredValues)}"
+					labelFunction="dgUserRoleLabelFunction"
+					width="150"/>
+	            <mx:DataGridColumn
+	            	sortable="false"
+	            	minWidth="8" width="22"
+	                labelFunction="editIconFunction">
+	                <mx:itemRenderer>
+	                    <mx:Component>
+	                        <dataGrid:EmbedImageRenderer
+	                            toolTip="Change role"
+	                            click="{outerDocument.editItem()}"/>
+	                    </mx:Component>
+	                </mx:itemRenderer>
+	            </mx:DataGridColumn>
+	            <mx:DataGridColumn
+	            	sortable="false"
+	            	minWidth="8" width="22"
+	                labelFunction="deleteIconFunction">
+	                <mx:itemRenderer>
+	                    <mx:Component>
+	                        <dataGrid:EmbedImageRenderer
+	                            toolTip="Delete user"
+	                            click="{outerDocument.deleteItem()}"/>
+	                    </mx:Component>
+	                </mx:itemRenderer>
+	            </mx:DataGridColumn>
+			</controls:columns>
+		</controls:ColoredDataGrid>
+	</control:Frame>
+
+</view:VSubWindow>

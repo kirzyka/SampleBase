@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="utf-8"?>
+<sub:VSubWindow xmlns:sub="framework.core.view.*" xmlns:mx="http://www.adobe.com/2006/mxml" width="100%">
+
+	<mx:Script>
+		<![CDATA[
+			import framework.core.utils.UtilsGolobal;
+			import services.vo.reports.ForecastSearchVO;
+			import services.vo.reports.NoShowsReportVO;
+			import services.vo.reports.InHouseReportVO;
+			import services.vo.common.loyaltyPrograms.LoyaltyProgramsVO;
+			import framework.model.AppModelLocator;
+			import services.vo.GlobalFunctions;
+			import services.events.reports.GetReportEvent;
+			import services.vo.backend.ReportVO;
+			import services.vo.common.SourceCodesVO;
+			import services.vo.backend.RoomSettingObjectVO;
+			import services.vo.common.MarketCodesVO;
+			import services.vo.hotels.HotelRoomWithBedTypesObjectVO;
+			import services.vo.GlobalSettings;
+			import services.vo.GlobalStorage;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.events.miscellaneous.loyaltyPrograms.GetLoyaltyProgramsEvent;
+			import services.controller.AppController;
+			import services.events.roomSettings.GetRoomSettingsDataEvent;
+			import mx.collections.ArrayCollection;
+			import services.vo.reports.ArrivalReportVO;
+
+			[Bindable]
+			private var forecastRoomTypesDP:ArrayCollection = new ArrayCollection();
+
+			//config
+  			[Bindable]
+  			public var indicatorGapFormItem:int = 14;
+
+  			/**
+			 *	Get reports. This function we have in parent.
+			*/
+  			public var getReports:Function = new Function();
+
+  			/**
+			 *	Get selected All for all list. This function we have in parent.
+			*/
+  			public var allClick:Function = new Function();
+
+			public var reportType:int;
+		
+			public function init():void
+			{
+				forecastRoomTypesDP = UtilsGolobal.clone(model.hotelsModule.hotelRoomTypes) as ArrayCollection;
+			}
+
+			/**
+			 * Print report of forecast
+			 */ 
+			private function handlePrintForecast():void
+			{
+				var forecastReport:ForecastSearchVO = new ForecastSearchVO();
+				forecastReport.sDateFrom = DateField.dateToString(forecastFromDate.selectedDate, GlobalSettings.DATE_SERVER_FORMAT);
+				forecastReport.sDateTo = DateField.dateToString(forecastToDate.selectedDate, GlobalSettings.DATE_SERVER_FORMAT);
+				if (!forecastAllRoomType.selected)
+				{
+					for (var i:int = 0; i < forecastRoomTypesDP.length; i++)
+					{
+						if ((forecastRoomTypesDP.getItemAt(i) as HotelRoomWithBedTypesObjectVO).oRoomQuality.bIsSelected)
+						{
+							forecastReport.aRoomType.push((forecastRoomTypesDP.getItemAt(i) as HotelRoomWithBedTypesObjectVO).oRoomQuality.lQualityId);
+						}
+					}
+				}
+				getReports( forecastReport, reportType,  null);
+			}
+
+			/**
+			 *	Get selected references for RoomTypes (in Forecast Report).
+			*/
+			public function updateSelectionForecastRoomType(index:int,selected:Boolean):void
+			{
+				var tempSelect:Boolean = (forecastRoomTypesDP.getItemAt(index) as HotelRoomWithBedTypesObjectVO).oRoomQuality.bIsSelected;
+
+				if (tempSelect) tempSelect = false
+				else tempSelect = true;
+
+				(forecastRoomTypesDP.getItemAt(index) as HotelRoomWithBedTypesObjectVO).oRoomQuality.bIsSelected = tempSelect;
+			}
+		]]>
+	</mx:Script>
+
+
+			<mx:Panel  width="100%" label="Forecast report" layout="vertical" styleName="reportPanel">
+			<mx:HBox>
+				<mx:Form>
+						<mx:FormItem label="From Date:" labelWidth="120">
+							<mx:DateField id="forecastFromDate" width="{GlobalSettings.WIDTH_DATE_FIELD}"
+								selectedDate="{GlobalFunctions.getDate()}" formatString="{GlobalSettings.DATE_FORMAT}"/>
+						</mx:FormItem>
+						<mx:FormItem label="To Date:" labelWidth="120">
+							<mx:DateField id="forecastToDate" width="{GlobalSettings.WIDTH_DATE_FIELD}"
+								selectedDate="{GlobalFunctions.getDate()}" formatString="{GlobalSettings.DATE_FORMAT}"/>
+						</mx:FormItem>
+				</mx:Form>
+				<mx:Form>
+						<mx:FormItem label="Room Types:" labelWidth="120" indicatorGap="{indicatorGapFormItem}">
+								<mx:List id="forecastRoomType" enabled="false"
+									dataProvider="{forecastRoomTypesDP}"
+									width="150" height="100">
+									<mx:itemRenderer>
+										<mx:Component>
+											<mx:CheckBox
+												label="{data.oRoomQuality.sQualityName}"
+												selected="{data.oRoomQuality.bIsSelected}"
+												change="{outerDocument.updateSelectionForecastRoomType( outerDocument.forecastRoomType.selectedIndex, this.selected)}"/>
+										</mx:Component>
+									</mx:itemRenderer>
+								</mx:List>
+								<mx:CheckBox id="forecastAllRoomType" label="All room types" selected="true"
+									change="{allClick(forecastAllRoomType, forecastRoomType)}"/>
+						</mx:FormItem>
+				</mx:Form>
+			</mx:HBox>
+			<mx:HBox width="100%" horizontalAlign="right" paddingRight="15">
+				<mx:Button label="Print Report" click="handlePrintForecast()"/>
+			</mx:HBox>
+		</mx:Panel>
+</sub:VSubWindow>

@@ -1,0 +1,436 @@
+<?xml version="1.0" encoding="utf-8"?>
+<BaseWindow
+	xmlns="framework.core.view.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:searchBox="h2olib.control.searchBox.*"
+	title="Room Types"
+	layout="vertical"
+	styleName="PageBigWithTopPadding">
+
+	<mx:Script>
+		<![CDATA[
+			import services.events.MsgEvent;
+			import h2olib.control.enum.MessageShowType;
+			import h2olib.control.enum.MessageKind;
+			import framework.view.pages.roomTypes.popups.SaveRoomTypePopupView;
+			import services.events.roomTypes.GetRoomTypesPageEvent;
+			import services.command.roomTypes.GetRoomTypesPageCommand;
+			import services.events.roomTypes.GetBedTypesListEvent;
+			import services.events.roomTypes.SetRoomTypeDescriptionEvent;
+			import services.events.roomTypes.SetRoomTypeCapacityEvent;
+			import services.events.roomTypes.GetRoomTypesDataEvent;
+			import services.events.roomTypes.DeleteRoomTypeEvent;
+			import services.events.roomTypes.DeleteRoomQualityEvent;
+			import mx.managers.PopUpManagerChildList;
+			import framework.view.components.popups.events.PopupEvent;
+			import framework.view.components.popups.DeletePopupView;
+			import mx.controls.TextInput;
+			import services.vo.GlobalSettings;
+			import services.vo.GlobalStorage;
+			import services.vo.backend.RoomTypeHierarchicalVO;
+			import mx.events.AdvancedDataGridEvent;
+			import mx.controls.advancedDataGridClasses.AdvancedDataGridListData;
+			import mx.controls.advancedDataGridClasses.AdvancedDataGridItemRenderer;
+			import mx.events.ListEvent;
+			import mx.controls.List;
+			import services.vo.backend.RoomWithBedTypesObjectVO;
+			import services.vo.backend.RoomQualityObjectVO;
+			import mx.collections.HierarchicalCollectionView;
+			import mx.collections.HierarchicalData;
+			import mx.collections.GroupingField;
+			import mx.collections.Grouping;
+			import mx.collections.GroupingCollection;
+			import mx.collections.ICollectionView;
+			import services.vo.GlobalFunctions;
+			import mx.events.CollectionEvent;
+			import mx.collections.ArrayCollection;
+			import services.vo.backend.RoomTypeRowVO;
+			import services.vo.backend.RoomTypesObjectVO;
+			import mx.controls.Alert;
+			import mx.controls.advancedDataGridClasses.AdvancedDataGridColumn;
+			import framework.managers.PopUpManagerExt;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.controller.AppController;
+			import framework.model.AppModelLocator;
+
+			[Bindable]
+			private var isClickBedType:Number=0;
+			[Bindable]
+			private var indexBedType:Number=0;
+
+			private var isEditable:Boolean = false;
+
+			/**
+			 * Refrash window of room types
+			 */ 
+			override public function show():void
+			{
+				var roomEvt:GetRoomTypesPageEvent = new GetRoomTypesPageEvent( AppController.GET_ROOM_TYPES_PAGE );
+				CairngormEventDispatcher.getInstance().dispatchEvent( roomEvt );
+			}
+
+			/**
+			 * Create Pop Up for add new room type
+			 */
+			private function handleAdd():void
+			{
+				var pop:SaveRoomTypePopupView = PopUpManagerExt.createPopUp(this, SaveRoomTypePopupView) as SaveRoomTypePopupView;
+				PopUpManagerExt.centerPopUp(pop);
+			}
+			
+			/**
+			 * Create Pop Up for edit room type
+			 */
+			private function handleEdit():void
+			{
+				var pop:SaveRoomTypePopupView = PopUpManagerExt.createPopUp(this, SaveRoomTypePopupView) as SaveRoomTypePopupView;
+				pop.data =  model.roomTypesModule.currentRoomWithBedTypes;
+				PopUpManagerExt.centerPopUp(pop);
+			}
+
+			/**
+			 * Delete room type or bed type - request to server
+			 * @param e:PopupEvent
+			 */ 
+			private function deleteFromRoomTypesList(e:PopupEvent):void
+			{
+				(e.target as DeletePopupView).removeEventListener(PopupEvent.DELETE_HANDLER, deleteFromRoomTypesList);
+				var roomWithBedTypes:RoomWithBedTypesObjectVO = new RoomWithBedTypesObjectVO();
+				if (isClickBedType)
+				{
+					var roomType:RoomTypesObjectVO = model.roomTypesModule.currentRoomType;
+					var evt:DeleteRoomTypeEvent = new DeleteRoomTypeEvent( AppController.DELETE_ROOM_TYPE_EVENT );
+					evt.roomType = roomType;
+					evt.callBack = (e.target as DeletePopupView).completeCall;
+					CairngormEventDispatcher.getInstance().dispatchEvent( evt );
+				}
+				else
+				{
+					var roomType2:RoomWithBedTypesObjectVO = model.roomTypesModule.currentRoomWithBedTypes;
+					var evt2:DeleteRoomQualityEvent = new DeleteRoomQualityEvent( AppController.DELETE_ROOM_QUALITY_EVENT );
+					evt2.roomQuality = roomType2.oRoomQuality;
+					evt2.callBack = (e.target as DeletePopupView).completeCall;
+					CairngormEventDispatcher.getInstance().dispatchEvent( evt2 );
+				}
+			}
+
+			/**
+			 * Create pop up for delete room type or bed type
+			 */ 
+			private function handleDelete():void
+			{
+				if (isClickBedType)
+				{
+					var roomType:RoomTypesObjectVO = model.roomTypesModule.currentRoomType;
+					var pop:DeletePopupView = PopUpManagerExt.createPopUp(this, DeletePopupView) as DeletePopupView;
+
+					pop.title = "Question";
+					pop.description = "Are you sure to delete Bed type "+ roomType.oBedType.sTypeName + "?";
+					pop.addEventListener(PopupEvent.DELETE_HANDLER, deleteFromRoomTypesList);
+				}
+				else
+				{
+					var roomType2:RoomWithBedTypesObjectVO = model.roomTypesModule.currentRoomWithBedTypes;
+					pop = PopUpManagerExt.createPopUp(this, DeletePopupView) as DeletePopupView;
+
+					pop.title = "Question";
+					pop.description = "Are you sure to delete Room type "+ roomType2.oRoomQuality.sQualityName + "?";
+					pop.subDescription = "All bed type for this room type will be deleted";
+					pop.addEventListener(PopupEvent.DELETE_HANDLER, deleteFromRoomTypesList);
+				}
+			}
+
+			/**
+			 *  The handle of click onto the cell.
+			 *  <p>Check possible to edit for current selected cell - if it is possible
+			 *  set for grid <code>editable = "true"</code>, otherwice - none editable
+			 *  state. If cell has editable state - make to save any changes by focus
+			 *  out from selected cell.
+			 *
+			 *  @param evt:ListEvent
+			 */
+			private function handleRoomTypeClick(evt:ListEvent):void
+			{
+				
+				if (evt.itemRenderer.data is RoomTypesObjectVO)
+				{
+					isClickBedType = 1;
+					model.roomTypesModule.currentRoomType = evt.itemRenderer.data as RoomTypesObjectVO;
+					var tempLength:int = model.roomTypesModule.roomTypesDP.length;
+					for (var i:int = 0; i < tempLength; i++)
+					{
+						if ((model.roomTypesModule.roomTypesDP.getItemAt(i) as RoomWithBedTypesObjectVO).oRoomQuality.lQualityId == model.roomTypesModule.currentRoomType.oRoomQuality.lQualityId)
+						{
+							model.roomTypesModule.currentRoomWithBedTypes = model.roomTypesModule.roomTypesDP.getItemAt(i) as RoomWithBedTypesObjectVO;
+							break;
+						}
+					}
+				}
+
+				if((rtData.selectedItem is RoomWithBedTypesObjectVO))
+				{
+					isClickBedType = 0;
+					model.roomTypesModule.currentRoomWithBedTypes = evt.itemRenderer.data as RoomWithBedTypesObjectVO;
+				}
+				// check possible to edit selected cell
+				rtData.editable = "false";	
+			}
+			/**
+			 *  The handle to focus out from selected cell.
+			 *  <p>Check column of edited cell by index and save changes if it needs.
+			 *
+			 *  @param e:AdvancedDataGridEvent
+			 *
+			 *  @see framework.view.pages.roomTypes.RoomTypesView.saveRoomTypeShortName
+			 *  @see framework.view.pages.roomTypes.RoomTypesView.saveRoomTypeDescription
+			 *  @see framework.view.pages.roomTypes.RoomTypesView.saveRoomTypeCapacity
+			 */
+			private function handleItemFocusOut(e:AdvancedDataGridEvent):void
+			{
+				rtData.removeEventListener(AdvancedDataGridEvent.ITEM_EDIT_END, handleItemFocusOut);
+
+				var data:RoomWithBedTypesObjectVO = rtData.selectedItem as RoomWithBedTypesObjectVO;
+				var editor:TextInput = rtData.itemEditorInstance as TextInput;
+
+				if((!data) || (editor.text.length == 0)) return;
+
+				if (e.columnIndex == 2) saveRoomTypeDescription(data, editor.text);
+			}
+			/**
+			 *  Save changes for short name of selected item.
+			 *
+			 *  @param data:RoomTypeRowVO - data from the selected cell
+			 *  @param value:String - new value for selected cell
+			 */
+			private function saveRoomTypeShortName(data:RoomWithBedTypesObjectVO, value:String):void
+			{
+			}
+
+			/**
+			 *  Save changes for description of selected item.
+			 *
+			 *  @param data:RoomTypeRowVO - data from the selected cell
+			 *  @param value:String - new value for selected cell
+			 */
+			private function saveRoomTypeDescription(data:RoomWithBedTypesObjectVO, value:String):void
+			{
+				if (data.flx_oRoomStandalone.sDescription == value) return;
+				var evt:SetRoomTypeDescriptionEvent = new SetRoomTypeDescriptionEvent( AppController.SET_ROOM_TYPE_DESCRIPTION_EVENT );
+				evt.roomTypeId = data.flx_oRoomStandalone.iId;
+				evt.description = value;
+				data.flx_oRoomStandalone.sDescription = value;
+				CairngormEventDispatcher.getInstance().dispatchEvent(evt);
+			}
+
+			/**
+			 *  Save changes for capacity of selected item.
+			 *
+			 *  @param data:RoomTypeRowVO - data from the selected cell
+			 *  @param value:String - new value for selected cell
+			 */
+			private function saveRoomTypeCapacity(data:RoomTypeRowVO, value:Number):void
+			{
+				if (data.capacity == value) return;
+				var evt:SetRoomTypeCapacityEvent = new SetRoomTypeCapacityEvent( AppController.SET_ROOM_TYPE_CAPACITY_EVENT );
+				evt.roomTypeId = data.roomTypeId;
+				evt.capacity = value;
+				data.capacity = value;
+				CairngormEventDispatcher.getInstance().dispatchEvent(evt);
+			}
+
+			/**
+			 *  The handle of releasing the mouse button by the user while over
+			 *  an item renderer, tabs to the AdvancedDataGrid control or within
+			 *  the AdvancedDataGrid control, or in any other way attempts to edit
+			 *  an item.
+			 *  <p>The <code>AdvancedDataGridEvent.ITEM_EDIT_BEGINNING</code>
+			 *  constant defines the value of the type property of the event object
+			 *  for a <code>itemEditBeginning</code> event, which indicates that
+			 *  the user has prepared to edit an item, for example, by releasing
+			 *  the mouse button over the item.
+			 *
+			 *  @param e:AdvancedDataGridEvent
+			 */
+			private function handleItemEditBeginning(e:AdvancedDataGridEvent):void
+			{
+				try
+				{
+					var item:Object = (gc.source as ArrayCollection).getItemAt(e.rowIndex);
+
+					if (!(item as RoomWithBedTypesObjectVO).oRoomQuality.bIsUsedStandalone)
+					{
+						rtData.editable = "false";
+						rtData.removeEventListener(AdvancedDataGridEvent.ITEM_FOCUS_OUT, handleItemFocusOut);
+					}
+				} catch (e:Error) {}
+			}
+
+			/**
+			 * search in heirarchical data
+			 */ 
+			private function handleSearch():void
+			{
+				var tempHierarchicalData:HierarchicalData = new HierarchicalData();
+				 tempHierarchicalData.childrenField="aRoomWithBedTypes";
+
+				search.label = GlobalStorage.searchFieldRoomType[searchField.selectedIndex];
+				var roomTypesDP:ArrayCollection = model.roomTypesModule.roomTypesDP;
+				if(search.text == "")
+				{
+					tempHierarchicalData.source = roomTypesDP;
+					rtData.dataProvider = tempHierarchicalData;
+					return;
+				}
+
+				if (searchField.selectedIndex == 0)// select all fields
+					tempHierarchicalData.source = GlobalFunctions.searchRoomType(roomTypesDP, search.text, [["sQualityName"], ["sTypeName"], ["sShortName"], ["sDescription"]]);
+				if (searchField.selectedIndex == 1) tempHierarchicalData.source = GlobalFunctions.searchRoomType(roomTypesDP, search.text, [["sQualityName"], ["sTypeName"]]);
+				if (searchField.selectedIndex == 2) tempHierarchicalData.source = GlobalFunctions.searchRoomType(roomTypesDP, search.text, ["sShortName"]);
+				if (searchField.selectedIndex == 3) tempHierarchicalData.source = GlobalFunctions.searchRoomType(roomTypesDP, search.text, ["sDescription"]);
+
+				
+				rtData.dataProvider = tempHierarchicalData;
+				rtData.dataProvider.refresh();
+				if (tempHierarchicalData.source.length == 0)
+				{
+					new MsgEvent(MessageKind.WARNING,
+								"Notification",
+								"No results found by your request.",
+								MessageShowType.UNKNOWN).dispatch();
+				}
+			}
+			
+			/**
+			 * search change
+			 */ 
+			private function handleSearchChange():void
+			{
+				var char:String = search.text.charAt(search.text.length-1);
+
+				if(char == "^" || char == "[" || char == "]" || char == "\\")
+				{
+					if(search.text.length == 0) search.text = '';
+					else search.text = search.text.substr(0,search.text.length-1);
+				}
+				handleSearch();
+			}
+
+			 private function roomTypeLabelFunction(item:Object, column:AdvancedDataGridColumn):String
+			   {
+			    if(item.hasOwnProperty("flx_oRoomStandalone")) return item.oRoomQuality.sQualityName;
+			    if(item.hasOwnProperty("oBedType") && item.oBedType != null) return item.oBedType.sTypeName;
+			    return "";
+			   }
+
+			 private function otherLabelFunction(item:Object, column:AdvancedDataGridColumn):String
+			   {
+			   	if(item.hasOwnProperty("oBedType"))
+			   	{
+				 	if(column.dataField == "shortName")
+				    	return item.sShortName;
+				    if(column.dataField == "description")
+				    	return item.sDescription;
+				    if(column.dataField == "capacity")
+				    	return item.iRoomCapacity;
+			    }
+			    if(item.hasOwnProperty("flx_oRoomStandalone") && item.flx_oRoomStandalone!=null)
+			    {
+			    	if(column.dataField == "shortName")
+				    	return item.flx_oRoomStandalone.sShortName;
+				    if(column.dataField == "description")
+				    	return item.flx_oRoomStandalone.sDescription;
+				    if(column.dataField == "capacity")
+				    	return item.flx_oRoomStandalone.iRoomCapacity;
+			    }
+			    return "";
+			   }
+
+
+		]]>
+	</mx:Script>
+
+	<mx:HBox styleName="panel">
+		<mx:HBox styleName="formChildrenGroup1">
+			<mx:FormItem label="Search for Room Type by">
+				<mx:ComboBox id="searchField"
+					dataProvider="{GlobalStorage.searchFieldRoomType}"
+					change="handleSearch()"
+					height="24"/>
+			</mx:FormItem>
+			<searchBox:SearchBox id="search"
+				width="180"
+				label="Room type"
+				enter="handleSearchChange()"
+				changeByFocus="handleSearchChange()"
+				height="24"/>
+		</mx:HBox>
+	</mx:HBox>	
+
+	<mx:AdvancedDataGrid id="rtData" width="100%"
+		height="100%"
+		itemClick="handleRoomTypeClick(event)"
+		folderClosedIcon="{null}"
+		folderOpenIcon="{null}"
+		defaultLeafIcon="{null}"
+		itemEditBeginning="handleItemEditBeginning(event)"
+		headerHeight="22" rowHeight="33" styleName="grid">
+		<mx:dataProvider>
+			<mx:HierarchicalData id="gc" source="{model.roomTypesModule.roomTypesDP}" childrenField="aRoomWithBedTypes"/>
+		</mx:dataProvider>
+		<mx:columns>
+			
+
+			<mx:AdvancedDataGridColumn
+				headerStyleName="HeaderDataGrid"
+				editable="false"
+				sortable="false"
+				headerText="Room Type"
+				dataField="bedName"
+				fontWeight="bold"
+				width="180"
+				labelFunction="roomTypeLabelFunction"/>
+			<mx:AdvancedDataGridColumn
+				headerStyleName="HeaderDataGrid"
+				sortable="false"
+				headerText="Short Name"
+				dataField="shortName"
+				itemEditor="mx.controls.TextInput"
+				labelFunction="otherLabelFunction"/>
+			<mx:AdvancedDataGridColumn
+				headerStyleName="HeaderDataGrid"
+				sortable="false"
+				headerText="Description"
+				dataField="description"
+				width="800"
+				itemEditor="mx.controls.TextInput"
+				labelFunction="otherLabelFunction"/>
+		
+			<mx:AdvancedDataGridColumn
+				headerStyleName="HeaderDataGrid"
+				sortable="false"
+				textAlign="right"
+				paddingRight="10"
+				headerText="Room capacity"
+				dataField="capacity"
+				itemEditor="mx.controls.TextInput"
+				labelFunction="otherLabelFunction"/>
+		</mx:columns>
+	</mx:AdvancedDataGrid>
+
+	<mx:HBox width="100%" horizontalAlign="right">
+		<mx:Button id="addBtn"
+			label="Add"
+			width="100"
+			click="handleAdd()" />
+		<mx:Button id="editBtn"
+			label="Edit"
+			width="100"
+			click="handleEdit()"
+			enabled="{rtData.selectedIndex > -1}"/>
+		<mx:Button id="delete_From_RoomTypesView"
+			label="Delete"
+			width="100"
+			click="handleDelete()"
+			enabled="{rtData.selectedIndex > -1}"/>
+	</mx:HBox>
+</BaseWindow>

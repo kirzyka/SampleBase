@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Application xmlns:mx="http://www.adobe.com/2006/mxml" layout="absolute">
+<mx:Style source="ramada.css"/>
+ <mx:Script>
+  <![CDATA[
+   import mx.collections.ArrayCollection;
+   
+   [Bindable]
+   private var provider:ArrayCollection = new ArrayCollection(
+        [{name:"12313", decription:"slkasdglsdlgkfds"},
+         {name:"12313", decription:"slkasdglsdlgkfds"},
+         {name:"12313", decription:"slkasdglsdlgkfds"},
+         {name:"12313", decription:"slkasdglsdlgkfds"},
+         {name:"12313", decription:"slkasdglsdlgkfds"}]);
+  ]]>
+ </mx:Script>
+ 
+ <mx:DataGrid
+  dataProvider="{provider}"
+  width="100%" height="100%">
+  <mx:columns>
+   <mx:DataGridColumn
+    headerText="Name"
+    dataField="name"/>
+   <mx:DataGridColumn
+    headerText="Description"
+    dataField="decription"/>
+  </mx:columns>
+ </mx:DataGrid>
+ <mx:Button x="213" y="174" label="Button"/>
+</mx:Application>

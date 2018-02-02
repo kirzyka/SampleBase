@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<view:HSubWindow
+	xmlns:view="framework.core.view.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	horizontalScrollPolicy="off"
+	horizontalAlign="center" 
+	height="100%" width="100%">
+	
+	<mx:Script>
+		<![CDATA[
+			import services.vo.rates.companyRates.CompanyRateGroupVO;
+		]]>
+	</mx:Script>
+
+	<mx:Image
+		visible="{CompanyRateGroupVO(data).bBreakfastIncluded == true}"
+		source="@Embed(source='/assets/assets.swf', symbol='CheckIcon')"/>
+</view:HSubWindow>

@@ -1,0 +1,494 @@
+<?xml version="1.0" encoding="utf-8"?>
+<BasePopupView 
+	xmlns="framework.view.components.popups.*" 
+	xmlns:mx="http://www.adobe.com/2006/mxml" 
+	xmlns:control="h2olib.control.*"
+	
+	width="900" height="500"
+	
+	title="Rates"
+	
+	creationComplete="{onCreationComplete()}"
+	>
+	
+<mx:Script>
+	<![CDATA[
+		import mx.utils.ObjectUtil;
+		import services.vo.reservation.OrderDateVO;
+		import services.vo.reservation.OrderVO;
+	
+		import mx.controls.ComboBox;
+		import mx.collections.ArrayCollection;
+		import services.vo.common.SourceCodesVO;
+		import framework.core.utils.UtilsGolobal;
+		import mx.events.ItemClickEvent;
+		import services.vo.rates.CommonRateVO;
+		import services.vo.common.MarketCodesVO;
+		import services.events.reservation.SaveGroupReservationRoomBlockedEvent;
+		import mx.events.ListEvent;
+		import services.vo.rates.bar.BarPriceVO;
+		import services.vo.backend.PackageVO;
+		import services.vo.rates.companyRates.CompanyRateObjectVO;
+		import mx.controls.dataGridClasses.DataGridColumn;
+		import services.vo.GlobalStorage;
+		import framework.module.ReservationModule;
+		import h2olib.utils.DateUtils;
+		import services.vo.reservation.ReservationRoomBlockedVO;
+		import mx.controls.DateField;
+		import services.vo.GlobalSettings;
+		import framework.managers.PopUpManagerExt;
+		import framework.view.pages.reservationCreate.popups.SelectRateReservationPopupView;
+		import mx.events.MenuEvent;
+		import mx.controls.Menu;
+	
+		private static const RC_FORM_ITEM_LABEL_WIDTH:int = 80;
+		
+		private static const RATE_TYPE_BAR:int = 0;
+		private static const RATE_TYPE_COMPANY:int = 1;
+		private static const RATE_TYPE_PACKAGE:int = 2;
+
+
+		private var prevRateTypeIndex:int;
+		[Bindable]
+		public var bar:BarPriceVO = new BarPriceVO();
+		[Bindable]
+		private var currentCompanyRate:CompanyRateObjectVO;
+		[Bindable]
+		private var currentPackageRate:PackageVO;		
+		[Bindable]
+		private var aMarketCodes:ArrayCollection;
+				
+		private var selectRateReservationPopupView:SelectRateReservationPopupView;
+	
+		private function onCreationComplete():void
+		{
+	        var dp:Object = [	{label: "BAR", index: RATE_TYPE_BAR}, 
+	        					{label: "Company Rate", index: RATE_TYPE_COMPANY}, 
+	        					{label: "Package", index: RATE_TYPE_PACKAGE}];
+	        					
+	        tgbRateType.dataProvider = dp;
+	        model.reservationModule.typeOfRate = ReservationModule.BAR;
+	        tgbRateType.selectedIndex = ReservationModule.BAR;
+	        prevRateTypeIndex = ReservationModule.BAR;
+			if(GlobalStorage.marketCodes.length == 0)
+			{
+				GlobalStorage.getMarketCodes();
+			}
+			aMarketCodes = UtilsGolobal.addFirstItem(new MarketCodesVO("none"),GlobalStorage.marketCodes);	        
+		}
+		
+		private function btnAltRateClick(event:ItemClickEvent):void
+		{
+			var dateFrom:Date = DateField.stringToDate((dgRates.selectedItem as ReservationRoomBlockedVO).sDate,DateUtils.DATE_SERVER_FORMAT);
+			var dateTo:Date = DateField.stringToDate((dgRates.selectedItem as ReservationRoomBlockedVO).sDate,DateUtils.DATE_SERVER_FORMAT);
+			var iRoomQuality:int = (dgRates.selectedItem as ReservationRoomBlockedVO).iRoomQuality;
+
+			selectRateReservationPopupView = PopUpManagerExt.createPopUp(this, SelectRateReservationPopupView) as SelectRateReservationPopupView;
+			selectRateReservationPopupView.dateFrom = DateField.dateToString(dateFrom,GlobalSettings.DATE_SERVER_FORMAT );
+			selectRateReservationPopupView.dateTo = DateField.dateToString(dateTo,GlobalSettings.DATE_SERVER_FORMAT );
+			selectRateReservationPopupView.roomQualityId = iRoomQuality;
+			selectRateReservationPopupView.ratePage = event.item.index;
+			selectRateReservationPopupView.callBack = selectRateComplete;
+			PopUpManagerExt.centerPopUp(selectRateReservationPopupView);
+
+			tgbRateType.selectedIndex = prevRateTypeIndex;
+		}	
+		
+		private var cmbRates:ComboBox = new ComboBox();
+		private function selectRateComplete():void
+		{
+			var lblRate:Label = new Label();
+	
+			lblRate.setStyle('fontWeight','bold');
+			bxRates.removeAllChildren();
+	
+			tgbRateType.selectedIndex = model.reservationModule.typeOfRate = prevRateTypeIndex = selectRateReservationPopupView.rateType;
+			if(model.reservationModule.typeOfRate ==  ReservationModule.BAR)
+			{			
+				bar = selectRateReservationPopupView.bar;
+				changeRate();
+			}
+			if(model.reservationModule.typeOfRate ==  ReservationModule.COMPANY_RATE)
+			{
+				if(selectRateReservationPopupView.selectedCompanyRates.length == 1) {
+					lblRate.text = (selectRateReservationPopupView.selectedCompanyRates.getItemAt(0) as CompanyRateObjectVO).sName;
+					bxRates.addChild(lblRate);
+					currentCompanyRate = selectRateReservationPopupView.selectedCompanyRates.getItemAt(0) as CompanyRateObjectVO;
+					changeRate();
+				}
+				else {
+					currentCompanyRate = selectRateReservationPopupView.selectedCompanyRates.getItemAt(0) as CompanyRateObjectVO;
+					changeRate();					
+					cmbRates.dataProvider = selectRateReservationPopupView.selectedCompanyRates;
+					cmbRates.labelField = 'sName';
+					cmbRates.addEventListener(ListEvent.CHANGE, selectNewRate);
+					bxRates.addChild(cmbRates);
+				}
+			}
+	
+			if(model.reservationModule.typeOfRate == ReservationModule.PACKAGE_RATE)
+			{
+				if(selectRateReservationPopupView.selectedPackageRates.length == 1) {
+					lblRate.text = (selectRateReservationPopupView.selectedPackageRates.getItemAt(0) as PackageVO).sPackageName;
+					bxRates.addChild(lblRate);
+					currentPackageRate = selectRateReservationPopupView.selectedPackageRates.getItemAt(0) as PackageVO;
+					changeRate();
+				}
+				else {
+					currentPackageRate = selectRateReservationPopupView.selectedPackageRates.getItemAt(0) as PackageVO;
+					changeRate();
+					cmbRates.dataProvider = selectRateReservationPopupView.selectedPackageRates;
+					cmbRates.labelField = 'sPackageName';
+					cmbRates.addEventListener(ListEvent.CHANGE, selectNewRate);
+					bxRates.addChild(cmbRates);
+				}
+			}			
+		}
+		
+		private function selectNewRate(event:ListEvent = null):void
+		{
+			if(model.reservationModule.typeOfRate ==  ReservationModule.COMPANY_RATE)
+			{
+				currentCompanyRate = cmbRates.selectedItem as CompanyRateObjectVO;
+				changeRate();
+			}
+
+			if(model.reservationModule.typeOfRate == ReservationModule.PACKAGE_RATE)
+			{
+				currentPackageRate = cmbRates.selectedItem as PackageVO;
+				changeRate();
+			}
+		}		
+		
+		private function changeRate():void
+		{
+			(dgRates.selectedItem as ReservationRoomBlockedVO).oRateObject = new CommonRateVO();
+			
+			(dgRates.selectedItem as ReservationRoomBlockedVO).oRateObject.iBarPriceId = 0;
+			(dgRates.selectedItem as ReservationRoomBlockedVO).oRateObject.iCompanyPriceId = 0;
+			(dgRates.selectedItem as ReservationRoomBlockedVO).oRateObject.iPackagePriceId = 0;			
+			
+			switch(model.reservationModule.typeOfRate)
+			{
+				case ReservationModule.BAR:				
+					(dgRates.selectedItem as ReservationRoomBlockedVO).oRateObject.oMapBarPrice = bar;
+					(dgRates.selectedItem as ReservationRoomBlockedVO).oRateObject.iBarPriceId = bar.iRateId ;
+					lblOneAdult.text = bar.fPriceOneAdult.toString();
+					lblTwoAdult.text = bar.fPriceTwoAdults.toString();
+					lblExtraeAdult.text = bar.fPriceExtraAdult.toString();					
+					lblChildren1.text = bar.fPriceChildBefore.toString();
+					lblChildren2.text = bar.fPriceChildMiddle.toString();
+					lblChildren3.text = bar.fPriceChildAbove.toString();
+				break;
+				case ReservationModule.COMPANY_RATE:
+					(dgRates.selectedItem as ReservationRoomBlockedVO).oRateObject.oMapCompanyRate = currentCompanyRate;
+					(dgRates.selectedItem as ReservationRoomBlockedVO).oRateObject.iCompanyPriceId = currentCompanyRate.iRateId;
+					lblOneAdult.text = currentCompanyRate.fPriceOneAdult.toString();
+					lblTwoAdult.text = currentCompanyRate.fPriceTwoAdults.toString();
+					lblExtraeAdult.text = currentCompanyRate.fPriceExtraAdult.toString();					
+					lblChildren1.text = "0";
+					lblChildren2.text = "0";
+					lblChildren3.text = "0";
+				break;
+				case ReservationModule.PACKAGE_RATE:
+					(dgRates.selectedItem as ReservationRoomBlockedVO).oRateObject.oMapPackage = currentPackageRate;
+					(dgRates.selectedItem as ReservationRoomBlockedVO).oRateObject.iPackagePriceId = currentPackageRate.iPackageId;
+					lblOneAdult.text = currentPackageRate.fPriceOneAdult.toString();
+					lblTwoAdult.text = currentPackageRate.fPriceTwoAdults.toString();
+					lblExtraeAdult.text = currentPackageRate.fPriceExtraAdult.toString();					
+					lblChildren1.text = currentPackageRate.fPriceChildBelow.toString();
+					lblChildren2.text = currentPackageRate.fPriceChildMiddle.toString();
+					lblChildren3.text = currentPackageRate.fPriceChildAbove.toString(); 
+				break;
+			}				
+		}
+				
+		private function dateLabelFunction(item:ReservationRoomBlockedVO, column:DataGridColumn):String
+		{
+			var result:String = "none";
+			
+			result = DateUtils.convertToClienFormatString(item.sDate);
+						
+			return result;
+		}	
+		
+		private function rateLabelFunction(item:ReservationRoomBlockedVO, column:DataGridColumn):String
+		{
+			var result:String = "BAR";
+			if(item.oRateObject.iBarPriceId != 0)
+			{
+				result = "BAR"
+			}
+			if(item.oRateObject.iCompanyPriceId != 0)
+			{
+				result = "CMP: " + item.oRateObject.oMapCompanyRate.sName;
+			}
+			if(item.oRateObject.iPackagePriceId != 0)
+			{
+				result = "PCK: " + item.oRateObject.oMapPackage.sPackageName;
+			}						
+			return result;
+		}
+		
+		private function marketCodeLabelFunction(item:ReservationRoomBlockedVO, column:DataGridColumn):String
+		{
+			var result:String = "none";
+			for each(var marketCode:MarketCodesVO in GlobalStorage.marketCodes)
+			{
+				if(marketCode.iId == item.iMarketCodeId)
+				{
+					result = marketCode.sName;
+					break;
+				}
+			}			
+			return result;
+		}		
+		
+		private function onDgRatesChange():void
+		{
+			var item:ReservationRoomBlockedVO = dgRates.selectedItem as ReservationRoomBlockedVO;
+			if(item != null)
+			{
+				if(item.iMarketCodeId == 0)
+				{
+					cmbMarketCode.selectedIndex = 0;
+				}
+				else
+				{
+					cmbMarketCode.setItemByField("iId", item.iMarketCodeId);
+				}
+				
+				var lblRate:Label = new Label();		
+				lblRate.setStyle('fontWeight','bold');				
+				bxRates.removeAllChildren();
+				
+				if(item.oRateObject != null)
+				{
+					if(item.oRateObject.oMapBarPrice != null)
+					{						
+						lblOneAdult.text = item.oRateObject.oMapBarPrice.fPriceOneAdult.toString();
+						lblTwoAdult.text = item.oRateObject.oMapBarPrice.fPriceTwoAdults.toString();
+						lblExtraeAdult.text = item.oRateObject.oMapBarPrice.fPriceExtraAdult.toString();						
+						lblChildren1.text = item.oRateObject.oMapBarPrice.fPriceChildBefore.toString();
+						lblChildren2.text = item.oRateObject.oMapBarPrice.fPriceChildMiddle.toString();
+						lblChildren3.text = item.oRateObject.oMapBarPrice.fPriceChildAbove.toString();
+						tgbRateType.selectedIndex = prevRateTypeIndex = model.reservationModule.typeOfRate = ReservationModule.BAR;
+					}
+					if(item.oRateObject.oMapCompanyRate != null)
+					{						
+						lblOneAdult.text = item.oRateObject.oMapCompanyRate.fPriceOneAdult.toString();
+						lblTwoAdult.text = item.oRateObject.oMapCompanyRate.fPriceTwoAdults.toString();
+						lblExtraeAdult.text = item.oRateObject.oMapCompanyRate.fPriceExtraAdult.toString();						
+						lblChildren1.text = "0";
+						lblChildren2.text = "0";
+						lblChildren3.text = "0";
+						tgbRateType.selectedIndex = prevRateTypeIndex = model.reservationModule.typeOfRate = ReservationModule.COMPANY_RATE;
+						
+						
+						lblRate.text = item.oRateObject.oMapCompanyRate.sName;
+						bxRates.addChild(lblRate);
+					}					
+					if(item.oRateObject.oMapPackage != null)
+					{
+						lblOneAdult.text = item.oRateObject.oMapPackage.fPriceOneAdult.toString();
+						lblTwoAdult.text = item.oRateObject.oMapPackage.fPriceTwoAdults.toString();
+						lblExtraeAdult.text = item.oRateObject.oMapPackage.fPriceExtraAdult.toString();						
+						lblChildren1.text = item.oRateObject.oMapPackage.fPriceChildBelow.toString();
+						lblChildren2.text = item.oRateObject.oMapPackage.fPriceChildMiddle.toString();
+						lblChildren3.text = item.oRateObject.oMapPackage.fPriceChildAbove.toString();
+						tgbRateType.selectedIndex = prevRateTypeIndex = model.reservationModule.typeOfRate = ReservationModule.PACKAGE_RATE;	
+						
+						lblRate.text = item.oRateObject.oMapPackage.sPackageName;
+						bxRates.addChild(lblRate);											
+					}					
+				}
+			}
+		}
+		
+		private function onMarketCodeChange():void
+		{
+			if(dgRates.selectedItem)
+			{
+				(dgRates.selectedItem as ReservationRoomBlockedVO).iMarketCodeId = (cmbMarketCode.selectedItem as MarketCodesVO).iId;
+			}
+		}
+			
+		/**	Buttons	**/
+		
+		private function onCopyOfAll():void
+		{
+			var room:ReservationRoomBlockedVO = dgRates.selectedItem as ReservationRoomBlockedVO;
+			for each(var item:ReservationRoomBlockedVO in model.reservationModule.currentGroupReservation.aRoomBlocked)
+			{
+				/*item.iBarId = room.oRateObject.iBarId;
+				item.iPriceBarId = room.oRateObject.iPriceBarId;
+				item.iCompanyPriceId = room.oRateObject.iCompanyPriceId;
+				item.iPackagePriceId = room.oRateObject.iPackagePriceId;*/
+				item.oRateObject = room.oRateObject;
+				item.iMarketCodeId = room.iMarketCodeId;
+			}
+		}
+		
+		private function onApply():void
+		{
+			if(model.reservationModule.currentGroupReservation.oMapReservation.aOrders != null)
+			{
+				if(model.reservationModule.currentGroupReservation.oMapReservation.aOrders.length > 0)
+				{
+					for each(var order:OrderVO in model.reservationModule.currentGroupReservation.oMapReservation.aOrders)
+					{
+						for each(var orderDate:OrderDateVO in order.aOrderDateList)
+						{
+							for each(var bRoom:ReservationRoomBlockedVO in model.reservationModule.currentGroupReservation.aRoomBlocked)
+							{
+								if(bRoom.sDate == orderDate.oDate.sDate && bRoom.iRoomType == orderDate.iRoomTypeId)
+								{
+									orderDate.oCommonRateObject = ObjectUtil.copy(bRoom.oRateObject) as CommonRateVO;								
+								}
+							}
+						}
+					}					
+				}				
+			}
+			
+			
+			/*if(model.reservationModule.currentGroupReservation.iId > 0)
+			{
+				var saveGroupReservationRoomBlockedEvent:SaveGroupReservationRoomBlockedEvent = new SaveGroupReservationRoomBlockedEvent();
+				saveGroupReservationRoomBlockedEvent.iGroupReservationId = model.reservationModule.currentGroupReservation.iId;
+				saveGroupReservationRoomBlockedEvent.aRoomBlockedList = model.reservationModule.currentGroupReservation.aRoomBlocked;
+				saveGroupReservationRoomBlockedEvent.callBack = completeCall;
+				saveGroupReservationRoomBlockedEvent.dispatch();
+			}
+			else
+			{*/
+				completeCall();
+			//}
+		}		
+	
+		private function onClose():void
+		{
+			close();
+		}	
+		
+	]]>
+</mx:Script>	
+	
+	<mx:DataGrid id="dgRates"
+		dataProvider="{model.reservationModule.currentGroupReservation.aRoomBlocked}"
+		change="{onDgRatesChange()}"
+		width="100%" height="100%">
+		<mx:columns>
+			<mx:DataGridColumn headerText="Date"
+				labelFunction="dateLabelFunction"
+				width="120"/>
+			<mx:DataGridColumn headerText="Room Type"
+				dataField="sRoomTypeName"/>	
+			<mx:DataGridColumn headerText="Rooms"
+				dataField="iRoomQuantity"
+				width="60"/>							
+			<mx:DataGridColumn headerText="Rate"
+				labelFunction="rateLabelFunction"
+				textAlign="left"/>	
+			<mx:DataGridColumn headerText="Market Code"
+				labelFunction="marketCodeLabelFunction"
+				textAlign="center"
+				width="100"/>		
+							
+		</mx:columns>
+		
+		
+	</mx:DataGrid>
+	
+	<mx:ApplicationControlBar width="100%">
+		<mx:Button id="btnCopyForAll"
+			label="Copy to All"
+			enabled="{dgRates.selectedItem}"
+			click="{onCopyOfAll()}"/>
+	</mx:ApplicationControlBar>
+
+	<control:Frame label="Rates for: {dgRates.selectedItem ? DateUtils.convertToClienFormatString((dgRates.selectedItem as ReservationRoomBlockedVO).sDate) : ''}"
+		
+		enabled="{dgRates.selectedItem}"
+		width="100%">
+		<mx:HBox width="100%" height="100%"
+			paddingLeft="5" paddingRight="5" paddingTop="5" paddingBottom="5">
+			
+			<!-- Left Column -->
+			<mx:VBox width="100%">
+				<mx:HBox width="100%">
+					<mx:Label text="Market Code:"/>
+					<control:ComboBoxEx id="cmbMarketCode"
+						labelField="sName"
+						change="{onMarketCodeChange()}"
+						dataProvider="{aMarketCodes}"
+						width="80"/>
+				</mx:HBox>				
+
+				<mx:ToggleButtonBar id="tgbRateType"						
+					itemClick="{btnAltRateClick(event)}"/>
+
+				<mx:HBox width="100%"
+					visible="{model.reservationModule.typeOfRate == 0 ? false : true}">
+					<mx:Label text="Rate:"/>					
+					<mx:Box id="bxRates"/>
+				</mx:HBox>		
+			</mx:VBox>
+			
+			<!-- Right Column -->
+			<control:Frame label="Prices" >
+				<mx:HBox width="100%">				
+					
+					<mx:Form width="100%">
+						<mx:FormItem label="One Adult:"	
+							labelWidth="{RC_FORM_ITEM_LABEL_WIDTH}" width="100%">
+							<mx:Label id="lblOneAdult"
+								width="40"/>
+						</mx:FormItem>
+						<mx:FormItem label="{'Children &lt; ' + model.hotelsModule.hotelTotalInfo.iChildAge1}:"
+							labelWidth="{RC_FORM_ITEM_LABEL_WIDTH}" width="100%">
+							<mx:Label id="lblChildren1"
+								width="40"/>
+						</mx:FormItem>						
+					</mx:Form>		
+										
+					<mx:Form width="100%">						
+						<mx:FormItem label="Two Adult:"	
+							labelWidth="{RC_FORM_ITEM_LABEL_WIDTH}" width="100%">
+							<mx:Label id="lblTwoAdult"
+								width="40"/>
+						</mx:FormItem>	
+						<mx:FormItem label="{'Children &lt; ' + model.hotelsModule.hotelTotalInfo.iChildAge2}:"	
+							labelWidth="{RC_FORM_ITEM_LABEL_WIDTH}" width="100%">
+							<mx:Label id="lblChildren2"
+								width="40"/>
+						</mx:FormItem>
+					</mx:Form>	
+					
+					<mx:Form width="100%">
+						<mx:FormItem label="Extra Adult:"	
+							labelWidth="{RC_FORM_ITEM_LABEL_WIDTH}" width="100%">
+							<mx:Label id="lblExtraeAdult"
+								width="40"/>
+						</mx:FormItem>
+						<mx:FormItem label="{'Children &lt; ' + model.hotelsModule.hotelTotalInfo.iChildAge3}:"
+							labelWidth="{RC_FORM_ITEM_LABEL_WIDTH}" width="100%">
+							<mx:Label id="lblChildren3"
+								width="40"/>
+						</mx:FormItem>
+					</mx:Form>	
+				</mx:HBox>			
+			</control:Frame>
+			
+		</mx:HBox>					
+	</control:Frame>
+
+	<mx:ApplicationControlBar width="100%" horizontalAlign="right">
+		<mx:Button id="btnApply"
+			label="{model.locale.Global_Button_Apply}"
+			click="{onApply()}"/>
+		<mx:Button id="btnClose"
+			label="{model.locale.Global_Button_Close}"
+			click="{onClose()}"/>			
+	</mx:ApplicationControlBar>
+</BasePopupView>

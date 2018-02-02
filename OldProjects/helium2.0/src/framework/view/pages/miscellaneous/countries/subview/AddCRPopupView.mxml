@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<popup:DataPopupView
+	xmlns:popup="framework.view.components.popups.*" 
+	addTitle="Add new country" xmlns:mx="http://www.adobe.com/2006/mxml" layout="vertical" showCloseButton="true" 
+	close="closeWindow()" xmlns:countries="framework.view.pages.miscellaneous.countries.*" 
+	xmlns:controls="framework.view.components.controls.*" xmlns:components="framework.view.components.*" 
+	height="{260}" creationComplete="init()" xmlns:subview="framework.view.pages.miscellaneous.countries.subview.*">
+	
+	<mx:Script>
+		<![CDATA[
+			import framework.model.AppModelLocator;
+			import mx.events.CloseEvent;
+			import mx.collections.ArrayCollection;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import framework.managers.PopUpManagerExt;
+			
+			[Bindable]
+			private var submitEnable:Boolean = false;
+			
+			[Bindable]
+			public var currentCountry:int;
+				
+			private function init():void
+			{
+				country.addEventListener(CloseEvent.CLOSE, closeWindow);
+				region.addEventListener(CloseEvent.CLOSE, closeWindow);
+			}
+			/**
+			 * 	Close Popup.
+			*/
+			private function closeWindow(evt:CloseEvent = null):void
+			{
+				PopUpManagerExt.removePopUp( this );
+			}
+			
+			private function selectWindow():void
+			{
+				if (idNavigationCountry.selectedIndex == 0)
+				{
+					addTitle = "Add new country";
+				}
+				if (idNavigationCountry.selectedIndex == 1)
+				{
+					addTitle = "Add new region";
+				}
+			}
+
+		]]>
+	</mx:Script>
+	<mx:TabNavigator id="idNavigationCountry" change="{selectWindow()}" width="100%" height="100%">
+		<subview:AddCountryPopupView id="country" label="Country" width="100%" height="100%"/>
+		<subview:AddRegionPopupView id="region" selectCountry="{currentCountry}"  label="Region" width="100%" height="100%"/>
+	</mx:TabNavigator>
+	
+</popup:DataPopupView>

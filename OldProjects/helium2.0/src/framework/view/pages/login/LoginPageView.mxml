@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox xmlns:mx="http://www.adobe.com/2006/mxml" width="100%" height="100%" 
+	horizontalAlign="center" verticalAlign="middle" 
+	xmlns:login="framework.view.pages.login.*">
+	
+	<mx:Script>
+		<![CDATA[
+			import framework.model.AppModelLocator;
+			
+			[Bindable]
+			private var model:AppModelLocator = AppModelLocator.getInstance();
+		]]>
+	</mx:Script>
+	
+	
+	<mx:ViewStack selectedIndex="{model.loginPage.currentPage}" width="100%" height="100%" >
+		<login:LoginView id="loginView"/>	
+		<login:FirstLoginView id="firstLoginView"/>
+		<login:ForgotPasswordView id="forgotPasswordView"/>
+	</mx:ViewStack>
+</mx:VBox>

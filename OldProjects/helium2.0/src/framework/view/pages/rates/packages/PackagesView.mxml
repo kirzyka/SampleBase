@@ -1,0 +1,368 @@
+<?xml version="1.0" encoding="utf-8"?>
+<VSubWindow
+	xmlns="framework.core.view.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:control="h2olib.control.*"
+	xmlns:components="framework.view.components.*"
+	xmlns:pager="h2olib.control.pager.*"
+	xmlns:dataGrid="h2olib.control.itemRenderer.dataGrid.*"
+	paddingBottom="5" paddingLeft="5" paddingRight="5" paddingTop="5">
+
+	<mx:Script>
+		<![CDATA[
+			import framework.view.pages.rates.packages.subview.TransactionsSplittingView;
+			import framework.view.pages.rates.packages.subview.PackageDetailView;
+			import mx.core.Application;
+			import mx.formatters.DateFormatter;
+			import mx.formatters.Formatter;
+			import h2olib.utils.DateUtils;
+			import framework.core.utils.UtilsGolobal;
+			import services.vo.rates.packages.PackageGroupVO;
+			import mx.managers.PopUpManager;
+			import mx.managers.PopUpManagerChildList;
+			import framework.view.components.popups.DeletePopupView;
+			import framework.view.components.popups.events.PopupEvent;
+			import services.vo.hotels.HotelRoomWithBedTypesObjectVO;
+			import services.events.rates.packages.GetPackagesPageEvent;
+			import services.events.rates.packages.GetPackagesCountEvent;
+			import services.events.rates.packages.DeletePackageEvent;
+			import h2olib.control.Confirmation;
+			import mx.events.CloseEvent;
+			import mx.controls.dataGridClasses.DataGridColumn;
+			import services.vo.GlobalImageAssets;
+			import h2olib.control.pager.event.PagerEvent;
+			import services.vo.GlobalSettings;
+			import mx.controls.Alert;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import framework.model.AppModelLocator;
+			import services.vo.backend.PackageRequestVO;
+			import services.controller.AppController;
+			import framework.managers.PopUpManagerExt;
+
+			[Bindable]
+			public var firstFlag:Boolean = false;
+			
+			override public function update():void
+			{
+				dfFrom.selectedDate = new Date();
+				dfTo.selectedDate = DateUtils.dateAdd(DateUtils.DAY_OF_MONTH, 1, new Date());
+				searchPackages();
+			}			
+			
+			/**
+			 * Search package, get count of package
+			 */ 
+			
+			private function searchPackages():void
+			{
+				var stringFormatter:DateFormatter = new DateFormatter();
+				stringFormatter.formatString = GlobalSettings.DATE_SERVER_FORMAT;
+
+				var getPackagesCountEvent:GetPackagesCountEvent = new GetPackagesCountEvent();
+				getPackagesCountEvent.packageRequest = new PackageRequestVO();
+				getPackagesCountEvent.packageRequest.iHotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+				getPackagesCountEvent.packageRequest.sName = txtPackageName.text;
+				if (!firstFlag)
+				{
+					cmbRoomType.dataProvider = model.hotelsModule.hotelRoomTypes;
+					firstFlag = true;
+				}
+				getPackagesCountEvent.packageRequest.iRoomQualityId = (cmbRoomType.selectedItem as HotelRoomWithBedTypesObjectVO).oRoomQuality.lQualityId;
+				getPackagesCountEvent.packageRequest.sDateStart ="<date>" + DateField.dateToString(dfFrom.selectedDate,GlobalSettings.DATE_SERVER_FORMAT)+ "</date>";
+				getPackagesCountEvent.packageRequest.sDateEnd ="<date>" + DateField.dateToString(dfTo.selectedDate, GlobalSettings.DATE_SERVER_FORMAT )+ "</date>";
+				getPackagesCountEvent.callBack = getPage;
+				CairngormEventDispatcher.getInstance().dispatchEvent(getPackagesCountEvent);
+			}
+
+			/**
+			 * Search package, get page of package
+			 */ 
+			private function getPage():void
+			{
+				var getPackagesPageEvent:GetPackagesPageEvent = new GetPackagesPageEvent();
+				getPackagesPageEvent.packageRequest = new PackageRequestVO();
+
+				getPackagesPageEvent.packageRequest.iHotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+				getPackagesPageEvent.packageRequest.sName = txtPackageName.text;
+				getPackagesPageEvent.packageRequest.iRoomQualityId = (cmbRoomType.selectedItem as HotelRoomWithBedTypesObjectVO).oRoomQuality.lQualityId;
+				getPackagesPageEvent.packageRequest.sDateStart = "<date>" + DateField.dateToString(dfFrom.selectedDate, GlobalSettings.DATE_SERVER_FORMAT )+ "</date>";
+				getPackagesPageEvent.packageRequest.sDateEnd = "<date>" + DateField.dateToString(dfTo.selectedDate, GlobalSettings.DATE_SERVER_FORMAT )+ "</date>";
+
+				getPackagesPageEvent.iPage = pager.selectedPage;
+				getPackagesPageEvent.iCount = pager.pageViewCount;
+				CairngormEventDispatcher.getInstance().dispatchEvent(getPackagesPageEvent);
+			}
+
+			private function pageChange(event:PagerEvent):void
+			{
+				getPage();
+			}
+
+			private function priceOneAdultLabelFunction(item:Object, column:DataGridColumn):String
+			{
+				var result:String="test";
+				if ((item as PackageGroupVO).aPricesForRoomTypes.length != 0)
+				{
+					var p:Number = UtilsGolobal.round((item as PackageGroupVO).aPricesForRoomTypes[0].fPriceOneAdult,2);
+					result = p.toString();
+				}
+				return result;
+			}
+			
+			private function pricePerLabelFunction(item:Object, column:DataGridColumn):String
+			{
+				var result:String;
+
+				if((item as PackageGroupVO).bPriceIsPerStay)
+				{
+					result = "stay";
+				}else{
+					result = "night";
+				}
+				return result;
+			}
+
+			/**
+			 * DETAILS WINDOW
+			 */ 				
+			private function showDetailWindow(pack:PackageGroupVO):void
+			{
+				var packageDetailView:PackageDetailView = PopUpManagerExt.createPopUp(this, PackageDetailView) as PackageDetailView;
+
+				if(pack == null)
+				{
+					packageDetailView.currentPackage = null;
+					packageDetailView.isEdit = false;
+				}
+				else
+				{
+					packageDetailView.currentPackage = pack;
+					packageDetailView.data = pack;
+					packageDetailView.isEdit = true;
+				}
+				PopUpManagerExt.centerPopUp(packageDetailView);
+			}
+
+
+			private function cmbRoomTypeLabelFunction(item:Object):String
+			{
+				return (item as HotelRoomWithBedTypesObjectVO).oRoomQuality.sQualityName;
+			}
+
+			/*		ICONS */
+			[Bindable]
+			[Embed(source='/assets/assets.swf', symbol='EditIcon')]
+			public var editIcon:Class;
+			
+			[Bindable]
+			[Embed(source='/assets/assets.swf', symbol='RemoveIcon')]
+			public var deleteIcon:Class;
+			
+			[Bindable]
+			[Embed(source='/assets/assets.swf', symbol='OverviewPopupTitleIcon')]
+			public var transactionsIcon:Class;
+
+            private function editIconFunction(item:Object, column:DataGridColumn):String {
+                return "editIcon";
+            }
+
+            private function deleteIconFunction(item:Object, column:DataGridColumn):String {
+                return "deleteIcon";
+            }
+
+            private function transactionsIconFunction(item:Object, column:DataGridColumn):String {
+                return "transactionsIcon";
+            }
+
+            /*		ACTIONS		*/
+			private function addNewPackage():void
+			{
+				showDetailWindow(null);
+			}
+
+			public function editPackage():void
+			{
+				if(dgPackages.selectedItem != null)
+				{
+					editItem();
+				}
+			}
+
+			private function transactionsPackage():void
+			{
+				if(dgPackages.selectedItem != null)
+				{
+					openTransactionList();
+				}
+			}
+
+			public function deletePackage():void
+            {
+				if(dgPackages.selectedItem != null)
+				{
+					deleteItem();
+				}
+            }
+
+			private function editItem(event:Event = null):void
+			{
+				showDetailWindow(dgPackages.selectedItem as PackageGroupVO);
+			}
+
+            public function deleteItem():void
+            {
+
+            	var pop:DeletePopupView = PopUpManagerExt.createPopUp(this, DeletePopupView) as DeletePopupView;
+
+				pop.title = model.locale.Rates_Packages_PackagesList_Dialogs_DeletePackage;
+				pop.description = model.locale.Rates_Packages_PackagesList_Dialogs_DeletePackage;
+				pop.addEventListener(PopupEvent.DELETE_HANDLER, delPack);
+            }
+
+
+            private function delPack(e:PopupEvent):void
+            {
+            	(e.target as DeletePopupView).removeEventListener(PopupEvent.DELETE_HANDLER, delPack);
+	            	var deletePackageEvent:DeletePackageEvent = new DeletePackageEvent();
+	            	deletePackageEvent.iPackageId = (dgPackages.selectedItem as PackageGroupVO).iPackageId;
+	            	deletePackageEvent.callBack = doAfterDelete;
+	            	CairngormEventDispatcher.getInstance().dispatchEvent(deletePackageEvent);
+                (e.target as DeletePopupView).completeCall();
+
+            }
+
+			private function doAfterDelete():void
+			{
+				searchPackages();
+			}
+
+			/*		TRANSACTIONS */
+			public function openTransactionList():void
+			{
+				var transactionsSplittingView:TransactionsSplittingView = PopUpManagerExt.createPopUp(this, TransactionsSplittingView) as TransactionsSplittingView;
+				//transactionsSplittingView.windowEditIcon = GlobalImageAssets.getInstance().windowEditIcon;
+				transactionsSplittingView.getTransactionList((dgPackages.selectedItem as PackageGroupVO).iPackageId);
+			}
+
+        	public function getModel():AppModelLocator
+	        {
+	        	return model;
+	        }
+		]]>
+	</mx:Script>
+
+	<!-- SEARCH -->
+	<mx:HBox id="boxFilter"
+		width="100%">
+		<control:PromptingTextInput id="txtPackageName"
+			prompt="{model.locale.Rates_Packages_PackagesList_Search_PackageName_Prompt}"/>
+		<control:ComboBoxEx id="cmbRoomType"
+			labelFunction="cmbRoomTypeLabelFunction"
+			dataProvider="{model.hotelsModule.hotelRoomTypes}"/>
+		<mx:Label text="{model.locale.Rates_Packages_PackagesList_Search_From}"/>
+		<mx:DateField id="dfFrom"	
+			formatString="{GlobalSettings.DATE_FORMAT}"
+			selectedDate="{new Date()}"
+			width="{GlobalSettings.WIDTH_DATE_FIELD}"/>
+		<mx:Label text="{model.locale.Rates_Packages_PackagesList_Search_To}"/>
+		<mx:DateField id="dfTo"
+			formatString="{GlobalSettings.DATE_FORMAT}"
+			selectedDate="{DateUtils.dateAdd('d', 1, new Date())}"
+			width="{GlobalSettings.WIDTH_DATE_FIELD}"/>
+		<mx:Button id="btnSearch"
+			label="{model.locale.Rates_Packages_PackagesList_Search_Search}"
+			click="{searchPackages()}"/>
+	</mx:HBox>
+
+	<!--			RESULT			-->
+	<mx:DataGrid id="dgPackages"
+		width="100%" height="100%"
+		doubleClickEnabled="true"
+		itemClick="{model.ratesModule.barModule.currentPackage = dgPackages.selectedItem as PackageGroupVO}"
+		doubleClick="{editItem()}"
+		dataProvider="{model.ratesModule.barModule.packages}">
+		<mx:columns>
+			<mx:DataGridColumn
+				headerText="{model.locale.Rates_Packages_PackagesList_Columns_PackageName}"
+				dataField="sPackageName" />
+			<mx:DataGridColumn
+				headerText="{model.locale.Rates_Packages_PackagesList_Columns_RoomType}"
+				dataField="iRoomTypeId"
+				sortable="false"/>
+			<mx:DataGridColumn
+				headerText="{model.locale.Rates_Packages_PackagesList_Columns_From}"
+				dataField="sDateStart"/>
+			<mx:DataGridColumn
+				headerText="{model.locale.Rates_Packages_PackagesList_Columns_To}"
+				dataField="sDateEnd"/>
+			<mx:DataGridColumn
+				headerText="{model.locale.Rates_Packages_PackagesList_Columns_Price}"
+				labelFunction="priceOneAdultLabelFunction"/>
+			<mx:DataGridColumn
+				headerText="{model.locale.Rates_Packages_PackagesList_Columns_PricePer}"
+				labelFunction="pricePerLabelFunction"/>
+			<mx:DataGridColumn
+				headerText="{model.locale.Rates_Packages_PackagesList_Columns_MinimumStay}"
+				dataField="iMinStay"/>
+			<mx:DataGridColumn
+				headerText="{model.locale.Rates_Packages_PackagesList_Columns_MaximumStay}"
+				dataField="iMaxStay"/>
+            <mx:DataGridColumn minWidth="8" width="22"
+                labelFunction="editIconFunction">
+                <mx:itemRenderer>
+                    <mx:Component>
+                        <dataGrid:EmbedImageRenderer
+                            toolTip="{outerDocument.getModel().locale.Rates_Packages_PackagesList_Columns_EditPackage}"
+                            click="{outerDocument.editPackage()}"/>
+                    </mx:Component>
+                </mx:itemRenderer>
+            </mx:DataGridColumn>
+            <mx:DataGridColumn minWidth="8" width="22"
+                labelFunction="transactionsIconFunction">
+                <mx:itemRenderer>
+                    <mx:Component>
+                        <dataGrid:EmbedImageRenderer
+                            toolTip="{outerDocument.getModel().locale.Rates_Packages_PackagesList_Columns_TransationsPackage}"
+                            click="{outerDocument.openTransactionList()}"/>
+                    </mx:Component>
+                </mx:itemRenderer>
+            </mx:DataGridColumn>
+            <mx:DataGridColumn minWidth="8" width="22"
+                labelFunction="deleteIconFunction">
+                <mx:itemRenderer>
+                    <mx:Component>
+                        <dataGrid:EmbedImageRenderer
+                            toolTip="{outerDocument.getModel().locale.Rates_Packages_PackagesList_Columns_DeletePackage}"
+                            click="{outerDocument.deleteItem()}"/>
+                    </mx:Component>
+                </mx:itemRenderer>
+            </mx:DataGridColumn>
+		</mx:columns>
+	</mx:DataGrid>
+
+	<!--			ACTION			-->
+	<mx:HBox id="boxActions"
+		width="100%">
+		<mx:Button id="btnAddPackage"
+			label="{model.locale.Rates_Packages_PackagesList_Button_AddPackage}"
+			click="{addNewPackage()}"/>
+		<mx:Button id="btnEditPackage"
+			label="Edit"
+			enabled="{dgPackages.selectedItem != null}"
+			click="{editPackage()}"/>
+		<mx:Button id="btnTransactionsPackage"
+			label="Transactions"
+			enabled="{dgPackages.selectedItem != null}"
+			click="{transactionsPackage()}"/>
+		<mx:Button id="btnDeletePackage"
+			label="Delete"
+			enabled="{dgPackages.selectedItem != null}"
+			click="{deletePackage()}"/>
+
+		<mx:Spacer width="100%"/>
+		<pager:Pager id="pager"
+			pageViewCount="10"
+			count="{model.ratesModule.barModule.pckagesCount}"
+			pageChange="{pageChange(event)}"/>
+	</mx:HBox>
+</VSubWindow>

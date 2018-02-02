@@ -1,0 +1,621 @@
+<?xml version="1.0" encoding="utf-8"?>
+<view:VSubWindow
+	xmlns:view="framework.core.view.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:address="framework.view.components.address.*"
+	xmlns:control="h2olib.control.*"
+	xmlns:controls="framework.view.components.controls.*"
+	verticalScrollPolicy="off"
+	horizontalScrollPolicy="off"
+	creationComplete="init()">
+	
+	<mx:Metadata>
+		// ===================================================================== //
+		//                              STYLE                                    //
+		// ===================================================================== //
+		/**
+		 *  Name of CSS style declaration that specifies styles for the show required
+		 *  status for phone.
+		 *  
+		 *  @default false
+		 */
+		[Style(name="phoneRequired", type="Boolean", enumeration="false,true", inherit="no")]
+	</mx:Metadata>
+	
+	<mx:Script>
+		<![CDATA[
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			
+			import framework.module.CommonModule;
+			import services.controller.AppController;
+			import services.events.frontend.GetCityEvent;
+			import services.events.miscellaneous.countries.GetRegionEvent;
+			import framework.view.components.address.data.LocationData;
+			import framework.view.components.address.renderer.CountryRenderer;
+			import framework.view.components.address.renderer.RegionRenderer;
+			import services.vo.GlobalStorage;
+			import services.vo.common.CityVO;
+			import services.vo.common.ContactVO;
+			import services.vo.common.CountryVO;
+			import services.vo.common.RegionVO;
+			
+			import mx.collections.ArrayCollection;
+			import mx.containers.Form;
+			import mx.events.ValidationResultEvent;
+			import mx.utils.ObjectUtil;
+			import mx.controls.Alert;
+			
+			// ===================================================================== //
+			//                         VARIABLES AND CONSTANTS                       //
+			// ===================================================================== //
+			/**
+			 *  The prefix for localization.
+			 */
+			private const localePrefix:String = "popups.update.tabs.profile.";
+			
+			/**
+			 *  This property is collection of countries.
+			 *  
+			 *  @default new ArrayCollection()
+			 *  
+			 *  @see services.vo.common.CountryVO
+			 */
+			private var _countries:/* CountryVO */ArrayCollection = new ArrayCollection();
+			/**
+			 *  This property is collection of regions by selected country.
+			 *  
+			 *  @default new ArrayCollection()
+			 *  
+			 *  @see services.vo.common.RegionVO
+			 */
+			private var _regions:/* RegionVO */ArrayCollection = new ArrayCollection();
+			/**
+			 *  This property is collection of cities by selected region.
+			 *  
+			 *  @default new ArrayCollection()
+			 *  
+			 *  @see services.vo.common.CityVO
+			 */
+			private var _cities:/* CityVO */ArrayCollection = new ArrayCollection();
+			/**
+			 *  This property is list with contacts.
+			 *  
+			 *  @see services.vo.common.ContactVO
+			 */
+			private var _contacts:/* ContactVO */Array = [];
+			/**
+			 *  This property is address data.
+			 *  
+			 *  @default new LocationData()
+			 *  
+			 *  @see framework.view.components.address.data.LocationData
+			 */
+			private var _location:LocationData = new LocationData();
+			
+			// ===================================================================== //
+			//                     OVERRIDE METHODS AND HANDLERS                     //
+			// ===================================================================== //
+			/**
+			 *  @override
+			 */
+			override protected function updateDisplayList(unscaledWidth:Number, unscaledHeight:Number):void
+			{
+				super.updateDisplayList(unscaledWidth, unscaledHeight);
+				
+				frmItmPhone.required = getStyle("phoneRequired");
+			}
+			
+			// ===================================================================== //
+			//                      COMMON METHODS AND HANDLERS                      //
+			// ===================================================================== //
+			/**
+			 *  Initialize location chooser.
+			 */
+			private function init():void
+			{
+				var i:int = 0;
+				var index:int = parent.getChildIndex(this);
+				// if parent is Form, set all children to parent
+				if (parent is Form)
+				{
+					for(i = numChildren - 1; i >= 0; i--)
+					{
+						parent.addChildAt(getChildAt(i), index);
+					}
+					return;
+				}
+				// make new form container and add all children to it
+				var form:Form = new Form();
+				form.width = width;
+				form.height = height;
+				form.verticalScrollPolicy = verticalScrollPolicy;
+				form.horizontalScrollPolicy = horizontalScrollPolicy;
+				form.styleName = "locationChooserForm";
+				
+				//parent.addChildAt(form, index);
+				while(numChildren != 0)
+				{
+					var child:DisplayObject = removeChildAt(i);
+					form.addChild(child);
+				}
+				addChild(form);
+			}
+			/**
+			 *  
+			 */
+			public function clear():void
+			{
+				// clear all text fileds
+				tiAddressLine.text = tiAddressLineExt.text = "";
+				tiZipCode.text = "";
+				tiEmail.text = tiTelephone.text = tiFax.text = "";
+			}
+			
+			/**
+			 *  The handle of change current active country.
+			 */
+			private function handleCountryChange():void
+			{				
+				// clear regions and cities for view
+				regions = new ArrayCollection();
+				cities = new ArrayCollection();
+				
+				// get new regions by selected country
+				var countryId:Number = (cmbCountryChooser.selectedItem as CountryVO).lId;
+				if(model.commonModule.isRegionsPresent(countryId))
+				{
+					//get stored regions list from cache
+					model.commonModule.regions = CommonModule.getRegions(countryId);
+					updateRegions();
+					
+				}
+				else
+				{
+					//case when regions list for this country was not cached.					
+					var event:GetRegionEvent = new GetRegionEvent(AppController.GET_REGION_EVENT);
+					event.countryId = countryId;
+					event.callBack = updateRegions;
+					CairngormEventDispatcher.getInstance().dispatchEvent(event);
+					
+				}
+			}
+			/**
+			 *  Update regions by remote call for get regions by selected
+			 *  country id.
+			 */
+			private function updateRegions():void
+			{
+				regions = model.commonModule.regions;
+				// check need get cities by new regions
+				if ((regions.length > 0) && (0 == cmbRegionChooser.regionId))
+				{
+					handleRegionChange();
+				}
+				
+				dispatchEvent(new Event("fillStateChanged"));
+			}
+			
+			/**
+			 *  The handle of change region for get cities by
+			 *  selected region.
+			 */
+			private function handleRegionChange():void
+			{
+				// get new cities by selected region
+				var regionId:Number = (cmbRegionChooser.selectedItem as RegionVO).lId;
+				if(model.commonModule.isCitiesPresent(regionId))
+				{
+					//get data from cache 
+					model.commonModule.cities = CommonModule.getCities(regionId);
+					updateCities();
+				}
+				else
+				{
+					//get data from db
+					var event:GetCityEvent = new GetCityEvent(AppController.GET_CITY_EVENT);
+					event.regionId = regionId;
+					event.callBack = updateCities;
+					CairngormEventDispatcher.getInstance().dispatchEvent(event);
+				}
+			}
+			/**
+			 *  Update cities by remote call for get cities by selected
+			 *  region id.
+			 */
+			private function updateCities():void
+			{
+				cities = model.commonModule.cities;
+				
+				if (_location.cityId != 0)
+				{
+					ccbCityChooser.cityID = _location.cityId;
+				}
+				else
+				{
+					ccbCityChooser.cmbCity.selectedIndex = -1;
+				}
+				
+				
+				dispatchEvent(new Event("fillStateChanged"));
+			}
+			
+			public function show():void
+			{
+				handleCountryChange();
+			}
+			/**
+			 *  Validate all input fields.
+			 *  
+			 *  @return - state of validation of input fields.
+			 */
+			public function validate():Boolean
+			{
+				var validate:ValidationResultEvent;
+				var result:Boolean = true;
+				// validate phone
+				if (tiTelephone.text.length > 0)
+				{
+					validate = svTelephone.validate();
+					result &&= (validate.type == ValidationResultEvent.VALID);
+				}
+				// validate fax
+				if (tiFax.text.length > 0)
+				{
+					validate = svFax.validate();
+					result &&= (validate.type == ValidationResultEvent.VALID);
+				}
+				// validate e-mail
+				/*if (tiEmail.text.length > 0)
+				{
+					validate = evEmail.validate();
+					result &&= (validate.type == ValidationResultEvent.VALID);
+				}*/
+				
+				return result;
+			}
+			
+			// ===================================================================== //
+			//                       GETTER AND SETTER HANDLERS                      //
+			// ===================================================================== //
+			[Bindable(event="countriesUpdated")]
+			/**
+			 *  Existed in the system counties.
+			 */
+			public function get countries():ArrayCollection
+			{
+				return _countries;
+			}
+			/**
+			 *  @private
+			 */
+			public function set countries(value:ArrayCollection):void
+			{
+				_countries = ObjectUtil.copy(value) as ArrayCollection;
+				
+				dispatchEvent(new Event("countriesUpdated"));
+			}
+			
+			[Bindable(event="regionsChanged")]
+			/**
+			 *  Regions collection by selected country.
+			 */
+			public function get regions():ArrayCollection
+			{
+				return _regions;
+			}
+			/**
+			 *  @private
+			 */
+			public function set regions(value:ArrayCollection):void
+			{
+				_regions.removeAll();
+				_regions = ObjectUtil.copy(value) as ArrayCollection;
+				
+				dispatchEvent(new Event("regionsChanged"));
+			}
+			
+			[Bindable(event="citiesChanged")]
+			/**
+			 *  Cities collection by selected country.
+			 */
+			public function get cities():ArrayCollection
+			{
+				return _cities;
+			}
+			/**
+			 *  @private
+			 */
+			public function set cities(value:ArrayCollection):void
+			{
+				_cities.removeAll();
+				_cities = ObjectUtil.copy(value) as ArrayCollection;
+				
+				dispatchEvent(new Event("citiesChanged"));
+			}
+			
+			[Bindable(event="locationChanged")]
+			/**
+			 *  Location data such as address line and his ext., zip code,
+			 *  country, etc.
+			 */
+			public function get location():LocationData
+			{
+				_location.addressLine = tiAddressLine.text;
+				_location.addressLineExt = tiAddressLineExt.text;
+				_location.zipCode = tiZipCode.text;
+				_location.countryId = (cmbCountryChooser.selectedItem as CountryVO).lId;
+				_location.countryName = (cmbCountryChooser.selectedItem as CountryVO).sCountryName;
+				_location.regionId = (cmbRegionChooser.selectedItem as RegionVO).lId;
+				_location.regionName = (cmbRegionChooser.selectedItem as RegionVO).sRegionName;
+				_location.cityId = (ccbCityChooser.cmbCity.selectedItem as CityVO).lId;
+				_location.cityName = (ccbCityChooser.cmbCity.selectedItem as CityVO).sCityName;
+				return _location;
+			}
+			/**
+			 *  @private
+			 */
+			public function set location(value:LocationData):void
+			{
+				_location = value;
+				// check existing of location. If location is not exist
+				// set default location
+				if (!_location)
+				{
+					_location = new LocationData();
+				}
+				
+				// additional address
+				tiAddressLine.text = _location.addressLine;
+				tiAddressLineExt.text = _location.addressLineExt;
+				tiZipCode.text = _location.zipCode;
+				// set country by id
+				ccbCityChooser.cityID = _location.cityId; 
+				cmbRegionChooser.regionId = _location.regionId;
+				cmbCountryChooser.setItemByField("lId", _location.countryId);
+				
+				dispatchEvent(new Event("locationChanged"));
+			}
+			
+			/**
+			 *  The contacts list.
+			 */
+			public function get contacts():Array
+			{
+				_contacts = [];
+				
+				var contact:ContactVO;
+				// telephone
+				contact = new ContactVO();
+				contact.iContactType = ContactVO.CONTACT_WORK_PHONE;
+				contact.sContactData = tiTelephone.text;
+				_contacts.push(contact);
+				// mobile telephone
+				contact = new ContactVO();
+				contact.iContactType = ContactVO.CONTACT_MOBILE_PHONE;
+				contact.sContactData = tiMobileTelephone.text;
+				_contacts.push(contact);
+				// fax
+				contact = new ContactVO();
+				contact.iContactType = ContactVO.CONTACT_WORK_FAX;
+				contact.sContactData = tiFax.text;
+				_contacts.push(contact);
+				// e-mail
+				contact = new ContactVO();
+				contact.iContactType = ContactVO.CONTACT_WORK_EMAIL;
+				contact.sContactData = tiEmail.text;
+				_contacts.push(contact);
+				
+				return _contacts;
+			}
+			/**
+			 *  @private
+			 */
+			public function set contacts(value:Array):void
+			{
+				_contacts = value;
+				// phone, fax and e-mail data
+				for each(var contact:ContactVO in _contacts)
+				{
+					switch (contact.iContactType)
+					{
+						// phone
+						case ContactVO.CONTACT_WORK_PHONE:
+							tiTelephone.text = contact.sContactData;
+							break;
+						// mobile phone
+						case ContactVO.CONTACT_MOBILE_PHONE:
+							tiMobileTelephone.text = contact.sContactData;
+							break;
+						// fax
+						case ContactVO.CONTACT_WORK_FAX:
+							tiFax.text = contact.sContactData;
+							break;
+						// e-mail
+						case ContactVO.CONTACT_WORK_EMAIL:
+							tiEmail.text = contact.sContactData;
+							break;
+					}
+				}
+			}
+			
+			[Bindable(event="fillStateChanged")]
+			public function get isFillFields():Boolean
+			{
+				var res:Boolean = true;
+				// country and city
+				res &&= cmbCountryChooser.selectedItem;
+				//res &&= ccbCityChooser.cmbCity.selectedItem;
+				res &&= ccbCityChooser.cmbCity.selectedItem;
+				// if phone number is required - check it too
+				if (frmItmPhone.required)
+				{
+					res &&= (tiTelephone.text.length > 0);
+				}
+				
+				return res;
+			}
+		]]>
+	</mx:Script>
+	<mx:VBox styleName="formChildrenGroupVertical" paddingTop="11">
+		<mx:VBox verticalGap="0" paddingTop="0" paddingBottom="0">
+			<mx:FormItem
+				label="{model.locale.Global_Address_AddressLine1}:"
+				labelWidth="139"
+				styleName="formItem2">
+				<mx:VBox verticalGap="0" paddingTop="0" paddingBottom="0">
+					<mx:TextInput
+						id="tiAddressLine"
+						maxChars="50"
+						width="270"/>
+					<mx:Label
+						text="{model.locale.Global_Address_AddressLine1_Description}"
+						fontSize="10" height="20"/>
+				</mx:VBox>
+			</mx:FormItem>
+			<mx:FormItem
+				label="{model.locale.Global_Address_AddressLine2}:"
+				labelWidth="139"
+				styleName="formItem2">
+				<mx:VBox verticalGap="0" paddingTop="0" paddingBottom="0" width="100%">
+					<mx:TextInput
+						id="tiAddressLineExt"
+						maxChars="50"
+						width="270"/>
+					<mx:Label
+						text="{model.locale.Global_Address_AddressLine2_Description}"
+						fontSize="10" height="20"/>
+				</mx:VBox>
+			</mx:FormItem>
+		<!-- Choose country -->
+		<mx:FormItem
+			required="true"
+			label="{model.locale.Global_Address_Country}:"
+			labelWidth="139"
+			indicatorGap="14"
+			styleName="formItem2">
+			<control:ComboBoxEx
+				width="170"
+				id="cmbCountryChooser"
+				enabled="{cmbCountryChooser.selectedItem}"
+				dataProvider="{countries}" 
+				labelField="sCountryName"
+				itemRenderer="{new ClassFactory(CountryRenderer)}" 
+				change="handleCountryChange()"
+				height="24"/>
+		</mx:FormItem>		
+		</mx:VBox>
+		<!-- Choose region by country -->
+		<mx:FormItem
+			label="{model.locale.Global_Address_Region}:"
+			labelWidth="139"
+			styleName="formItem2">
+			<address:RegionComboBox
+				width="170"
+				id="cmbRegionChooser"
+				enabled="{cmbRegionChooser.selectedItem}"
+				dataProvider="{regions}"
+				labelField="sRegionName"
+				itemRenderer="{new ClassFactory(RegionRenderer)}"
+				change="handleRegionChange()"
+				height="24"/>
+		</mx:FormItem>
+		<!-- Input zip code -->
+		<mx:FormItem
+			label="{model.locale.Global_Address_ZipCode}:"
+			labelWidth="139"
+			styleName="formItem2">
+			<mx:TextInput
+				id="tiZipCode"
+				restrict="A-Za-z0-9"
+				maxChars="20"
+				width="170"/>
+		</mx:FormItem>
+		<!-- Choose or save city by region -->
+		<mx:FormItem
+			required="true"
+			label="{model.locale.Global_Address_City}:"
+			labelWidth="139"
+			indicatorGap="14"
+			styleName="formItem2">
+			<address:CityComboBox
+				id="ccbCityChooser"
+				enabled="{cmbRegionChooser.selectedItem}"
+				dataProvider="{cities}" 
+				labelField="sCityName"
+				regionID="{(cmbRegionChooser.selectedItem as RegionVO).lId}"
+				change="{dispatchEvent(new Event('fillStateChanged'))}"
+				width="170"
+				height="24"/>
+		</mx:FormItem>
+		<!-- Input telephone -->
+		<mx:FormItem id="frmItmPhone"
+			label="{model.locale.Global_PersonalInformation_Telephone}:"
+			labelWidth="139"
+			styleName="formItem2">
+			<control:TextInput id="tiTelephone"
+				change="{dispatchEvent(new Event('fillStateChanged'))}"
+				restrict="\-0-9+()"
+				maxChars="20"
+				width="170"/>
+		</mx:FormItem>
+		<!-- Input mobile telephone -->
+		<mx:FormItem id="frmItmMobilePhone"
+			label="{model.locale.Global_PersonalInformation_Mobile}:"
+			labelWidth="139"
+			styleName="formItem2">
+			<mx:TextInput
+				id="tiMobileTelephone"
+				restrict="\-0-9+()"
+				maxChars="20"
+				width="170"/>
+		</mx:FormItem>
+		<!-- Input fax -->
+		<mx:FormItem
+			label="{model.locale.Global_PersonalInformation_Fax}:"
+			labelWidth="139"
+			styleName="formItem2">
+			<control:TextInput
+				id="tiFax"
+				restrict="\-0-9+()"
+				maxChars="20"
+				width="170"/>
+		</mx:FormItem>
+		<!-- Input e-mail -->
+		<mx:FormItem
+			label="{model.locale.Global_PersonalInformation_Email}:"
+			labelWidth="139"
+			styleName="formItem2">
+			<control:TextInput
+				id="tiEmail"
+				change="{dispatchEvent(new Event('fillStateChanged'))}"
+				restrict="\-0-9A-Za-zßβÄäÖöÜü@_."
+				maxChars="50"
+				width="170"/>
+		</mx:FormItem>
+	</mx:VBox>	
+	<!--
+		Validators.
+	  -->
+	<!--mx:StringValidator id="svZipCode"
+		required="false"
+		source="{tiZipCode}"
+		property="text"
+		minLength="5"
+		maxLength="6"/-->
+	<mx:StringValidator id="svTelephone"
+		required="false"
+		source="{tiTelephone}"
+		property="text"
+		minLength="6"
+		maxLength="20"/>
+	<mx:StringValidator id="svFax"
+		required="false"
+		source="{tiFax}"
+		property="text"
+		minLength="6"
+		maxLength="20"/>
+	<mx:EmailValidator id="evEmail"
+		required="false"
+		source="{tiEmail}"
+		property="text"/>
+</view:VSubWindow>

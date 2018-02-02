@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<services-config>
+	<endpoint uri="http://dev-ng.ramada.ameria.de/web/2.0/rsv/web/backend_dev.php/amf/gateway/sf_format/amf"/>	
+	<!--endpoint uri="http://qa-ng.ramada.ameria.de/1.5/web/backend_dev.php/amf/gateway/sf_format/amf"/  -->
+</services-config>

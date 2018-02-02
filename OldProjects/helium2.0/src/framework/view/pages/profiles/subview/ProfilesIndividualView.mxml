@@ -1,0 +1,270 @@
+<?xml version="1.0" encoding="utf-8"?>
+<VSubWindow
+	xmlns="framework.core.view.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:pager="h2olib.control.pager.*"
+	xmlns:searchBox="h2olib.control.searchBox.*"
+
+	label="{model.locale.Profiles_Individual_Title}"
+	creationComplete="update()">
+	
+	<mx:Script>
+		<![CDATA[
+			import mx.controls.Alert;
+			import framework.view.pages.inHouse.events.AssignProfileEvent;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			
+			import services.business.profiles.ProfileDelegate;
+			import services.controller.AppController;
+			import services.events.profiles.individual.DeletePersonalProfileEvent;
+			import services.events.profiles.individual.GetProfileByIdEvent;
+			import services.events.profiles.individual.GetProfilesPageEvent;
+			import services.events.profiles.individual.GetWishesListEvent;
+			import services.events.profiles.individual.FindProfileByNameEvent;
+			import services.events.profiles.individual.FindProfileBySurnameEvent;
+			import framework.module.ProfilesModule;
+			import framework.view.components.popups.DeletePopupView;
+			import framework.view.components.popups.events.PopupEvent;
+			import framework.view.pages.profiles.popups.individual.SaveIndividualProfilePopupView;
+			import services.vo.GlobalSettings;
+			import services.vo.profiles.ProfilePersonalVO;
+			import services.vo.profiles.ProfilePersonViewVO;
+			
+			import mx.core.IFlexDisplayObject;
+			import mx.events.ItemClickEvent;
+			import framework.managers.PopUpManagerExt;
+			import mx.managers.PopUpManagerChildList;
+			
+			import h2olib.control.pager.event.PagerEvent;
+			
+			// ===================================================================== //
+			//                         VARIABLES AND CONSTANTS                       //
+			// ===================================================================== //
+			/**
+			 *  This property is previous set count of chars in the serach pattern
+			 *  for find individual profiles by last name.
+			 *  
+			 *  @default 0
+			 */
+			private var _prevSearchCount:int = 0;
+			/**
+			 *  This property is <code>true</code>, if search was activated one or
+			 *  more times.
+			 *  
+			 *  @default false
+			 */
+			private var _isFirstSearch:Boolean = false;
+			/**
+			 *  This property is instance of delete popup.
+			 */
+			private var _deletePopup:DeletePopupView;
+			
+			[Bindable]
+			private var visibleRowCount:Number = 0;
+			
+			private var isOpen:Boolean = false;
+			
+			[Bindable]
+			public var lock:Boolean = false;
+			
+			// ===================================================================== //
+			//                            OVERRIDE METHODS                           //
+			// ===================================================================== //
+			/**
+			 *  @override
+			 */
+			override public function update():void
+			{
+				// clear searcg field
+				searchField.text = "";
+				// check need load wishes
+				var wishEvent:GetWishesListEvent = new GetWishesListEvent(AppController.GET_WISHES_LIST);
+				CairngormEventDispatcher.getInstance().dispatchEvent(wishEvent);
+			}
+			
+			private function calcVisibleRow():void
+			{
+				visibleRowCount = Math.round((dgProfilesList.height - dgProfilesList.headerHeight - 16) / dgProfilesList.rowHeight);
+				isOpen = true;
+			}
+			
+			// ===================================================================== //
+			//                      COMMON METHODS AND HANDLERS                      //
+			// ===================================================================== //
+			/**
+			 *  Search or profiles without search pattern.
+			 *  
+			 *  @param page:int - index of 
+			 */
+			private function search(page:int = 1, count:int = 20):void
+			{
+				var event:GetProfilesPageEvent = new GetProfilesPageEvent(ProfileDelegate.GET_PROFILES_PAGE);
+				event.hotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+				event.page = page;
+				event.count = count;
+				CairngormEventDispatcher.getInstance().dispatchEvent(event);
+			}
+			
+			/**
+			 *  The handle to add new profile into the system.
+			 */
+			private function handleAddProfile():void
+			{
+				var pop:SaveIndividualProfilePopupView = PopUpManagerExt.createPopUp(this, SaveIndividualProfilePopupView) as SaveIndividualProfilePopupView;
+				pop.show();
+				pop.selectedIndex = model.profilesModule.individualPageList.length;
+			}
+			/**
+			 *  The handle to try to edit currect selected profile into the system.
+			 *  If data by id of profile is recieved from server, open popup for edit
+			 *  person profile by his id.
+			 */
+			private function handleEditProfile():void
+			{
+				if (!lock)
+				{
+					var event:GetProfileByIdEvent = new GetProfileByIdEvent(ProfileDelegate.GET_PROFILE_BY_ID);
+					event.profileId = (dgProfilesList.selectedItem as ProfilePersonViewVO).lMainId;
+					event.hotelId = Math.max(0, model.hotelsModule.hotelTotalInfo.iHotelId);
+					event.callBack = openEditProfilePopup;
+					CairngormEventDispatcher.getInstance().dispatchEvent(event);
+				}
+				else
+				{
+					var evt:AssignProfileEvent = new AssignProfileEvent(AssignProfileEvent.PROFILE_SELECTED);
+					evt.profileId = (dgProfilesList.selectedItem as ProfilePersonViewVO).lMainId;
+					evt.isCompany = false;
+					owner.dispatchEvent(evt);
+				}
+			}
+			/**
+			 *  The handle to open popup for edit selected profile into the system.
+			 */
+			private function openEditProfilePopup():void
+			{
+				var pop:IFlexDisplayObject = PopUpManagerExt.createPopUp(this, SaveIndividualProfilePopupView);
+				(pop as SaveIndividualProfilePopupView).data = model.profilesModule.currentProfile;
+				(pop as SaveIndividualProfilePopupView).selectedIndex = dgProfilesList.selectedIndex;
+			}
+			/**
+			 *  The handle to open popup for delete selected profile from the system.
+			 */
+			private function openDeletePopup():void
+			{
+				var pop:DeletePopupView = PopUpManagerExt.createPopUp(this, DeletePopupView) as DeletePopupView;
+				pop.title = model.locale.Profiles_Individual_Popups_Delete_Title;
+				pop.description = model.locale.Profiles_Individual_Popups_Delete_Description;
+				pop.addEventListener(PopupEvent.DELETE_HANDLER, handleDelete);
+			}
+			/**
+			 *  The handle to remove selected profile by person.
+			 */
+			private function handleDelete(e:PopupEvent):void
+			{
+				_deletePopup = (e.target as DeletePopupView);
+				_deletePopup.removeEventListener(PopupEvent.DELETE_HANDLER, handleDelete);
+				
+				var event:DeletePersonalProfileEvent = new DeletePersonalProfileEvent(ProfileDelegate.DELETE_PERSONAL_PROFILE);
+				event.id = (dgProfilesList.selectedItem as ProfilePersonViewVO).lMainId;
+				event.index = dgProfilesList.selectedIndex;
+				event.callBack = handleDeleteComplete;
+				CairngormEventDispatcher.getInstance().dispatchEvent(event);
+			}
+			
+			private function handleDeleteComplete():void
+			{
+				// check profiles list for empty
+				if (dgProfilesList.dataProvider.length == 0)
+				{
+					var event:PagerEvent = new PagerEvent(PagerEvent.PAGE_CHANGE);
+					event.index = pager.selectedPage;
+					event.count = pager.itemPerPageCount;
+					handleGetProfiles(event);
+				}
+				// complete deleting profile
+				_deletePopup.completeCall();
+				_deletePopup = null;
+			}
+			
+			private function handleSearch():void
+			{
+				var event:FindProfileBySurnameEvent = new FindProfileBySurnameEvent(ProfileDelegate.FIND_PROFILE_BY_SURNAME);
+				
+				event.page = 1;
+				event.count = pager.itemPerPageCount;
+				event.pattern = searchField.text;
+				
+				CairngormEventDispatcher.getInstance().dispatchEvent(event);
+			}
+			
+			/**
+			 *  The handle for get new block of profiles.
+			 *  
+			 *  @param e:PagerEvent
+			 */
+			private function handleGetProfiles(e:PagerEvent):void
+			{
+				searchField.text = "";
+				search(e.index, e.count);
+			}
+		]]>
+	</mx:Script>
+	
+	<searchBox:SearchBox id="searchField"
+		label="Name"
+		enter="handleSearch()"
+		changeByFocus="handleSearch()"
+		width="250"
+		height="24"/>
+	
+	<mx:DataGrid id="dgProfilesList"
+		dataProvider="{model.profilesModule.individualPageList}"
+		doubleClickEnabled="true"
+		doubleClick="handleEditProfile()"
+		creationComplete="calcVisibleRow()"
+		width="100%" height="100%" headerHeight="22" rowHeight="33" styleName="grid">
+		<mx:columns>
+			<mx:DataGridColumn
+				headerText="{model.locale.Profiles_Individual_Columns_LastName}"
+				dataField="sSurname"/>
+			<mx:DataGridColumn
+				headerText="{model.locale.Profiles_Individual_Columns_FirstName}"
+				dataField="sName"/>
+			<mx:DataGridColumn
+				headerText="{model.locale.Profiles_Individual_Columns_Company}"
+				dataField="sCompany"/>
+			<mx:DataGridColumn
+				headerText="{model.locale.Profiles_Individual_Columns_Phone}"
+				dataField="sPhone"/>
+			<mx:DataGridColumn
+				headerText="{model.locale.Profiles_Individual_Columns_Email}"
+				dataField="sEmail"/>
+		</mx:columns>
+	</mx:DataGrid>
+	
+	<mx:HBox width="100%" horizontalAlign="right">
+		<mx:Button
+			label="{model.locale.Global_Button_Add}"
+			click="handleAddProfile()"
+			width="{GlobalSettings.BUTTON_WIDTH_APPLY}"/>
+		<mx:Button
+			label="{model.locale.Global_Button_Edit}"
+			enabled="{dgProfilesList.selectedItem}"
+			visible="{!lock}"
+			click="handleEditProfile()"
+			width="{GlobalSettings.BUTTON_WIDTH_APPLY}"/>
+		<mx:Button
+			label="{model.locale.Global_Button_Delete}"
+			click="openDeletePopup()"
+			enabled="{dgProfilesList.selectedItem}"
+			visible="{!lock}"
+			width="{GlobalSettings.BUTTON_WIDTH_APPLY}"/>
+		<mx:Spacer width="100%"/>
+		<pager:Pager id="pager"
+			count="{model.profilesModule.individualProfilesCount}"
+			pageChange="handleGetProfiles(event)"
+			fit="{visibleRowCount}"
+			styleName="pager"
+			height="24"/>
+	</mx:HBox>
+</VSubWindow>

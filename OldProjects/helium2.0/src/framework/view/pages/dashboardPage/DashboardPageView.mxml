@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<BaseWindow 
+	xmlns="framework.core.view.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	creationComplete="init()"
+	show="updateShift()"
+>
+	
+	<mx:Script>
+		<![CDATA[
+			import mx.controls.DateField;
+			import services.events.cashShift.GetDayShiftListEvent;
+			import services.vo.GlobalSettings;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.events.cashShift.GetLastOpenShiftEvent;
+			import services.vo.GlobalImageAssets;
+				/* addedToStage="checkShift()" */
+			private function init():void
+			{
+				var logoWidth:Number = logo.width;
+				var logoHeight:Number = logo.height;
+				
+				logo.percentHeight = 100;
+				logo.percentWidth = (logoHeight / height) * 100;
+				
+				
+				checkShift();
+			
+			 }
+			 
+			 private function updateShift():void
+			{
+				if (this.isCreated)
+				{
+					checkShift();
+				}
+			 }
+			 
+			private function checkShift():void
+			{
+				//for search last open shift
+				if (model.isFrontend)
+				{
+					var evt:GetLastOpenShiftEvent = new GetLastOpenShiftEvent();			
+					evt.hotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+				//	evt.callBack = getFirstShift;
+					CairngormEventDispatcher.getInstance().dispatchEvent( evt );
+				}
+			}
+			/*  override public function update():void
+			 {
+			 	// for search last open shift
+				if (model.isFrontend)
+				{
+					var evt:GetLastOpenShiftEvent = new GetLastOpenShiftEvent();			
+					evt.hotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+					evt.callBack = getFirstShift;
+					CairngormEventDispatcher.getInstance().dispatchEvent( evt );
+				}
+			 } */
+		
+			/* private function getFirstShift():void
+			{
+				var evt:GetDayShiftListEvent = new GetDayShiftListEvent();			
+				evt.hotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+				evt.sDate = model.cashShiftModule.currOpenShift.sDate;
+				CairngormEventDispatcher.getInstance().dispatchEvent( evt );
+			} */
+			
+		]]>
+	</mx:Script>
+	
+	<mx:HBox
+		horizontalAlign="center"
+		verticalAlign="middle"
+		width="100%" height="100%">
+		<mx:Image id="logo"
+			source="{GlobalImageAssets.getInstance().baseLogo}"/>
+	</mx:HBox>
+</BaseWindow>

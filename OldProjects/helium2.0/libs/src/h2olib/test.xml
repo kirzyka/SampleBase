@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<node label="root node" checked="0" data="1">
+	<node label="First Child" checked="0" data="2">
+		<node label="Second Child 1" checked="0" data="3"></node>
+		<node label="Second Child 2" checked="0" data="4"></node>
+	</node>
+	<node label="First Child 2" checked="0" data="5"></node>
+	<node label="First Child 3" checked="0" data="8"></node>	
+</node>

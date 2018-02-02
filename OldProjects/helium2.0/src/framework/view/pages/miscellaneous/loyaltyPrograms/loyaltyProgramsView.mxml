@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="utf-8"?>
+<VSubWindow xmlns="framework.core.view.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml" 
+	width="100%" height="100%"
+	xmlns:searchBox="h2olib.control.searchBox.*">
+	<mx:Script>
+		<![CDATA[
+			import framework.view.pages.miscellaneous.loyaltyPrograms.subview.SaveLoyaltyProgramsPopupView;
+			import services.events.miscellaneous.loyaltyPrograms.GetLoyaltyProgramsEvent;
+			import services.events.miscellaneous.loyaltyPrograms.DeleteLoyaltyProgramEvent;
+			import framework.view.components.popups.DeletePopupView;
+			import framework.view.components.popups.events.PopupEvent;
+			import mx.managers.PopUpManagerChildList;
+			import services.vo.common.loyaltyPrograms.LoyaltyProgramsVO;
+			import services.vo.GlobalSettings;
+			import mx.controls.CheckBox;
+			import services.vo.GlobalStorage;
+
+			import mx.events.CollectionEvent;
+			import services.vo.GlobalFunctions;
+			import mx.collections.ArrayCollection;
+			import services.vo.backend.RoomSettingObjectVO;
+			import framework.managers.PopUpManagerExt;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.controller.AppController;
+			import framework.model.AppModelLocator;
+			
+			public override function update():void
+			{
+				var programEvt:GetLoyaltyProgramsEvent = new GetLoyaltyProgramsEvent(AppController.GET_LOYALTY_PROGRAMS_EVENT);
+				CairngormEventDispatcher.getInstance().dispatchEvent(programEvt);
+				
+			}
+			
+			private function handleAdd():void
+			{
+				var pop:SaveLoyaltyProgramsPopupView = PopUpManagerExt.createPopUp(this, SaveLoyaltyProgramsPopupView) as SaveLoyaltyProgramsPopupView;
+				pop.callBack = update;
+				PopUpManagerExt.centerPopUp(pop); 
+			}
+			
+			private function handleEdit():void
+			{
+				var pop:SaveLoyaltyProgramsPopupView = PopUpManagerExt.createPopUp(this, SaveLoyaltyProgramsPopupView) as SaveLoyaltyProgramsPopupView;
+				pop.data = programList.selectedItem as LoyaltyProgramsVO;
+				pop.callBack = update;
+				PopUpManagerExt.centerPopUp(pop);				
+			}
+			
+			private function handleDelete():void
+			{
+				/* PromtManager.getInstance().addNote(GlobalSettings.PROMT_MANAGER_QUEST, "Are you sure to delete selected language?", delProgram); */
+				var pop:DeletePopupView = PopUpManagerExt.createPopUp(this, DeletePopupView) as DeletePopupView;
+				pop.title = "Delete";
+				pop.description = "Are you sure to delete selected loyalty program?";
+				pop.addEventListener(PopupEvent.DELETE_HANDLER, delProgram);
+
+			}
+			
+			private function delProgram(e:PopupEvent):void
+			{
+				(e.target as DeletePopupView).removeEventListener(PopupEvent.DELETE_HANDLER, delProgram);
+				var evt:DeleteLoyaltyProgramEvent = new DeleteLoyaltyProgramEvent (AppController.DELETE_LOYALTY_PROGRAMS_EVENT);
+				evt.program = programList.selectedItem as LoyaltyProgramsVO;
+				evt.index = programList.selectedIndex;
+				evt.listProgram = programList.dataProvider as ArrayCollection;
+				CairngormEventDispatcher.getInstance().dispatchEvent( evt );
+				(e.target as DeletePopupView).completeCall();
+
+			}
+			
+			private function handleSearch():void
+			{	
+				if(search.text == "")
+				{
+					programList.dataProvider = GlobalStorage.loyaltyPrograms;
+					return;
+				}
+				programList.dataProvider = GlobalFunctions.search(GlobalStorage.loyaltyPrograms, search.text, [["sName"], ["sDesc"]]);
+				
+			}
+			
+			private function handleSearchChange():void
+			{
+				var char:String = search.text.charAt(search.text.length-1);
+				
+				if(char == "^" || char == "[" || char == "]" || char == "\\")
+				{
+					if(search.text.length == 0) search.text = ''; 
+					else search.text = search.text.substr(0,search.text.length-1);
+				}
+				handleSearch();
+			}
+		]]>
+	</mx:Script>
+	<mx:HBox>
+		<mx:FormItem direction="horizontal">
+			<searchBox:SearchBox id="search" width="180" label="loyalty program" enter="handleSearchChange()" changeByFocus="handleSearchChange()"/>
+		</mx:FormItem>		
+	</mx:HBox>
+	<mx:HBox width="100%" height="100%">
+		<mx:VBox width="100%" height="100%" borderStyle="solid">		
+			<mx:DataGrid id="programList" labelField="sCountryName" width="100%" height="100%" 
+				dataProvider="{GlobalStorage.loyaltyPrograms}">
+			<mx:columns>
+			<mx:DataGridColumn headerStyleName="HeaderDataGrid" headerText="Loyalty program name"  id="languageName" dataField="sName"/>
+			<mx:DataGridColumn headerStyleName="HeaderDataGrid" headerText="Loyalty program description"  id="languageCode" dataField="sDesc"/>
+			</mx:columns>
+			</mx:DataGrid>
+		</mx:VBox>
+	</mx:HBox>
+	<mx:HBox width="50%" height="40">
+		<mx:Button id="addProgram" label="Add" width="{GlobalSettings.BUTTON_WIDTH}" click="handleAdd()"  />
+		<mx:Button label="Edit" width="{GlobalSettings.BUTTON_WIDTH}" click="handleEdit()" enabled="{programList.selectedIndex > -1 }" id="editProgram"/>
+		<mx:Button label="Delete" width="{GlobalSettings.BUTTON_WIDTH}" click="handleDelete()" enabled="{programList.selectedIndex > -1 }" id="deleteProgram"/>
+	</mx:HBox>
+	
+</VSubWindow>

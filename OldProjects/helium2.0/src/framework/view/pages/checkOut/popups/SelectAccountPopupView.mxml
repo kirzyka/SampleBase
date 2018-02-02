@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="utf-8"?>
+<BasePopupView
+	xmlns="framework.view.components.popups.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	title="Select Account"
+	width="700" height="500">
+	<mx:Script>
+		<![CDATA[
+			import mx.controls.Label;
+			import services.events.checkOut.AttachPackageToAccountEvent;
+			import services.cairngorm.BaseEvent;
+			import services.vo.response.ResponseVO;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.business.checkOut.CheckOutDelegate;
+			import services.events.checkOut.AttachItemToAccountEvent;
+			import services.vo.checkOut.itemRouting.AccountAddressVO;
+			import framework.view.pages.checkOut.events.AccountEvent;
+			import services.vo.GlobalSettings;
+			import services.vo.checkOut.itemRouting.PersonAccountsVO;
+			
+			// ===================================================================== //
+			//                        VARIABLES AND CONSTANTS                        //
+			// ===================================================================== //
+			/**
+			 *  This property is list with item ids.
+			 *  
+			 *  @default []
+			 */
+			private var _itemsIds:Array = [];
+			/**
+			 *  This property is list with package ids.
+			 *  
+			 *  @default []
+			 */
+			public var packageIds:Array = [];
+			
+			// ===================================================================== //
+			//                      COMMON METHODS AND HANDLERS                      //
+			// ===================================================================== //
+			private function tryAttachToAccount():void
+			{
+				var event:BaseEvent;
+				if (packageIds.length > 0)
+				{
+					event = new AttachPackageToAccountEvent(CheckOutDelegate.ATTACH_PACKAGES_TO_ACCOUNT);
+					(event as AttachPackageToAccountEvent).packageIds = packageIds; 
+					(event as AttachPackageToAccountEvent).accountId = (dgAddresses.selectedItem as AccountAddressVO).lId;
+					(event as AttachPackageToAccountEvent).accountType = (dgAccountType.selectedItem as PersonAccountsVO).iType;
+					(event as AttachPackageToAccountEvent).paymentLineId = model.checkOutModule.paymentLineId;
+				}
+				if (_itemsIds.length > 0)
+				{
+					event = new AttachItemToAccountEvent(CheckOutDelegate.ATTACH_ITEMS_TO_ACCOUNT);
+					(event as AttachItemToAccountEvent).accountId = (dgAddresses.selectedItem as AccountAddressVO).lId;
+					(event as AttachItemToAccountEvent).accountType = (dgAccountType.selectedItem as PersonAccountsVO).iType;
+					(event as AttachItemToAccountEvent).paymentLineId = model.checkOutModule.paymentLineId;
+					(event as AttachItemToAccountEvent).itemIds = _itemsIds;
+					
+				}
+				if ((packageIds.length > 0) || (_itemsIds.length > 0))
+				{
+					event.callBack = attachToAccount;
+					CairngormEventDispatcher.getInstance().dispatchEvent(event);
+				}
+			}
+			
+			private function attachToAccount():void
+			{
+				var event:AccountEvent = new AccountEvent(AccountEvent.ACCOUNT_SELECTED);
+				event.paymentId = Number((model.lastResponse as ResponseVO).oResponse);
+				event.account = dgAccountType.selectedItem as PersonAccountsVO;
+				event.accountAddress = dgAddresses.selectedItem as AccountAddressVO;
+				dispatchEvent(event);
+				
+				completeCall();
+			}
+			
+			// ===================================================================== //
+			//                       GETTER AND SETTER HANDLERS                      //
+			// ===================================================================== //
+			/**
+			 *  Id of account.
+			 */
+			public function get itemsIds():Array
+			{
+				return _itemsIds;
+			}
+			/**
+			 *  @private
+			 */
+			public function set itemsIds(value:Array):void
+			{
+				_itemsIds = value;
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:Label
+		text="Accounts"
+		fontWeight="bold"
+		width="100%"/>
+	<mx:DataGrid id="dgAccountType"
+		dataProvider="{model.checkOutModule.account}"
+		width="100%" height="100%">
+		<mx:columns>
+			<mx:DataGridColumn
+				headerText="Account Type"
+				dataField="sAccountType"
+				itemRenderer="{new ClassFactory(Label)}"/>
+			<mx:DataGridColumn
+				headerText="Company"
+				dataField="sCompanyName"
+				itemRenderer="{new ClassFactory(Label)}"
+				width="220"/>
+			<mx:DataGridColumn
+				headerText="Guest Name"
+				dataField="sGuestName"
+				itemRenderer="{new ClassFactory(Label)}"/>
+		</mx:columns>
+	</mx:DataGrid>
+	
+	<mx:Label
+		text="Addresses"
+		fontWeight="bold"
+		width="100%"/>
+	<mx:DataGrid id="dgAddresses"
+		dataProvider="{PersonAccountsVO(dgAccountType.selectedItem).aAddresses}"
+		width="100%" height="100%">
+		<mx:columns>
+			<mx:DataGridColumn
+				headerText="Addresses Type"
+				dataField="sAddressType"
+				width="170"/>
+			<mx:DataGridColumn
+				headerText="Address"
+				dataField="sAddress"/>
+		</mx:columns>
+	</mx:DataGrid>
+	
+	<mx:HBox width="100%" horizontalAlign="right">
+		<mx:Button
+			label="{model.locale.Global_Button_Apply}"
+			enabled="{dgAddresses.selectedItem}"
+			click="tryAttachToAccount()"
+			width="{GlobalSettings.BUTTON_WIDTH_APPLY}"/>
+		<mx:Button
+			label="{model.locale.Global_Button_Cancel}"
+			click="close()"
+			width="{GlobalSettings.BUTTON_WIDTH}"/>
+	</mx:HBox>
+</BasePopupView>

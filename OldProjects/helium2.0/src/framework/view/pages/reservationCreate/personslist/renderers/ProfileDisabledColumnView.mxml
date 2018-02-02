@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:HBox xmlns:mx="http://www.adobe.com/2006/mxml" width="100%" horizontalAlign="center">
+	
+	<mx:Script>
+		<![CDATA[
+			import services.vo.profiles.ProfilePersonalVO;
+			
+			private var profile:ProfilePersonalVO;
+			
+			override public function set data(value:Object):void
+			{
+				//super.data = value;
+				
+				if(value as ProfilePersonalVO)
+				{
+					profile = value as ProfilePersonalVO;
+					disabled.selected = profile.bIsDisabled;
+				}
+			} 
+			
+			private function handleDisabledChange():void
+			{
+				profile.bIsDisabled = disabled.selected;
+			}
+			
+		]]>
+	</mx:Script>
+	
+	<mx:CheckBox id="disabled" change="handleDisabledChange()"/>
+	
+</mx:HBox>

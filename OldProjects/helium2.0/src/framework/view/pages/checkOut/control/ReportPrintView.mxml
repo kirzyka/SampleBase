@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:HBox
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	verticalAlign="middle"
+	width="100%">
+	
+	<mx:Script>
+		<![CDATA[
+			import flash.net.navigateToURL;
+			
+			public var callBack:Function = null;
+			
+			/**
+			 *  This property is title of report print.
+			 */
+			private var _title:String = "";
+			/**
+			 *  This property is URL to report for print.
+			 */
+			private var _url:String = "";
+			
+			public var urlList:Array = null;
+			
+			private function handleReportPrint():void
+			{
+				if(urlList == null && _url != "")
+				{
+					navigateToURL(new URLRequest(_url));
+				}
+				else
+				{
+					for(var i:int = 0; i < urlList.length; i++)
+					{
+						navigateToURL(new URLRequest(urlList[i]));
+					}
+				}
+				if(callBack != null)
+				{
+					callBack();
+				}
+				
+			}
+			
+			[Bindable(event="titleChanged")]
+			/**
+			 *  The title of report print.
+			 */
+			public function get title():String
+			{
+				return _title;
+			}
+			/**
+			 *  @private
+			 */
+			public function set title(value:String):void
+			{
+				_title = value;
+				
+				dispatchEvent(new Event("titleChanged"));
+			}
+			
+			/**
+			 *  The URL to report for print.
+			 */
+			public function get url():String
+			{
+				return _url;
+			}
+			/**
+			 *  @private
+			 */
+			public function set url(value:String):void
+			{
+				_url = value;
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:Label
+		text="{title}"
+		fontWeight="bold"
+		width="{unscaledWidth - btPrint.width - getStyle('horizontalGap')}"/>
+	<mx:Spacer width="100%"/>
+	<mx:Button id="btPrint"
+		label="Print"
+		click="{handleReportPrint()}"/>
+</mx:HBox>

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:HBox xmlns:mx="http://www.adobe.com/2006/mxml" width="100%" horizontalAlign="center" verticalAlign="middle" creationComplete="handleInit()"
+	>
+	
+	<mx:Script>
+		<![CDATA[
+			import services.vo.profiles.ProfilePersonalVO;
+			import mx.events.DataGridEvent;
+			import mx.core.EventPriority;
+			import mx.collections.ArrayCollection;
+			import framework.view.pages.reservationCreate.events.RemovePersonFromRoomEvent;
+			import mx.controls.DataGrid;
+			import services.vo.GlobalImageAssets;
+			
+			private var itemData:ProfilePersonalVO;
+			
+			override public function set data(value:Object):void
+			{
+				super.data = value;
+				
+				itemData = value as ProfilePersonalVO;
+				
+			}
+			
+			private function handleInit():void
+			{
+			
+				
+			}
+			
+			private function handleClick():void
+			{
+				var evt:RemovePersonFromRoomEvent = new RemovePersonFromRoomEvent( RemovePersonFromRoomEvent.REMOVE_PERSON )
+				
+				evt.itemData = itemData;
+				
+				(owner as DataGrid).dispatchEvent( evt );
+				//((owner as DataGrid).dataProvider as ArrayCollection).removeItemAt(index);
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:Button click="handleClick()" 
+		icon="{GlobalImageAssets.getInstance().trashIcon}"  
+		id="click_ProfileDeleteColumnView" 
+		width="40"/>
+	
+</mx:HBox>

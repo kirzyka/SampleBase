@@ -1,0 +1,951 @@
+<?xml version="1.0" encoding="utf-8"?>
+<VSubWindow xmlns:mx="http://www.adobe.com/2006/mxml" width="100%" height="100%" 
+	xmlns:bar="framework.view.pages.rates.bar.*"
+	xmlns="framework.core.view.*"
+	horizontalScrollPolicy="off" enabled="{model.ratesModule.barModule.isBarEnabled}"
+	xmlns:subview="framework.view.pages.rates.bar.subview.*">	
+	<mx:Script>
+		<![CDATA[
+			import mx.containers.Canvas;
+			import framework.view.pages.rates.bar.subview.BARCalendarItemView;
+			import framework.view.pages.rates.bar.subview.BARPricesView;
+			import services.vo.hotels.HotelInfoTotalVO;
+			import h2olib.control.NumericTextInput;
+			import mx.controls.NumericStepper;
+			import framework.core.utils.UtilsGolobal;
+			import services.command.rates.bar.GetBARsByDateCommand;
+			import services.events.rates.bar.GetBARsByDateEvent;
+			import services.events.rates.bar.GetBarItemsInfoEvent;
+			import flash.utils.setTimeout;
+			import mx.binding.utils.ChangeWatcher;
+			import services.vo.hotels.HotelRoomTypeObjectVO;
+			import services.vo.hotels.HotelRoomWithBedTypesObjectVO;
+			import services.events.hotels.GetHotelRoomTypesEvent;
+			import services.vo.rates.bar.BARDateIntervalVO;
+			import services.vo.rates.bar.BarPriceVO;
+			import services.vo.rates.bar.BARSaveItemVO;
+			import services.vo.rates.bar.BARItemObjectVO;
+			import framework.core.utils.UtilsGolobal;
+			import services.events.rates.bar.SaveBarItemsDataEvent;
+			import services.events.rates.bar.SelectBARDateEvent;
+		//initialize="handleInit()"
+		
+			import mx.containers.FormHeading;
+			import mx.containers.FormItem;
+			import mx.containers.Form;
+			import mx.containers.HBox;
+			import framework.view.pages.rates.bar.events.CalendarEvent;
+			import mx.binding.utils.BindingUtils;
+			import services.vo.GlobalSettings;
+			import mx.utils.ArrayUtil;
+			import mx.events.CollectionEvent;
+			import services.vo.backend.RoomWithBedTypesObjectVO;
+			import mx.utils.ObjectUtil;
+			import services.vo.GlobalStorage;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.controller.AppController;
+			import services.vo.backend.RoomTypesObjectVO;
+			import mx.collections.ArrayCollection;
+			import framework.model.AppModelLocator;
+			import services.vo.GlobalFunctions;
+			import services.vo.backend.DateResultVO;
+			
+			[Bindable]
+			private var arrayOfMarkaps:Array = new Array();
+			
+			private var selectedCells:Array;
+			private var startDateItem:BARSaveItemVO;
+			private var workDateItem:BARSaveItemVO;
+			private var currSelectedPrice:int;
+			private var selectEvent:SelectBARDateEvent;
+			
+			private var currentPriceListIndex:int;
+			private var currentPriceListItems:Array = new Array();
+			private var isCalendarCreated:Boolean = false;
+			
+			private var pricePanels:Array = new Array(); 
+			
+			[Bindable]
+			private var years:ArrayCollection = new ArrayCollection();
+			
+			
+			/**
+			 *	Clear screen. Get BAR data. 
+			 *  
+			 */
+			override public function update():void
+			{				
+				currMonth.selectedIndex = model.businessDate.getMonth();				
+				
+				BindingUtils.bindSetter(calculateEnabledElements , model, "currMonthIndex");				
+				
+				years = getYears();
+				model.currYear = years.getItemAt(1) as Number;
+				currYear.selectedIndex = 1;
+				if (model.hotelsModule.hotelRoomTypes.length == 0)
+				{
+					var getRTevt:GetHotelRoomTypesEvent = new GetHotelRoomTypesEvent( AppController.GET_HOTEL_ROOM_TYPES );
+					getRTevt.callBack = handleGetHotelRoomTypes;
+					CairngormEventDispatcher.getInstance().dispatchEvent( getRTevt );
+				}
+				else
+				{
+					handleGetHotelRoomTypes();
+				}
+				
+				clear();
+				
+				if (model.ratesModule.barModule.creationForm == 0)
+				{	
+					model.ratesModule.barModule.creationForm = 1;
+					barCalendar.getBARsData(); 
+				 }
+				else
+				{
+					handleMonthChanged();
+				} 
+				
+				barCalendar.addEventListener(CalendarEvent.CREATION_COMPLETE, handleCalendarCreationComplete );
+				barCalendar.addEventListener(CalendarEvent.ITEM_SELECT, handleDescriptionShow); 
+				ChangeWatcher.watch(model, "currMonthIndex", handleMonthChanged);
+			}
+						
+			public function getYears():ArrayCollection
+			{
+				var arr:ArrayCollection = new ArrayCollection();
+				arr.addItem(GlobalFunctions.getDate().fullYear - 1);
+				arr.addItem(GlobalFunctions.getDate().fullYear);
+				arr.addItem(GlobalFunctions.getDate().fullYear + 1);
+				arr.addItem(GlobalFunctions.getDate().fullYear + 2);
+				arr.addItem(GlobalFunctions.getDate().fullYear + 3);
+				return arr;
+			}
+			
+			private function setAllRoomTypes():void
+			{
+				currRoomType.selectedIndex = currRoomType.dataProvider.length - 1;
+				model.ratesModule.barModule.currentRoomTypeIndex = currRoomType.selectedIndex;
+			}
+			
+			/**
+			 *	Fill propertys fields by click
+			 * 
+			 */
+			private function handleDescriptionShow(e:CalendarEvent):void
+			{
+				var item:BARCalendarItemView = e.cell;				
+				
+				pricesFrom.selectedDate = DateField.stringToDate(e.cell.currDate, GlobalSettings.DATE_FORMAT);
+				pricesTo.selectedDate = DateField.stringToDate(e.cell.currDate, GlobalSettings.DATE_FORMAT);
+				
+				minStayTxt.text = item.itemFullData.oBarHotel.iMinStay.toString();
+				descriptionTxt.text = item.itemFullData.oBarHotel.sCnlDesc;
+				
+				yesG.selected = item.itemFullData.oBarHotel.bIsGuarantee;
+				noG.selected = !item.itemFullData.oBarHotel.bIsGuarantee;
+				
+				closeToArrival.selected = item.itemFullData.oBarHotel.bIsClosedToArrival;				
+				
+				if (arrayOfMarkaps.length != 0)
+				var arrayOfMarkapsLength:int = arrayOfMarkaps.length;
+				for (var j:int = 0; j < arrayOfMarkapsLength; j++)
+				{
+					(arrayOfMarkaps[j] as NumericTextInput).value = 0;
+				}
+				
+				var pricePanelsLength: int = pricePanels.length;
+				
+				var tempHotelTotalInfo:HotelInfoTotalVO = model.hotelsModule.hotelTotalInfo;
+				var tempBarPrice:BarPriceVO = new BarPriceVO();
+				for (var i:int = 0; i < pricePanelsLength; i++)
+			 	{
+			 		tempBarPrice = item.itemFullData.aBarPrices[i] as BarPriceVO;		 		
+			 		setValueFromCanvas(pricePanels[i], model.locale.Rates_Bar_PricesForm_OneAdult, (item.itemFullData.aBarPrices[i] as BarPriceVO).fPriceOneAdult);
+			 		setValueFromCanvas(pricePanels[i], model.locale.Rates_Bar_PricesForm_TwoAdults, (item.itemFullData.aBarPrices[i] as BarPriceVO).fPriceTwoAdults);
+			 		setValueFromCanvas(pricePanels[i], model.locale.Rates_Bar_PricesForm_ExtraAdultMarkup, (item.itemFullData.aBarPrices[i] as BarPriceVO).fPriceExtraAdult);
+			 		setValueFromCanvas(pricePanels[i], model.locale.Rates_Bar_PricesForm_Children + model.hotelsModule.hotelTotalInfo.iChildAge1, (item.itemFullData.aBarPrices[i] as BarPriceVO).fPriceChildBefore);
+			 		setValueFromCanvas(pricePanels[i], model.locale.Rates_Bar_PricesForm_Children + model.hotelsModule.hotelTotalInfo.iChildAge2, (item.itemFullData.aBarPrices[i] as BarPriceVO).fPriceChildMiddle);
+			 		setValueFromCanvas(pricePanels[i], model.locale.Rates_Bar_PricesForm_Children + model.hotelsModule.hotelTotalInfo.iChildAge3, (item.itemFullData.aBarPrices[i] as BarPriceVO).fPriceChildAbove);			 		
+			 	}
+			}
+						
+			/**
+			 *	Initialize on show.
+			 * 
+			 */
+			private function calculateEnabledElements(currMonth : int):void
+			{
+				var nowDate:Date = new Date();
+				if (currMonth < nowDate.month && nowDate.fullYear >= Number(years.getItemAt(currYear.selectedIndex))) 
+				{
+					save_BarView.enabled = false;
+				}
+				else
+				{
+					save_BarView.enabled = true;
+				}  
+			}
+			/**
+			 *	Clear all data.
+			 * 
+			 */
+			private function clear():void
+			{
+				barCalendar.clear();
+				currentPriceListItems = [];
+				model.currMonthIndex = GlobalFunctions.getDate().getMonth();
+				currMonth.selectedIndex = model.currMonthIndex;
+				model.ratesModule.barModule.currentRoomTypeIndex = 0;
+				}
+			/**
+			 *	Called, when calendar items have been created.
+			 */
+			private function handleCalendarCreationComplete(evt:CalendarEvent):void
+			{
+					
+				if(isCalendarCreated)
+				{
+					var today:Date = GlobalFunctions.getDate();
+					barCalendar.sendSelectedCellsEvent(null, null);
+					today = normalizeDate(today);
+					var calendarItemsLength:int = barCalendar.calendarItems.numChildren;
+					for(var i:int = 0; i < calendarItemsLength; i++) 
+					{
+						var cellItem:BARCalendarItemView = barCalendar.calendarItems.getChildAt(i) as BARCalendarItemView;
+						if (cellItem.enabled)
+						{
+							var evt:CalendarEvent = new CalendarEvent(CalendarEvent.ITEM_SELECT);
+							evt.cell = cellItem;
+							handleDescriptionShow(evt);
+							break;							
+						}
+					}
+				}
+				 
+				isCalendarCreated = true;
+			}
+			
+			private function normalizeDate(input:Date):Date
+			{
+				return new Date(input.fullYear, input.month, input.date);
+			}
+			
+			/**
+			 *	When get System Room Types, send event for Hotel Room Types.
+			 * 
+			 * 	@param evt:CollectionEvent - Collection Change Event
+			 */
+			public function handleGetRoomTypes(evt:CollectionEvent = null):void
+			{
+				if(model.roomTypesModule.roomTypesDP.length >= model.roomTypesModule.maxRoomTypesItems)
+				{
+					model.hotelsModule.hotelRoomTypes.addEventListener(CollectionEvent.COLLECTION_CHANGE, handleGetHotelRoomTypes);
+						
+					var getRTevt:GetHotelRoomTypesEvent = new GetHotelRoomTypesEvent( AppController.GET_HOTEL_ROOM_TYPES );
+					CairngormEventDispatcher.getInstance().dispatchEvent( getRTevt );
+					
+					model.roomTypesModule.roomTypesDP.removeEventListener(CollectionEvent.COLLECTION_CHANGE, handleGetRoomTypes);
+				}
+			}
+			/**
+			 *	When get Hotel Room Types, set data to comboBox.
+			 * 	Remove Listeners.
+			 * 	Send data to BARView.
+			 * 
+			 * 	@param evt:CollectionEvent - Collection Change Event
+			 */
+			private function handleGetHotelRoomTypes():void
+			{
+				if(model.hotelsModule.hotelRoomTypes.length < model.hotelsModule.maxHotelRoomTypes && model.hotelsModule.hotelRoomTypes.length != 0) return; 
+				 
+				model.hotelsModule.hotelRoomTypesCopyWithAll = UtilsGolobal.clone(model.hotelsModule.hotelRoomTypes) as ArrayCollection;
+				var allRoomTypes:HotelRoomWithBedTypesObjectVO = UtilsGolobal.clone(model.hotelsModule.hotelRoomTypes.getItemAt(0)) as HotelRoomWithBedTypesObjectVO;
+				allRoomTypes.oRoomQuality.lQualityId = 0;
+				allRoomTypes.oRoomQuality.sQualityName = "(All Room Types)";
+				model.hotelsModule.hotelRoomTypesCopyWithAll.addItemAt(allRoomTypes, 0);
+				
+				currRoomType.dataProvider = model.hotelsModule.hotelRoomTypesCopyWithAll;
+			
+				
+				model.hotelsModule.currRoomType = currRoomType.selectedItem as RoomTypesObjectVO;
+				
+				currentPriceListIndex = model.ratesModule.barModule.currentRoomTypeIndex;
+				
+				if(isCalendarCreated) barCalendar.sendSelectedCellsEvent(null, null);
+				
+				isCalendarCreated = true;
+				
+				CreatePricePanels();
+				
+				//setAllRoomTypes();
+				model.roomTypesModule.roomTypesDP.removeEventListener(CollectionEvent.COLLECTION_CHANGE, handleGetRoomTypes);
+				model.hotelsModule.hotelRoomTypes.removeEventListener(CollectionEvent.COLLECTION_CHANGE, handleGetHotelRoomTypes);
+			}
+			
+			/**
+			 *	Create Panels with Prices.
+			 */
+			 private function CreatePricePanels():void
+			 {
+			 	//clean old
+			 	var i:int;
+			 	pricePanels = [];
+			 	arrayOfMarkaps = [];
+				while (panelWithRTPrices.numChildren != 0)panelWithRTPrices.removeChildAt(0); 
+			 	
+			 	//create new
+			 	var tempHotelRoomTypesLength:int = model.hotelsModule.hotelRoomTypes.length;
+			 	var tempHotelTotalInfo:HotelInfoTotalVO = model.hotelsModule.hotelTotalInfo;
+			 	for (i = 0; i < tempHotelRoomTypesLength; i++)
+			 	{
+			 		var tempHotelRoomQuality: HotelRoomWithBedTypesObjectVO = model.hotelsModule.hotelRoomTypes.getItemAt(i) as HotelRoomWithBedTypesObjectVO;
+			 		var tempHotelRoomType: HotelRoomTypeObjectVO = new HotelRoomTypeObjectVO();
+			 		if (tempHotelRoomQuality.oRoomQuality.bIsUsedStandalone) tempHotelRoomType = tempHotelRoomQuality.flx_oRoomStandalone;
+			 		else tempHotelRoomType = tempHotelRoomQuality.aRoomWithBedTypes[0];
+			 		
+		 			var tempCanvas:Canvas = new Canvas();
+		 			tempCanvas.label = tempHotelRoomQuality.oRoomQuality.sQualityName;
+		 			tempCanvas.percentWidth = 100;
+		 			tempCanvas.percentHeight = 100;
+		 			tempCanvas.horizontalScrollPolicy = "off";
+		 			
+		 			var tempHBox:HBox = new HBox();
+		 			tempHBox.percentWidth = 100;
+		 			tempHBox.percentHeight = 100;
+		 			tempHBox.setStyle("horizontalGap", 15);
+		 			tempHBox.setStyle("paddingRight", 10);
+		 			
+		 			panelWithRTPrices.addChild(tempCanvas);
+		 			tempCanvas.addChild(tempHBox);
+		 			
+		 			var firstForm:Form = new Form();
+		 			firstForm.percentWidth = 98;
+		 			firstForm.percentHeight = 100;
+		 			
+		 			tempHBox.addChild(firstForm);
+		 			
+		 			var oneAdultFormItem:FormItem = new FormItem();
+		 			oneAdultFormItem.label = model.locale.Rates_Bar_PricesForm_OneAdult;
+		 			oneAdultFormItem.percentWidth = 100;
+		 			
+		 			firstForm.addChild(oneAdultFormItem);		 			
+			
+					var adultPrice:NumericTextInput = new NumericTextInput();
+		 			adultPrice.percentWidth = 100;
+		 			
+		 			oneAdultFormItem.addChild(adultPrice);
+		 			
+		 			var twoAdultFormItem:FormItem = new FormItem();
+		 			twoAdultFormItem.label = model.locale.Rates_Bar_PricesForm_TwoAdults;
+		 			twoAdultFormItem.percentWidth = 100;
+		 			
+		 			firstForm.addChild(twoAdultFormItem);
+		 			
+		 			var twoAdultPrice:NumericTextInput = new NumericTextInput();
+		 			twoAdultPrice.percentWidth = 100;
+		 			
+		 			twoAdultFormItem.addChild(twoAdultPrice);
+		 			
+		 			var extraAdultFormItem:FormItem = new FormItem();
+		 			extraAdultFormItem.label = model.locale.Rates_Bar_PricesForm_ExtraAdultMarkup
+		 			extraAdultFormItem.percentWidth = 100;
+		 			
+		 			firstForm.addChild(extraAdultFormItem);
+		 			
+		 			var extraAdultPrice:NumericTextInput = new NumericTextInput();
+		 			extraAdultPrice.percentWidth = 100;
+		 			
+		 			extraAdultFormItem.addChild(extraAdultPrice);
+		 			
+		 			if (tempHotelRoomType.bDefaultRoomType) // if It is base
+		 			{
+			 			
+			 			model.ratesModule.barModule.basePrice = tempCanvas;
+			 			
+			 			var makrupFormHeading:FormHeading = new FormHeading();
+			 			makrupFormHeading.label = model.locale.Rates_Bar_PricesForm_LabelMarkup;
+			 			firstForm.addChild(makrupFormHeading);
+			 			
+			 			for (var j:int = 0; j < model.hotelsModule.hotelRoomTypes.length; j++) // markup for other room types
+			 			{
+			 				if (j != i)
+			 				{
+			 				var temp2HotelRoomQuality: HotelRoomWithBedTypesObjectVO = model.hotelsModule.hotelRoomTypes.getItemAt(j) as HotelRoomWithBedTypesObjectVO;
+			 				var markupFormItem:FormItem = new FormItem();
+				 			markupFormItem.label = temp2HotelRoomQuality.oRoomQuality.sQualityName.substr(0,11) + ":";
+				 			markupFormItem.percentWidth = 100;
+				 			
+				 			firstForm.addChild(markupFormItem);
+				 			
+				 			var markupPrice:NumericTextInput = new NumericTextInput();
+				 			markupPrice.percentWidth = 100;	 			
+				 			markupPrice.name = temp2HotelRoomQuality.oRoomQuality.sQualityName;
+				 			markupPrice.value = 0;
+				 			arrayOfMarkaps.push(markupPrice);
+				 			
+				 			var evt:Event = new Event(Event.CHANGE);
+				 			markupPrice.addEventListener(Event.CHANGE, calculateCurrentQuality);
+				 			
+				 			markupFormItem.addChild(markupPrice);
+			 				}		 				
+			 				
+		 				}
+		 			}
+		 			
+		 			var secondForm:Form = new Form();
+		 			secondForm.percentWidth = 100;
+		 			secondForm.percentHeight = 100;
+		 			
+		 			tempHBox.addChild(secondForm);
+		 			
+		 			var children1FormItem:FormItem = new FormItem();
+		 			children1FormItem.label = model.locale.Rates_Bar_PricesForm_Children + tempHotelTotalInfo.iChildAge1;
+		 			children1FormItem.percentWidth = 100;
+		 			
+		 			secondForm.addChild(children1FormItem);
+		 			
+		 			var children1Price:NumericTextInput = new NumericTextInput();
+		 			children1Price.percentWidth = 100;
+
+		 			
+		 			children1FormItem.addChild(children1Price);
+		 			
+		 			
+		 			var children2FormItem:FormItem = new FormItem();
+		 			children2FormItem.label = model.locale.Rates_Bar_PricesForm_Children + tempHotelTotalInfo.iChildAge2;
+		 			children2FormItem.percentWidth = 100;
+		 			
+		 			secondForm.addChild(children2FormItem);
+		 			
+		 			var children2Price:NumericTextInput = new NumericTextInput();
+		 			children2Price.percentWidth = 100;
+		 			
+		 			children2FormItem.addChild(children2Price);
+		 			
+		 			
+		 			var children3FormItem:FormItem = new FormItem();
+		 			children3FormItem.label = model.locale.Rates_Bar_PricesForm_Children + tempHotelTotalInfo.iChildAge3;
+		 			children3FormItem.percentWidth = 100;
+		 			
+		 			secondForm.addChild(children3FormItem);
+		 			
+		 			var children3Price:NumericTextInput = new NumericTextInput();
+		 			children3Price.percentWidth = 100;
+		 			
+		 			children3FormItem.addChild(children3Price);
+		 			
+		 			pricePanels.push(tempCanvas);
+		
+			 	}
+			 }
+			 
+			 /**
+			 *	Calculate current quality prices
+			 */
+			 private function calculateCurrentQuality(evt:Event):void
+			 {
+			 	var tempHotelTotalInfo:HotelInfoTotalVO = model.hotelsModule.hotelTotalInfo;
+			 	var pricePanelsLength:int = pricePanels.length;
+			 	var itemOfPricePanels:Canvas = new Canvas();
+			 	var basePrice:Canvas = model.ratesModule.barModule.basePrice;
+			 	
+			 	for (var i:int = 0; i < pricePanelsLength; i++)
+			 	{
+			 		itemOfPricePanels = pricePanels[i];
+			 		if (pricePanels[i].label == evt.target.name)
+			 		{
+			 		setValueFromCanvas(pricePanels[i], model.locale.Rates_Bar_PricesForm_OneAdult, getValueFromCanvas(model.ratesModule.barModule.basePrice, model.locale.Rates_Bar_PricesForm_OneAdult) + evt.target.value);
+			 		setValueFromCanvas(pricePanels[i], model.locale.Rates_Bar_PricesForm_TwoAdults, getValueFromCanvas(model.ratesModule.barModule.basePrice, model.locale.Rates_Bar_PricesForm_TwoAdults) + evt.target.value);
+			 		setValueFromCanvas(pricePanels[i], model.locale.Rates_Bar_PricesForm_ExtraAdultMarkup, getValueFromCanvas(model.ratesModule.barModule.basePrice, model.locale.Rates_Bar_PricesForm_ExtraAdultMarkup) + evt.target.value);
+			 		setValueFromCanvas(pricePanels[i], model.locale.Rates_Bar_PricesForm_Children + model.hotelsModule.hotelTotalInfo.iChildAge1, Number(getValueFromCanvas(model.ratesModule.barModule.basePrice, model.locale.Rates_Bar_PricesForm_Children + model.hotelsModule.hotelTotalInfo.iChildAge1) /* + Number(evt.target.text) */));
+			 		setValueFromCanvas(pricePanels[i], model.locale.Rates_Bar_PricesForm_Children + model.hotelsModule.hotelTotalInfo.iChildAge2, Number(getValueFromCanvas(model.ratesModule.barModule.basePrice, model.locale.Rates_Bar_PricesForm_Children + model.hotelsModule.hotelTotalInfo.iChildAge2) /* + Number(evt.target.text) */));
+			 		setValueFromCanvas(pricePanels[i], model.locale.Rates_Bar_PricesForm_Children + model.hotelsModule.hotelTotalInfo.iChildAge3, Number(getValueFromCanvas(model.ratesModule.barModule.basePrice, model.locale.Rates_Bar_PricesForm_Children + model.hotelsModule.hotelTotalInfo.iChildAge3) /* + Number(evt.target.text) */));
+			 		}
+			 	}
+			 }
+			 
+			/**
+			 *	Get text of input text
+			 *  Name of input text: rb.getString('pricesForm.oneAdult'), "Two adult", rb.getString('pricesForm.extraAdultMarkup'), rb.getString('pricesForm.children') + model.hotelsModule.hotelTotalInfo.iChildAge1, rb.getString('pricesForm.children') + model.hotelsModule.hotelTotalInfo.iChildAge3
+			 */ 
+			 
+			 private function getValueFromCanvas(p:Canvas, s:String):Number
+			 {
+			 	var firstForm:Form = (p.getChildAt(0) as HBox).getChildAt(0) as Form; // form for general prices
+			 	var secondForm:Form = (p.getChildAt(0) as HBox).getChildAt(1) as Form; // form for children
+			 	var tempHotelTotalInfo:HotelInfoTotalVO = model.hotelsModule.hotelTotalInfo;
+			 	
+			 	if (s == model.locale.Rates_Bar_PricesForm_OneAdult)
+			 		return ((firstForm.getChildAt(0) as FormItem).getChildAt(0) as NumericTextInput).value;
+			 	if (s == model.locale.Rates_Bar_PricesForm_TwoAdults)
+			 		return ((firstForm.getChildAt(1) as FormItem).getChildAt(0) as NumericTextInput).value;
+			 	if (s == model.locale.Rates_Bar_PricesForm_ExtraAdultMarkup)
+			 		return ((firstForm.getChildAt(2) as FormItem).getChildAt(0) as NumericTextInput).value;
+			 	if (s == model.locale.Rates_Bar_PricesForm_Children + tempHotelTotalInfo.iChildAge1)
+			 		return ((secondForm.getChildAt(0) as FormItem).getChildAt(0) as NumericTextInput).value;
+			 	if (s == model.locale.Rates_Bar_PricesForm_Children + tempHotelTotalInfo.iChildAge2)
+			 		return ((secondForm.getChildAt(1) as FormItem).getChildAt(0) as NumericTextInput).value;	
+			 	if (s == model.locale.Rates_Bar_PricesForm_Children + tempHotelTotalInfo.iChildAge3)
+			 		return ((secondForm.getChildAt(2) as FormItem).getChildAt(0) as NumericTextInput).value;
+			 	return 0;
+			 }
+			 
+			 /**
+			 *	Set number of numeric stepper into canvas
+			 *  Name of input text: rb.getString('pricesForm.oneAdult'), "Two adult", rb.getString('pricesForm.extraAdultMarkup'), rb.getString('pricesForm.children') + model.hotelsModule.hotelTotalInfo.iChildAge1, rb.getString('pricesForm.children') + model.hotelsModule.hotelTotalInfo.iChildAge3
+			 */ 
+			 
+			 private function setValueFromCanvas(p:Canvas, s:String, newS:Number):void
+			 {
+			 	var firstForm:Form = (p.getChildAt(0) as HBox).getChildAt(0) as Form; // form for general prices
+			 	var secondForm:Form = (p.getChildAt(0) as HBox).getChildAt(1) as Form; // form for children
+			 	 	
+			 	if (s == model.locale.Rates_Bar_PricesForm_OneAdult)
+			 		((firstForm.getChildAt(0) as FormItem).getChildAt(0) as NumericTextInput).value = newS;
+			 	if (s == model.locale.Rates_Bar_PricesForm_TwoAdults)
+			 		((firstForm.getChildAt(1) as FormItem).getChildAt(0) as NumericTextInput).value = newS;
+			 	if (s == model.locale.Rates_Bar_PricesForm_ExtraAdultMarkup)
+			 		((firstForm.getChildAt(2) as FormItem).getChildAt(0) as NumericTextInput).value = newS;
+			 	
+			 	
+			 	if (s == model.locale.Rates_Bar_PricesForm_Children + model.hotelsModule.hotelTotalInfo.iChildAge1)
+			 		((secondForm.getChildAt(0) as FormItem).getChildAt(0) as NumericTextInput).value = newS;
+			 	if (s == model.locale.Rates_Bar_PricesForm_Children + model.hotelsModule.hotelTotalInfo.iChildAge2)
+			 		((secondForm.getChildAt(1) as FormItem).getChildAt(0) as NumericTextInput).value = newS;
+			 	if (s == model.locale.Rates_Bar_PricesForm_Children + model.hotelsModule.hotelTotalInfo.iChildAge3)
+			 		((secondForm.getChildAt(2) as FormItem).getChildAt(0) as NumericTextInput).value = newS;
+
+			 }			 
+			 
+			/**
+			 *	Create Panel with Prices.
+			 */
+			private function createPriceList():void
+			{
+				 var listBarItemsPrices:Array = workDateItem.aBarPrices;
+				 var itemsPricesLength:int = listBarItemsPrices.length;
+					
+				if(currentPriceListIndex != model.ratesModule.barModule.currentRoomTypeIndex || currentPriceListItems.length == 0)
+				{
+					updateAdultPrices();					
+					currentPriceListItems = [];					
+					for(var i:int = 0; i < itemsPricesLength; i++)
+					{
+						var price:BarPriceVO = listBarItemsPrices[i] as BarPriceVO;
+						price.sRQualityName = currRoomType.selectedLabel; // name of room type
+					}
+				}
+				else
+				{
+					for(var j:int = 0; j<itemsPricesLength; j++)
+					{
+						if(itemsPricesLength == j) break;
+						
+						var currPrice:BarPriceVO = listBarItemsPrices[j] as BarPriceVO;
+						}	
+				} 
+				
+				currentPriceListIndex = (currRoomType.selectedItem as HotelRoomWithBedTypesObjectVO).oRoomQuality.lQualityId;
+			}
+			/**
+			 *	Calculate prices based on rule: If price for Two Adults equal zero, 
+			 * 	then it automaticaly change, when user change price for One Adults.
+			 */
+			private function updateAdultPrices():void
+			{
+				var currentPriceListItemsLength: int = currentPriceListItems.length;				
+				for(var i:int = 0; i < currentPriceListItemsLength; i++)
+					(currentPriceListItems[i] as BARPricesView).updateAdultPrices();
+			}
+			/**
+			 *	Select BAR items, depends on Date Fileds.
+			 * 	Called when Date Fields change.
+			 */
+			private function handleSelectedDateField():void
+			{
+				var curTime:Number=GlobalFunctions.getDate().time;
+				
+				if (pricesFrom.selectedDate.time < curTime)
+					pricesFrom.selectedDate.time = curTime;					
+				
+				if (pricesTo.text.length > 0)
+				{
+					if (pricesTo.selectedDate.time < curTime) 
+						pricesTo.selectedDate.time = curTime;						
+						
+					if (pricesFrom.selectedDate.time > pricesTo.selectedDate.time)
+						pricesTo.selectedDate = pricesFrom.selectedDate;
+				}
+				else pricesTo.selectedDate = pricesFrom.selectedDate;				
+				barCalendar.selectPeriod( pricesFrom.selectedDate, pricesTo.selectedDate);				
+				
+				var evt:GetBARsByDateEvent = new GetBARsByDateEvent(AppController.GET_BARS_BY_DATE);
+				evt.iHotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+				evt.sStartDate = DateField.dateToString(pricesFrom.selectedDate, GlobalSettings.DATE_SERVER_FORMAT);
+				evt.callBack = callBackChangeStartDate;
+				CairngormEventDispatcher.getInstance().dispatchEvent(evt); 
+			}
+			
+			
+			private function callBackChangeStartDate():void
+			{
+				var tempHotelTotalInfo:HotelInfoTotalVO = model.hotelsModule.hotelTotalInfo;
+				
+				if (model.ratesModule.barModule.pricesOfStartDate.aBarPrices.length != 0)
+				{
+					var currenBarPrice:BarPriceVO = (model.ratesModule.barModule.pricesOfStartDate.aBarPrices[i] as BarPriceVO);
+					var itemOfPricePanels:Canvas = new Canvas();
+					for (var i:int = 0; i < pricePanels.length; i++)
+				 	{			 		
+				 		itemOfPricePanels = pricePanels[i];
+				 		setValueFromCanvas(pricePanels[i], model.locale.Rates_Bar_PricesForm_OneAdult, (model.ratesModule.barModule.pricesOfStartDate.aBarPrices[i] as BarPriceVO).fPriceOneAdult);
+				 		setValueFromCanvas(pricePanels[i], model.locale.Rates_Bar_PricesForm_TwoAdults, (model.ratesModule.barModule.pricesOfStartDate.aBarPrices[i] as BarPriceVO).fPriceTwoAdults);
+				 		setValueFromCanvas(pricePanels[i], model.locale.Rates_Bar_PricesForm_ExtraAdultMarkup, (model.ratesModule.barModule.pricesOfStartDate.aBarPrices[i] as BarPriceVO).fPriceExtraAdult);
+				 		setValueFromCanvas(pricePanels[i], model.locale.Rates_Bar_PricesForm_Children + model.hotelsModule.hotelTotalInfo.iChildAge1, (model.ratesModule.barModule.pricesOfStartDate.aBarPrices[i] as BarPriceVO).fPriceChildBefore);
+				 		setValueFromCanvas(pricePanels[i], model.locale.Rates_Bar_PricesForm_Children + model.hotelsModule.hotelTotalInfo.iChildAge2, (model.ratesModule.barModule.pricesOfStartDate.aBarPrices[i] as BarPriceVO).fPriceChildMiddle);
+				 		setValueFromCanvas(pricePanels[i], model.locale.Rates_Bar_PricesForm_Children + model.hotelsModule.hotelTotalInfo.iChildAge3,  (model.ratesModule.barModule.pricesOfStartDate.aBarPrices[i] as BarPriceVO).fPriceChildAbove);			 		
+				 	}
+			 	}
+			 	else
+			 	{
+			 		for (i = 0; i < pricePanels.length; i++)
+				 	{			 		
+				 		setValueFromCanvas(pricePanels[i], model.locale.Rates_Bar_PricesForm_OneAdult, 0);
+				 		setValueFromCanvas(pricePanels[i], model.locale.Rates_Bar_PricesForm_TwoAdults, 0);
+				 		setValueFromCanvas(pricePanels[i], model.locale.Rates_Bar_PricesForm_ExtraAdultMarkup, 0);
+				 		setValueFromCanvas(pricePanels[i], model.locale.Rates_Bar_PricesForm_Children + model.hotelsModule.hotelTotalInfo.iChildAge1, 0);
+				 		setValueFromCanvas(pricePanels[i], model.locale.Rates_Bar_PricesForm_Children + model.hotelsModule.hotelTotalInfo.iChildAge2, 0);
+				 		setValueFromCanvas(pricePanels[i], model.locale.Rates_Bar_PricesForm_Children + model.hotelsModule.hotelTotalInfo.iChildAge3, 0);			 		
+				 	}
+			 	}
+			}
+			/**
+			 * 	Clear current data.
+			 *	Set date period to Date Fields. Create copy of current BAR item.
+			 * 	Set data from current BAR item to fileds. Create panel with prices.
+			 * 
+			 * 	@param evt:SelectBARDateEvent - event from BAR calendar.
+			 */
+			private function handleSelectDate(evt:SelectBARDateEvent):void
+			{
+				if(evt == null || model.hotelsModule.hotelRoomTypes.length < model.hotelsModule.maxHotelRoomTypes) return;
+				
+				selectEvent = evt;
+				
+				if (evt.startDate == null)
+				{
+					/* pricesTo.selectedDate = DateField.stringToDate( evt.startDateObj.sBarDate, ; 
+					pricesFrom.selectedDate = new Date(evt.endDateObj.lBarDate*1000); */
+				}
+				else
+				{
+					pricesFrom.selectedDate = evt.startDate;
+					pricesTo.selectedDate = evt.endDate; 
+				}
+								
+				workDateItem = new BARSaveItemVO();
+				workDateItem = ObjectUtil.copy(evt.startDateObj) as BARSaveItemVO;
+				
+				startDateItem = workDateItem;
+				selectedCells = evt.selectedCells;
+				if (workDateItem.aBarPrices.length == 0)return;
+				
+				var barItem:Array;
+				barItem = workDateItem.aBarPrices;
+			//	setPriceValues(barItem);
+				
+				minStayTxt.text = startDateItem.oBarHotel.iMinStay.toString();
+				daysTxt.text = startDateItem.oBarHotel.iCnlPolicy.toString();
+				descriptionTxt.text = startDateItem.oBarHotel.sCnlDesc;
+				descriptionEventTxt.text = startDateItem.oBarHotel.sCnlDescEvent;
+				
+				noG.selected = !startDateItem.oBarHotel.bIsGuarantee;
+				yesG.selected = startDateItem.oBarHotel.bIsGuarantee;
+				
+				closeToArrival.selected = startDateItem.oBarHotel.bIsClosedToArrival; 
+				
+				currSelectedPrice = 0;
+			//	createPriceList();
+			}
+		
+			/**
+			 *	Update calendar when month changed.
+			*/
+			public function handleMonthChanged(evt:Event = null):void
+			{
+				model.currMonthIndex = currMonth.selectedIndex;
+				model.currYear = currYear.selectedItem as Number;
+				
+				barCalendar.showMonth();
+			}
+			/**
+			 *	Get Room Type label based on RoomTypesObjectVO.
+			*/
+			private function getRoomTypeLabel(item:Object):String
+			{
+				var evtItem:HotelRoomWithBedTypesObjectVO = item as HotelRoomWithBedTypesObjectVO;
+				
+				return evtItem.oRoomQuality.sQualityName;
+			}
+			/**
+			 *	Get Price Name label based on RoomWithBedTypesObjectVO object.
+			*/
+			private function getPriceNameLabel(item:Object):String
+			{
+				var evtItem:RoomTypesObjectVO = item as RoomTypesObjectVO;
+				
+				return evtItem.sShortName;
+			}
+			
+			/**
+			 *	Fill data for current period and call event for send it to server.
+			*/
+			private function handleSave():void
+			{
+				var first:Number = pricesFrom.selectedDate.time/1000;
+				if (pricesTo.text != "")
+					var last:Number = pricesTo.selectedDate.time/1000;
+				else last = first;
+				var evt:SaveBarItemsDataEvent = new SaveBarItemsDataEvent( AppController.SAVE_BAR_ITEMS_EVENT );
+				
+				
+				var dataPeriod:BARSaveItemVO = new BARSaveItemVO();
+				var aboutBar:BARItemObjectVO = new BARItemObjectVO();
+				dataPeriod.lHotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+				aboutBar.sCnlDesc = descriptionTxt.text;
+				aboutBar.sCnlDescEvent = descriptionEventTxt.text;
+				aboutBar.iCnlPolicy = Number(daysTxt.text);
+				aboutBar.bIsGuarantee = yesG.selected;
+				aboutBar.iMinStay = Number(minStayTxt.text);
+				aboutBar.bIsClosedToArrival = closeToArrival.selected;
+				aboutBar.sHashCode = "probnik";
+								
+				var tempDate:Date = GlobalFunctions.getDate(); // get now date
+				tempDate.month = model.currMonthIndex;
+				dataPeriod.sBarDate = DateField.dateToString(tempDate, GlobalSettings.DATE_SERVER_FORMAT);//tempDate.toDateString();
+				dataPeriod.aBarPrices = getAllPrices();//workDateItem.aBarPrices;
+		
+				dataPeriod.oBarHotel = aboutBar;
+				evt.barDate = dataPeriod;
+				
+				updateAdultPrices();				
+				
+				evt.hotelDateInterval = new BARDateIntervalVO();
+				evt.hotelDateInterval.sStartDate = DateField.dateToString(new Date(first*1000), GlobalSettings.DATE_SERVER_FORMAT);
+				evt.hotelDateInterval.sEndDate = DateField.dateToString(new Date(last*1000), GlobalSettings.DATE_SERVER_FORMAT);
+				 
+				CairngormEventDispatcher.getInstance().dispatchEvent( evt );
+				
+				barCalendar.showMonth();
+			}
+			
+			
+			
+			/**
+			 *	Get all prices from Price Panel.
+			*/
+			private function getAllPrices():Array
+			{
+				var prices:Array = new Array();
+				var currentPrice:BarPriceVO;
+				var i:int = 0;
+				var tempHotelRoomQuality: HotelRoomWithBedTypesObjectVO;
+				var hotelTotalInfo:HotelInfoTotalVO = model.hotelsModule.hotelTotalInfo;
+				var currentPricePanel:Canvas = new Canvas();
+				
+				for (i = 0; i < pricePanels.length; i++)
+				{
+					currentPricePanel = pricePanels[i];
+					currentPrice = new BarPriceVO();
+					tempHotelRoomQuality = model.hotelsModule.hotelRoomTypes.getItemAt(i) as HotelRoomWithBedTypesObjectVO;
+					currentPrice.fPriceChildBefore = Number(getValueFromCanvas(pricePanels[i], model.locale.Rates_Bar_PricesForm_Children + model.hotelsModule.hotelTotalInfo.iChildAge1));
+			 		currentPrice.fPriceChildMiddle = Number(getValueFromCanvas(pricePanels[i], model.locale.Rates_Bar_PricesForm_Children + model.hotelsModule.hotelTotalInfo.iChildAge2));
+			 		currentPrice.fPriceChildAbove = Number(getValueFromCanvas(pricePanels[i], model.locale.Rates_Bar_PricesForm_Children + model.hotelsModule.hotelTotalInfo.iChildAge3));
+			 		currentPrice.fPriceExtraAdult = Number(getValueFromCanvas(pricePanels[i], model.locale.Rates_Bar_PricesForm_ExtraAdultMarkup));
+			 		currentPrice.fPriceOneAdult = Number(getValueFromCanvas(pricePanels[i], model.locale.Rates_Bar_PricesForm_OneAdult));
+			 		currentPrice.fPriceTwoAdults = Number(getValueFromCanvas(pricePanels[i], model.locale.Rates_Bar_PricesForm_TwoAdults));
+			 		currentPrice.iRQualityId = tempHotelRoomQuality.oRoomQuality.lQualityId;
+			 		currentPrice.sRQualityName = tempHotelRoomQuality.oRoomQuality.sQualityName;
+			 		prices.push(currentPrice);			 		
+				}
+				return prices;
+			}
+			
+			/**
+			 *	Update Price Panel, when user select another Room Type.
+			*/
+			private function handleRoomTypeChange():void
+			{
+				model.ratesModule.barModule.currentRoomTypeIndex = currRoomType.selectedIndex;// - 1;
+				
+				if(workDateItem == null) return;
+				
+				if(workDateItem.aBarPrices.lenght == 0) return;				
+
+			} 
+			/**
+			 *	Clear all data.
+			*/
+			private function handleClear():void
+			{
+				var tempLength:int = currentPriceListItems.length;
+				for(var i:int = 0; i<tempLength; i++)
+					(currentPriceListItems[i] as BARPricesView).clearData();
+				
+				minStayTxt.text = '0';
+				daysTxt.text = '0';
+				descriptionTxt.text = '';
+				descriptionEventTxt.text = '';
+				
+				noG.selected = true;
+				yesG.selected = false;
+				
+				closeToArrival.selected = false;
+				 
+				var hotelTotalInfo:HotelInfoTotalVO = model.hotelsModule.hotelTotalInfo;
+				var currentPricePanel:Canvas = new Canvas();
+				
+				tempLength = pricePanels.length;
+				for (i = 0; i < tempLength; i++)
+			 	{
+			 		currentPricePanel = pricePanels[i];			 		
+			 		setValueFromCanvas(pricePanels[i], model.locale.Rates_Bar_PricesForm_OneAdult, 0);
+			 		setValueFromCanvas(pricePanels[i], model.locale.Rates_Bar_PricesForm_TwoAdults, 0);
+			 		setValueFromCanvas(pricePanels[i], model.locale.Rates_Bar_PricesForm_ExtraAdultMarkup, 0);
+			 		setValueFromCanvas(pricePanels[i], model.locale.Rates_Bar_PricesForm_Children + model.hotelsModule.hotelTotalInfo.iChildAge1, 0);
+			 		setValueFromCanvas(pricePanels[i], model.locale.Rates_Bar_PricesForm_Children + model.hotelsModule.hotelTotalInfo.iChildAge2, 0);
+			 		setValueFromCanvas(pricePanels[i], model.locale.Rates_Bar_PricesForm_Children + model.hotelsModule.hotelTotalInfo.iChildAge3, 0);			 		
+			 	}	
+			}
+			
+		]]> 
+	</mx:Script>
+	
+	<mx:VBox width="98%" height="100%" paddingTop="5" paddingBottom="5" paddingLeft="5">
+		<mx:HBox width="100%" height="100%">
+			<!--
+				Left part with bar calendar and his control panel
+			  -->
+			<mx:VBox width="100%" height="100%">
+				<!--
+					Control panel BAR calendar
+				  -->
+				<mx:HBox width="100%">
+					<mx:FormItem label="Room Type:" >
+						<mx:ComboBox id="currRoomType"  
+							labelFunction="getRoomTypeLabel" 
+							change="handleRoomTypeChange()"
+							selectedIndex="0" width="200"/>
+					</mx:FormItem>
+					<mx:FormItem label="Month:" >
+						<mx:ComboBox id="currMonth" 
+							dataProvider="{model.months}" 
+							rowCount="12" 
+							selectedIndex="{model.currMonthIndex}"  
+							change="{model.currMonthIndex = currMonth.selectedIndex;}"
+							width="150" />
+					</mx:FormItem>
+					<mx:FormItem label="Year:" >
+						<mx:ComboBox id="currYear"
+							dataProvider="{years}" 
+							rowCount="6" 
+							change="handleMonthChanged()"
+							width="130"/>
+					</mx:FormItem>
+				</mx:HBox>
+				<!--
+					BAR calendar
+				  -->
+				<mx:HBox width="100%" height="100%">
+					<subview:BARCalendarView id="barCalendar" 
+						comboMonth="{currMonth}" 
+						comboYear="{currYear}" 
+						width="100%" 
+						height="100%" 
+						selectDate="handleSelectDate(event)"/>
+				</mx:HBox>
+			</mx:VBox>
+			<!--
+				Right part with ...
+			  -->
+			<mx:VBox width="50%" height="100%" verticalScrollPolicy="off">
+				<mx:VBox width="100%" height="290">
+					<!--
+						Choose date period for view
+					  -->
+					<mx:HBox width="100%">
+						<mx:Label text="Date From:" fontWeight="bold"/>
+						<mx:DateField id="pricesFrom" 
+							restrict="0-9" 
+							change="handleSelectedDateField()"
+							width="{GlobalSettings.WIDTH_DATE_FIELD}" 
+							formatString="{GlobalSettings.DATE_FORMAT}"/>					
+						<mx:Label text="Date To:" fontWeight="bold"/>
+						<mx:DateField id="pricesTo" 
+							restrict="0-9" 
+							change="handleSelectedDateField()"
+							width="{GlobalSettings.WIDTH_DATE_FIELD}" 
+							formatString="{GlobalSettings.DATE_FORMAT}"/>			
+					</mx:HBox>
+					<!--
+						Choose type 
+					  -->
+					<mx:Accordion width="100%" height="100%" id="panelWithRTPrices">
+
+					</mx:Accordion>
+				</mx:VBox>
+				
+				
+				<mx:Form>
+					<mx:FormItem label="Minimum Stay:" >
+						<mx:HBox>
+							<mx:TextInput id="minStayTxt" 
+								width="40" restrict="0-9" maxChars="3"/>
+							<mx:Label text="days"/>
+						</mx:HBox>
+					</mx:FormItem>
+					<!--<mx:FormItem label="Cancelation Policy:" fontWeight="bold"/>-->
+					<mx:FormItem label="Days before:" textAlign="left">
+						<mx:HBox>
+							<mx:TextInput id="daysTxt"
+								width="40"  restrict="0-9" maxChars="3"/>
+						</mx:HBox>
+					</mx:FormItem>
+					<mx:FormItem label="Description:">
+						<mx:TextArea id="descriptionTxt" 
+							width="175" maxChars="{GlobalSettings.DESCRIPTION_LENGTH}"/>
+					</mx:FormItem>
+					<mx:FormItem label="Description event:" >
+						<mx:TextArea id="descriptionEventTxt" 
+							maxChars="{GlobalSettings.DESCRIPTION_LENGTH}"
+							width="175"/>
+					</mx:FormItem>
+					<mx:FormItem label="Guarantee:">
+						<mx:HBox width="100%">
+							<mx:RadioButton id="yesG" 
+								label="yes" 
+								groupName="guarantee"/>
+							<mx:Spacer width="10" />
+							<mx:RadioButton id="noG" 
+								label="no" 
+								groupName="guarantee"/>
+						</mx:HBox>
+					</mx:FormItem>
+					<mx:FormItem label="Close to Arrival:">
+						<mx:CheckBox id="closeToArrival"/>
+					</mx:FormItem>
+					<mx:HBox width="100%" horizontalAlign="right">
+						<mx:Button id="save_BarView" 
+							label="{model.locale.Global_Button_Save}"  
+							click="handleSave()" 
+							width="{GlobalSettings.BUTTON_WIDTH_APPLY}"/>
+						<mx:Button id="clear_BarView" 
+							label="Clear" 
+							click="handleClear()" 
+							width="{GlobalSettings.BUTTON_WIDTH}"/>
+					</mx:HBox>
+				</mx:Form>
+			</mx:VBox>
+		</mx:HBox>
+	</mx:VBox>
+</VSubWindow>

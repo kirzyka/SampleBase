@@ -1,0 +1,338 @@
+<?xml version="1.0" encoding="utf-8"?>
+<adobe:ServiceLocator
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:adobe="http://www.adobe.com/2006/cairngorm">
+	
+	<mx:Script>
+		<![CDATA[
+			import services.data.RequestInfo;
+			import mx.rpc.AbstractOperation;
+			import services.vo.GlobalStorage;
+			import mx.messaging.messages.RemotingMessage;
+			import mx.rpc.events.ResultEvent;
+			import mx.rpc.events.InvokeEvent;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import h2olib.control.enum.MessageShowType;
+			import h2olib.control.enum.MessageKind;
+			import services.events.MsgEvent;
+			import mx.controls.Alert;
+			import mx.rpc.events.FaultEvent;
+			import framework.model.AppModelLocator;
+
+			private var model:AppModelLocator = AppModelLocator.getInstance();
+			
+			public static var url:String = url;
+
+			/*			SERVICES		*/
+			/* Service for items module */
+			public static const SERVICE_ITEMS_GROUP:String = "itemsGroupService";
+			/* Service for proiles module */
+			public static const SERVICE_PROFILE:String = "profileService";
+
+			public static const SERVICE_HOUSEKEEPING:String = "housekeepingService";
+
+			public static const SERVICE_PACKAGES:String = "packagesService";
+
+			public static const SERVICE_CHECK_IN:String = "checkInService";
+			public static const SERVICE_IN_HOUSE:String = "inHouseService";
+			public static const SERVICE_CHECK_OUT:String = "checkOutService";
+
+			public static const SERVICE_COMMON:String = "commonService";
+
+			public static const SERVICE_RESERVATION:String = "reservationService";
+
+			public static const SERVICE_LOGIN:String = "loginService";
+			public static const SERVICE_HOTEL_BAR:String = "hotelBARService";
+			public static const SERVICE_SYSTEM_VAT:String = "systemVATService";
+			public static const SERVICE_ROOM_SETTINGS:String = "roomSettingsService";
+			public static const SERVICE_ROOM_TYPES:String = "roomTypesService";
+			public static const SERVICE_SYSTEM_HOTEL:String = "systemHotelService";
+			public static const SERVICE_COMPANY_RATES:String = "companyRatesService";
+			public static const SERVICE_CALENDAR:String = "calendarService";
+			public static const SERVICE_PERSONAL:String = "personalService";
+			public static const SERVICE_HELPER:String = "locationHelper";
+			public static const SERVICE_SYSTEM_CONSTANT:String = "systemConstantService";
+			public static const SERVICE_LANGUAGE:String = "languageService";
+			public static const SERVICE_NATIONALITY:String = "nationalitiesService";
+			public static const SERVICE_SALUTATION:String = "salutationService";
+			public static const SERVICE_LOYALTY_PROGRAMS:String = "loyaltyProgramsService";
+			public static const SERVICE_REPORTS:String = "reportsService";
+			public static const SERVICE_RESERVATION_SEARCH:String = "reservationSearchService";
+			public static const SERVICE_BUSINESS_DAY:String ="businessDayService";
+			public static const SERVICE_INVOICE_MANAGMENT:String ="invoiceManagmentService";
+
+			private function handleServiceInvoke(e:Event):void
+			{
+				if (e is InvokeEvent)
+				{
+					var message:RemotingMessage = (e as InvokeEvent).message as RemotingMessage;
+					// make request information
+					var requestInfo:RequestInfo = new RequestInfo();
+					requestInfo.gateway = message.source;
+					requestInfo.operation = message.operation;
+					requestInfo.args = message.body;
+					// update model by request
+					model.requestInfo = requestInfo;
+				}
+				//trace("[" + currentDate.toTimeString() + "]" +(event.message as RemotingMessage).source + " -> " +  (event.message as RemotingMessage).operation);
+				//model.owner.callLater(freeze);
+				freeze();
+			}
+			
+			private function freeze():void
+			{
+				model.appEnabled++;
+			}
+			
+			private function handleServiceFault(event:FaultEvent):void
+			{
+				//Alert.show("Server is down. Try to restart application");
+				new MsgEvent(MessageKind.ERROR,
+										event.fault.faultString + "[" + event.fault.faultCode + "]",
+										event.fault.faultDetail,
+										MessageShowType.UNKNOWN,
+										null).dispatch();
+				model.appEnabled = 0;
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:RemoteObject id="loginService"
+		endpoint="{GlobalStorage.endpoint}"
+		source="LoginGateway"
+		destination="empService"
+		showBusyCursor="true"
+		invoke="handleServiceInvoke(event)"
+		fault="handleServiceFault(event)"/>
+	
+	<mx:RemoteObject id="reportsService"
+		endpoint="{GlobalStorage.endpoint}"
+		source="ReportGenerationGateway"
+		destination="empService"
+		showBusyCursor="true"
+		invoke="handleServiceInvoke(event)"
+		fault="handleServiceFault(event)">
+	</mx:RemoteObject>
+	
+	<mx:RemoteObject id="calendarService"
+		endpoint="{GlobalStorage.endpoint}"
+		source="ReservationCalendarGateway"
+		destination="empService"
+		showBusyCursor="true"
+		invoke="handleServiceInvoke(event)"
+		fault="handleServiceFault(event)">
+	</mx:RemoteObject>
+	
+	<mx:RemoteObject id="reservationService"
+		endpoint="{GlobalStorage.endpoint}"
+		source="ReservationOrderGateway"
+		destination="empService"
+		showBusyCursor="true"
+		invoke="handleServiceInvoke(event)"
+		fault="handleServiceFault(event)">
+	</mx:RemoteObject>
+	
+	<mx:RemoteObject id="hotelBARService"
+		endpoint="{GlobalStorage.endpoint}"
+		source="HotelBARGateway"
+		destination="empService"
+		showBusyCursor="true"
+		invoke="handleServiceInvoke(event)"
+		fault="handleServiceFault(event)">
+	</mx:RemoteObject>
+	
+	<mx:RemoteObject id="roomSettingsService"
+		endpoint="{GlobalStorage.endpoint}"
+		source="RoomSettingsGateway"
+		destination="empService"
+		showBusyCursor="true"
+		invoke="handleServiceInvoke(event)"
+		fault="handleServiceFault(event)">
+	</mx:RemoteObject>
+	
+	<mx:RemoteObject id="systemVATService"
+		endpoint="{GlobalStorage.endpoint}"
+		source="SystemVATGateway"
+		destination="empService"
+		showBusyCursor="true"
+		invoke="handleServiceInvoke(event)"
+		fault="handleServiceFault(event)">
+	</mx:RemoteObject>
+	
+	<mx:RemoteObject id="roomTypesService"
+		endpoint="{GlobalStorage.endpoint}"
+		source="RoomTypesGateway"
+		destination="empService"
+		showBusyCursor="true"
+		invoke="handleServiceInvoke(event)"
+		fault="handleServiceFault(event)">
+	</mx:RemoteObject>
+	
+	<mx:RemoteObject id="systemHotelService"
+		endpoint="{GlobalStorage.endpoint}"
+		source="HotelConfigurationGateway"
+		destination="empService"
+		showBusyCursor="true"
+		invoke="handleServiceInvoke(event)"
+		fault="handleServiceFault(event)">
+	</mx:RemoteObject>
+	
+	<mx:RemoteObject id="personalService"
+		endpoint="{GlobalStorage.endpoint}"
+		source="PersonalInformationGateway"
+		destination="empService"
+		showBusyCursor="true"
+		invoke="handleServiceInvoke(event)"
+		fault="handleServiceFault(event)">
+	</mx:RemoteObject>
+	
+	<mx:RemoteObject id="locationHelper"
+		endpoint="{GlobalStorage.endpoint}"
+		source="LocationHelperGateway"
+		destination="empService"
+		showBusyCursor="true"
+		invoke="handleServiceInvoke(event)"
+		fault="handleServiceFault(event)">
+	</mx:RemoteObject>
+	
+	<mx:RemoteObject id="systemConstantService"
+		endpoint="{GlobalStorage.endpoint}"
+		source="SystemConstantGateway"
+		destination="empService"
+		showBusyCursor="true"
+		invoke="handleServiceInvoke(event)"
+		fault="handleServiceFault(event)">
+	</mx:RemoteObject>
+	
+	<mx:RemoteObject id="itemsGroupService"
+		endpoint="{GlobalStorage.endpoint}"
+		source="ItemsGateway"
+		destination="empService"
+		showBusyCursor="true"
+		invoke="handleServiceInvoke(event)"
+		fault="handleServiceFault(event)"/>
+	
+	<mx:RemoteObject id="profileService"
+		endpoint="{GlobalStorage.endpoint}"
+		source="ProfileGateway"
+		destination="empService"
+		showBusyCursor="true"
+		invoke="handleServiceInvoke(event)"
+		fault="handleServiceFault(event)" />
+	
+	<mx:RemoteObject id="languageService"
+		endpoint="{GlobalStorage.endpoint}"
+		source="LanguageGateway"
+		destination="empService"
+		showBusyCursor="true"
+		invoke="handleServiceInvoke(event)"
+		fault="handleServiceFault(event)" />
+	
+	<mx:RemoteObject id="nationalitiesService"
+		endpoint="{GlobalStorage.endpoint}"
+		source="NationalitiesGateway"
+		destination="empService"
+		showBusyCursor="true"
+		invoke="handleServiceInvoke(event)"
+		fault="handleServiceFault(event)" />
+	
+	<mx:RemoteObject id="salutationService"
+		endpoint="{GlobalStorage.endpoint}"
+		source="SalutationGateway"
+		destination="empService"
+		showBusyCursor="true"
+		invoke="handleServiceInvoke(event)"
+		fault="handleServiceFault(event)" />
+	
+	<mx:RemoteObject id="loyaltyProgramsService"
+		endpoint="{GlobalStorage.endpoint}"
+		source="LoyaltyProgramsGateway"
+		destination="empService"
+		showBusyCursor="true"
+		invoke="handleServiceInvoke(event)"
+		fault="handleServiceFault(event)" />
+	
+	<mx:RemoteObject id="companyRatesService"
+		endpoint="{GlobalStorage.endpoint}"
+		source="CompanyRatesGateway"
+		destination="empService"
+		showBusyCursor="true"
+		invoke="handleServiceInvoke(event)"
+		fault="handleServiceFault(event)" />
+	
+	<mx:RemoteObject id="housekeepingService"
+		endpoint="{GlobalStorage.endpoint}"
+		source="HousekeepingGateway"
+		destination="empService"
+		showBusyCursor="true"
+		invoke="handleServiceInvoke(event)"
+		fault="handleServiceFault(event)" />
+	
+	<mx:RemoteObject id="packagesService"
+		endpoint="{GlobalStorage.endpoint}"
+		source="PackagesGateway"
+		destination="empService"
+		showBusyCursor="true"
+		invoke="handleServiceInvoke(event)"
+		fault="handleServiceFault(event)" />
+	
+	<mx:RemoteObject id="checkInService"
+		endpoint="{GlobalStorage.endpoint}"
+		source="CheckInGateway"
+		destination="empService"
+		showBusyCursor="true"
+		invoke="handleServiceInvoke(event)"
+		fault="handleServiceFault(event)">
+	</mx:RemoteObject>
+	
+	<mx:RemoteObject id="inHouseService"
+		endpoint="{GlobalStorage.endpoint}"
+		source="InHouseGateway"
+		destination="empService"
+		showBusyCursor="true"
+		invoke="handleServiceInvoke(event)"
+		fault="handleServiceFault(event)">
+	</mx:RemoteObject>
+	
+	<mx:RemoteObject id="checkOutService"
+		endpoint="{GlobalStorage.endpoint}"
+		source="CheckOutGateway"
+		destination="empService"
+		showBusyCursor="true"
+		invoke="handleServiceInvoke(event)"
+		fault="handleServiceFault(event)" />
+	
+	<mx:RemoteObject id="commonService"
+		endpoint="{GlobalStorage.endpoint}"
+		source="CommonGateway"
+		destination="empService"
+		showBusyCursor="true"
+		invoke="handleServiceInvoke(event)"
+		fault="handleServiceFault(event)" />
+	
+	<mx:RemoteObject id="reservationSearchService"
+		endpoint="{GlobalStorage.endpoint}"
+		source="ReservationOrderGateway"
+		destination="empService"
+		showBusyCursor="true"
+		invoke="handleServiceInvoke(event)"
+		fault="handleServiceFault(event)" />
+	
+	<mx:RemoteObject id="businessDayService"
+		endpoint="{GlobalStorage.endpoint}"
+		source="BusinessDayGateway"
+		destination="empService"
+		showBusyCursor="true"
+		invoke="handleServiceInvoke(event)"
+		fault="handleServiceFault(event)" />
+		
+	<mx:RemoteObject id="invoiceManagmentService"
+		endpoint="{GlobalStorage.endpoint}"
+		source="InvoiceManagementGateway"
+		destination="empService"
+		showBusyCursor="true"
+		invoke="handleServiceInvoke(event)"
+		fault="handleServiceFault(event)" />		
+		
+		
+</adobe:ServiceLocator>

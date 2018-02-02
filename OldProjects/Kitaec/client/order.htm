@@ -1,0 +1,175 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=0" />
+    <title>Мой заказ</title>
+
+    <link rel="shortcut icon" type="image/x-icon" href="css/images/favicon.ico" />
+<link href='http://fonts.googleapis.com/css?family=Lobster' rel='stylesheet' type='text/css'>
+<link href='http://fonts.googleapis.com/css?family=Coda' rel='stylesheet' type='text/css' />
+<link href='http://fonts.googleapis.com/css?family=Jura:400,500,600,300' rel='stylesheet' type='text/css' />
+<link rel="stylesheet" href="css/style.css" type="text/css" media="all" />
+
+
+    <script src="js/lib/jquery-1.8.0.min.js"></script>
+<script src="js/lib/jquery.touchwipe.1.1.1.js"></script>
+<script src="js/lib/jquery.carouFredSel-5.5.0-packed.js"></script>
+
+<script src="js/lib/jquery.cookie.js"></script>
+<script src="js/lib/functions.js"></script>
+<script src="js/common.js"></script>
+<script src="js/menu.js"></script>
+
+<!--[if lt IE 9]>
+<script src="js/lib/modernizr.custom.js"></script>
+<![endif]-->
+
+</head>
+<body>
+    <!-- wrapper -->
+    <div class="wrapper">
+
+        <div class="overlay"></div>
+<div class="popup-select" id="popup-select">
+    <ul class="brown-bg"></ul>
+</div>
+
+<header class="header" xmlns="http://www.w3.org/1999/html">
+    <div class="shell">
+        <div class="header-top brown-bg-2">
+            <a class="logo" title="Morkovka" href="/index.html">Morkovka</a>
+            <span class="ultra-orange logo-label">Morkovka</span>
+
+            <ul id="nav">
+                <li>
+                    <a id="nav-selected" href="#" class=""></a>
+                    <ul id="nav-drop-list"></ul>
+                </li>
+            </ul>
+
+            <nav id="navigation">
+                <ul>
+                    <li class="active"><a href="/index.html">Меню</a></li>
+                    <li><a href="/supplier.html">Поставщики</a></li>
+                    <li><a href="/rules.html">Правила</a></li>
+                    <li><a href="/contact.html">Контакты</a></li>
+                </ul>
+            </nav>
+
+            <div class="basket">
+                <div class="basket-icon"></div>
+                <p id="basketMsg"></p>
+                <div id="order" class="button"><p>Заказать</p></div>
+            </div>
+
+            <div class="cl">&nbsp;</div>
+        </div>
+
+    </div>
+</header>
+
+        <!-- shell -->
+        <div class="shell">
+            <!-- main -->
+            <div class="main">
+
+                <section class="content">
+
+                    <h3 class="black" style="text-align:center">Корзина</h3>
+                    <section class="basket-content"></section>
+
+					<section class="basket-user">
+	                   	<div class="basket-user-info">
+	                   		<div class="block-1">
+	                   			<p class="green">Имя</p>
+	                   			<p class="green">Телефон</p>
+	                   		</div>
+	                   		<div class="block-2">
+	                   			<input id="basketUserFirstName" type="text" placeholder="Имя">
+	                    		<input id="basketUserPhone" type="tel" placeholder="Телефон">
+	                   		</div>
+	                   		<div class="block-3">
+	                   			<label for="basketUseEmail" class="green">Подтверждение по email</label>
+	                   			<input id="basketUseEmail" class="green" type="checkbox">	
+	                   		</div>
+	                   		<div class="block-4">
+	                   			<input id="basketEmail" type="tel" placeholder="Email">
+	                   			<div class="control">
+									<a id="checkout" class="button" href="#"><p>Отправить</p></a>                   				
+	                   			</div>
+	                   		</div>
+	                   	</div>
+	                </section>    
+                    <div class="cl">&nbsp;</div>
+                </section>
+
+
+            </div>
+            <!-- end of main -->
+        </div>
+        <!-- end of shell -->
+
+        <div id="footer">
+    <!-- shell -->
+    <div class="shell">
+        <!-- footer-cols -->
+        <div class="footer-cols">
+            <div class="col">
+                <h2>ПОСТАВЩИКИ</h2>
+                <ul>
+                    <li><a href="#">Вегано Хулигано</a></li>
+                    <li><a href="#">Фреш Фактори</a></li>
+                </ul>
+            </div>
+
+            <div class="col">
+                <h2>ПРАВИЛА</h2>
+                <ul>
+                    <li>не жлобись</li>
+                    <li>не голодай</li>
+                    <li>не молчи</li>
+                    <li>не забывай</li>
+                </ul>
+            </div>
+
+            <div class="col">
+                <h2>КОНТАКТЫ</h2>
+                <p>Email: <a href="#">info@kitaec.com</a></p>
+                <p>Phone: 655-606-605</p>
+                <p>Address: Kiev City</p>
+            </div>
+
+            <div class="col">
+                <h2>ПАРТНЁРСТВО</h2>
+                <p>мы открыты для ваших предложений. будем рады сотрудничеству с качественным поставщиком еды, который не делает миксы из отходов, не промывает рис узваром и не фарширует курицу колбасой из позавчерашней солянки.</p>
+            </div>
+
+            <div class="cl">&nbsp;</div>
+        </div>
+        <!-- end of footer-cols -->
+        <div class="footer-bottom">
+            <div class="footer-nav">
+                <ul>
+                    <li><a href="index.html">Меню</a></li>
+                    <li><a href="order.html">Мой заказ</a></li>
+                    <li><a href="supplier.html">Поставщики</a></li>
+                    <li><a href="rules.html">Правила</a></li>
+                    <li><a href="contact.html">Контакты</a></li>
+                </ul>
+            </div>
+            <p class="copy">Copyright &copy; 2014<span>|</span>Design by: <a href="http://kitaec.com" target="_blank">www.Kitaec.com</a></p>
+            <div class="cl">&nbsp;</div>
+        </div>
+    </div>
+    <!-- end of shell -->
+</div>
+
+    </div>
+    <!-- end of wrapper -->
+
+    <script src="js/order.js"></script>
+
+</body>
+</html>

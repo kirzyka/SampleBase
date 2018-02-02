@@ -1,0 +1,1740 @@
+<?xml version="1.0" encoding="utf-8"?>
+<BaseWindow
+	xmlns="framework.core.view.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:checkIn="framework.view.pages.checkIn.*"
+	xmlns:controls="framework.view.components.controls.*"
+	
+	layout="vertical"
+	creationComplete="{handleInit()}" >	
+	<mx:Script>
+		<![CDATA[
+			import framework.view.pages.inHouse.events.AssignProfileEvent;
+			import mx.events.EventListenerRequest;
+			import services.events.checkIn.GetCheckInRoomsListEvent;
+			import assets.skin._ramada;
+			import h2olib.control.enum.MessageShowType;
+			import h2olib.control.enum.MessageKind;
+			import services.events.MsgEvent;
+			import h2olib.utils.DateUtils;
+			import framework.view.components.popups.ConfirmationPopupView;
+			import services.vo.reservation.PersonAssignVO;
+			import services.events.reservation.GetOrderFutureInfoEvent;
+			import mx.collections.HierarchicalCollectionView;
+			import mx.collections.Sort;
+			import services.events.checkIn.SetAssignCheckInDataEvent;
+			import services.events.checkIn.SaveCheckInDataEvent;
+			import services.events.checkIn.GetCheckInDataEvent;
+			import mx.controls.Label;
+			import services.events.common.PageEvent;
+			import services.vo.hotels.HotelStageObjectVO;
+			import services.events.backend.GetHotelDictionariesEvent;
+			import mx.core.IFlexDisplayObject;
+			import framework.view.pages.profiles.popups.individual.SaveIndividualProfilePopupView;
+			import services.events.roomSettings.GetRoomSettingsDataEvent;
+			import services.events.hotels.GetHotelRoomSettingsEvent;
+			import services.vo.backend.RoomSettingObjectVO;
+			import services.business.profiles.ProfileDelegate;
+			import mx.managers.PopUpManagerChildList;
+			import services.vo.profiles.ProfilePersonalVO;
+			import services.events.profiles.individual.GetProfileByIdEvent;
+			import framework.core.utils.UtilsMXML;
+			import mx.utils.ObjectUtil;
+			import mx.events.CloseEvent;
+			import services.events.frontend.GetRoomListByOrderEvent;
+			import services.events.checkIn.GroupAssignEvent;
+			import mx.events.ListEvent;
+			import framework.managers.PopUpManagerExt;
+			import mx.events.CollectionEvent;
+			import mx.controls.dataGridClasses.DataGridColumn;
+			import mx.controls.dataGridClasses.DataGridItemRenderer;
+			import mx.controls.Alert;
+			import mx.controls.advancedDataGridClasses.AdvancedDataGridColumn;
+			import mx.controls.advancedDataGridClasses.AdvancedDataGridItemRenderer;
+			import services.vo.GlobalFunctions;
+			import mx.managers.DragManager;
+			import mx.collections.ArrayCollection;
+			import services.vo.GlobalSettings;
+			import mx.events.DragEvent;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.controller.AppController;
+			import framework.model.AppModelLocator;
+			import services.events.checkIn.GetCheckInGuestsListEvent
+
+			/**
+			 * Data provider for all inforamation of check in
+			 */ 
+			private var _checkInDP:ArrayCollection = new ArrayCollection();
+			/**
+			 * Data provider of rooms on select stage
+			 */ 
+			private var _floorsDP:ArrayCollection;
+			[Bindable(event="floorsDPChanged")]
+			public function get floorsDP():ArrayCollection
+			{
+				return _floorsDP;
+			}
+			
+			public function set floorsDP(value:ArrayCollection):void
+			{
+				_floorsDP = value;
+				dispatchEvent(new Event("floorsDPChanged"));
+			}
+			
+			/**
+			 * Index for drag and drop
+			 */ 
+			private var dropIndex:int = -1;
+			
+			private var nowDate:Date = new Date();
+			private var oldDate:Date;
+			
+			/**
+			 * Data provider of stage
+			 */
+			private var _stageDP:ArrayCollection = new ArrayCollection();
+			[Bindable(event="stageDPChanged")]
+			public function get stageDP():ArrayCollection
+			{
+				return _stageDP;
+			}
+			
+			public function set stageDP(value:ArrayCollection):void
+			{
+				_stageDP = value;
+				dispatchEvent(new Event("stageDPChanged"));
+			}
+
+			private var currEditedProfile:ProfilePersonalVO;
+			private var currenCheckInData:Object;	
+			
+			/**
+			 * Room Setting Items
+			 */ 		
+			[Bindable]
+			private var rsItems:ArrayCollection = new ArrayCollection();
+			
+			/**
+			 * counter of rooms that need to be checkIn
+			 */
+			[Bindable]
+			private var counter:int = 0;
+			
+			/**
+			 *	Initizalize.
+			*/
+			
+			private var isCreatedFlag:Boolean = true;
+			
+			private function handleInit():void
+			{				
+				nowDate.hours = 0;
+				nowDate.minutesUTC = 0;
+				nowDate.secondsUTC = 0;
+				nowDate.millisecondsUTC = 0;
+				//btnAssign.enabled = false;
+				checkInDate.selectedDate = model.businessDate;//nowDate;
+				oldDate = model.businessDate;//nowDate;
+				
+				//if one or more data providers in the model are null, need update common hotel dictionary.
+				initFloorsList();
+				initSpecialWishesList();
+				initDataChooserRange();
+				if(isCreatedFlag)
+				{
+					needUpdateRoomsList = true;
+					getGuestsListRequest();
+					isCreatedFlag = false;
+				}
+				//TODO: will removed.
+				//getCheckInData();
+				
+			}			
+				
+			private function initDataChooserRange():void
+			{
+				var arr:Array = new Array();
+				var obj:Object = new Object();
+				var date:Date = new Date();
+				var mSecondsPerDay:Number = 1000*60*60*24;
+				date.setTime(model.businessDate.getTime() - mSecondsPerDay);
+				obj["rangeEnd"] = date;
+				arr[0] = obj;	
+				dateChooserDisabledRange = arr;;			
+			}
+					
+			override public function show():void
+			{
+				if(!isCreatedFlag)
+				{
+					needUpdateRoomsList = true;
+					getGuestsListRequest();
+				}
+				//TODO: will removed.
+				/*
+				if (isCreated)
+				{
+					checkInDate.selectedDate = model.businessDate;
+					model.checkInModule.currentProfileId = 0;
+					currEditedProfile = null;
+					currenCheckInData = null;
+					checkIn.enabled = false;
+					getCheckInData(); 
+				}
+				
+				enabledCheckIn();
+				*/
+			}
+			
+			/**
+			 * Search room name by id
+			 */ 
+			private function searchRoomById(id:int):String 
+			{
+				var name:String = '';
+				//floorsDP
+				for (var i:int = 0; i < floorsDP.length; i++)
+				{
+					if (floorsDP.getItemAt(i).roomId == id)
+					name = floorsDP.getItemAt(i).roomName;
+				}
+				return name;
+			}
+			
+			/**
+			 *	Set Check In Data to data grid.
+			 * 	Create Room Settings based on data from server.
+			*/
+			private function handleGetCheckInDataResult():void
+			{
+				var i:int = 0;
+				checkInDP = ObjectUtil.copy( model.checkInModule.checkInData ) as ArrayCollection;
+				var childrenLength:int = checkInDP[1]["children"].length;
+				var childrenItem: Object = checkInDP[1]["children"][i];
+				counter = model.checkInModule.counter;
+				//TODO: will uncomment
+				//checkInDP.source.sortOn('label'); 
+				floorsDP  =	model.checkInModule.floorsData;
+				//TODO: will uncomment
+				//checkInData.expandItem(checkInDP.getItemAt(1), true);				
+				/* for (i = 0; i < checkInDP[1]["children"].length; i++)
+				{
+					if (childrenItem["room_id"])
+					{	
+						childrenItem["label"] = childrenItem["label"] + " - " + searchRoomById(childrenItem["room_id"]);
+					}
+				} */
+				
+				var tempArray:Array = [];
+				tempArray = checkInDP.getItemAt(1) as Array;
+				for (i = 0; i < tempArray.length; i++)
+				{
+					//TODO: will uncomment
+				//checkInData.expandChildrenOf(tempArray[i], false);
+					
+				}	
+							
+			}
+			 
+			/**
+			 *	Filter Room List.
+			*/
+			private function handleFilterByRoomSettings(evt:MouseEvent):void
+			{
+				var currFilter:CheckBox = evt.currentTarget as CheckBox;
+			}
+			/**
+			 *	Clear data to default.
+			*/
+			//TODO: will be deleted
+			private function clearForm():void
+			{
+				//searchByGroups.selected = false;
+				//searchByIndividual.selected = false;
+				//searchByPreparedGroups.selected = false;
+			}
+			
+			/**
+			 *	Get Room List data, based on selected Date in Check In data list.
+			 * 	Any person in Check In data list, has his Date of Arrival and Date of Departure.
+			*/
+			private function getCheckInData():void
+			{				
+				if (checkInDate.selectedDate.time < model.businessDate.time)
+				{					
+					Alert.show('Choose only today or future date');
+					checkInDate.selectedDate = oldDate;
+				}
+				else
+				{				
+					oldDate = checkInDate.selectedDate;
+					/*
+					var evt2:GetRoomSettingsDataEvent = new GetRoomSettingsDataEvent( AppController.GET_ROOM_SETTINGS_DATA_EVENT ); 
+					evt2.isMandatory = true;
+					evt2.callBack = getHotelRoomSetting;
+					CairngormEventDispatcher.getInstance().dispatchEvent( evt2 ); 
+					*/
+					getHotelRoomSetting();
+				}
+			}
+			
+			private function getHotelRoomSetting():void
+			{
+				var getRSevt:GetHotelRoomSettingsEvent = new GetHotelRoomSettingsEvent( AppController.GET_HOTEL_ROOM_SETTINGS );
+				getRSevt.callBack = copyRS;
+				CairngormEventDispatcher.getInstance().dispatchEvent( getRSevt );
+			}
+			
+			private function updateGrid():void
+			{
+				
+				stageDP = ObjectUtil.copy( model.hotelsModule.stageDP ) as ArrayCollection;
+				var temp:HotelStageObjectVO = new HotelStageObjectVO();
+				temp.iStageId = 0;
+				temp.sStageName = 'All';
+				stageDP.addItemAt(temp, 0);
+				floorNumber.dataProvider = stageDP;
+				floorNumber.selectedIndex = 0; 
+				
+				
+				var evt:GetCheckInDataEvent = new GetCheckInDataEvent( AppController.GET_CHECK_IN_DATA_EVENT );
+
+				evt.checkDate = checkInDate.selectedDate.time;
+				evt.checkStageId = (floorNumber.selectedItem as HotelStageObjectVO).iStageId;
+				evt.callBack = handleGetCheckInDataResult;
+
+				CairngormEventDispatcher.getInstance().dispatchEvent( evt );
+			}
+			
+			/**
+			 * copy hotel room setting with system room setting (DS and SM) 
+			 */ 
+			private function copyRS():void
+			{	
+				rsItems = ObjectUtil.copy( model.hotelsModule.hotelRoomSettings ) as ArrayCollection;
+				/*
+				var lengthRS:int = model.roomSettingsModule.roomSettingsDP.length;
+				var roomSettingItem:RoomSettingObjectVO = new RoomSettingObjectVO();
+				for (var i:int = 0; i < lengthRS; i++)
+				{
+					roomSettingItem = (model.roomSettingsModule.roomSettingsDP.getItemAt(i) as RoomSettingObjectVO);
+					if ((roomSettingItem.sCodeDirect == GlobalSettings.DS))
+						rsItems.addItem(roomSettingItem);
+					if ((roomSettingItem.sCodeDirect == GlobalSettings.SM))
+						rsItems.addItem(roomSettingItem);
+					if ((roomSettingItem.sCodeDirect == GlobalSettings.NS))
+                        rsItems.addItem(roomSettingItem);
+				}
+				*/
+				//it's should be displayd all hotel rooms settings, not only with special wishes status
+				/*
+			  	for (i = rsItems.length-1; i > -1 ; i--)
+				{
+					if ((rsItems.getItemAt(i) as RoomSettingObjectVO).bIsSpwish)
+					{
+						rsItems.removeItemAt(i);
+					}
+				} 
+				 */
+				 //add (smoker, non-smoker, disabled) settings to room settings list
+				 for(var i:int = 0; i < model.hotelsModule.hotelRoomSpecialSettings.length; i++)
+				 {
+				 	rsItems.addItem(model.hotelsModule.hotelRoomSpecialSettings.getItemAt(i));
+				 }
+				
+				 
+				rsItems = new ArrayCollection(rsItems.source.sortOn("sRsettingDesctiptionLocale", Array.CASEINSENSITIVE));
+				
+				if (model.hotelsModule.stageDP.length == 0)
+				{
+					var evt3:GetHotelDictionariesEvent = new GetHotelDictionariesEvent(AppController.GET_PAGE_OF_START_HOTEL);
+					evt3.hotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+					evt3.callBack = updateGrid;
+					CairngormEventDispatcher.getInstance().dispatchEvent(evt3);
+				}
+				else
+				{
+					updateGrid();
+				}
+				
+			} 			
+			/**
+			 *	Filter Room List.
+			*/
+			private function handkeDateKeyUp(evt:KeyboardEvent):void
+			{
+				if(evt.charCode == Keyboard.ENTER)
+				{
+					needUpdateRoomsList = true;
+					getGuestsListRequest();
+				}
+			}
+
+			private function handleShow():void
+			{				
+			}
+			
+			/**
+			 * search rooms by searchField.text
+			 */ 
+			private function handleSearch():void
+			{
+				var searchResults:Array = new Array();
+				var children:Array = model.checkInModule.checkInData.getItemAt(1).children;
+				var childrenLength:int = children.length;
+				var childrenItem:Object = {};
+				searchResults.label = model.checkInModule.checkInData.getItemAt(1).label;
+				searchResults.children = [];
+				for (var i:int = 0; i < childrenLength; i++)
+				{
+					childrenItem = children[i];
+					if (  childrenItem.label.indexOf(searchField.text) != -1)
+					{
+						searchResults.children.push(childrenItem);
+					}
+				}
+				checkInDP = new ArrayCollection;
+				checkInDP = ObjectUtil.copy( model.checkInModule.checkInData ) as ArrayCollection;
+				checkInDP.setItemAt( searchResults, 1 );
+				
+				if(searchResults.children.length == 0) checkInDP = model.checkInModule.checkInData;
+			}
+
+			/**
+			 * get profile by id
+			 */ 
+			private function handleProfiles():void
+			{
+				var evt:GetProfileByIdEvent = new GetProfileByIdEvent( ProfileDelegate.GET_PROFILE_BY_ID);
+				evt.profileId = currenCheckInData.person_id;
+				CairngormEventDispatcher.getInstance().dispatchEvent( evt );
+			}
+
+			private function handleProfileEditEnd(evt:CloseEvent):void
+			{
+				if(currEditedProfile != model.profilesModule.currentProfile)
+					getCheckInData();
+
+				currEditedProfile = null;
+			}
+
+			private function handleGetProfileById():void
+			{
+				currEditedProfile = ObjectUtil.copy( model.profilesModule.currentProfile ) as ProfilePersonalVO;
+			}
+			
+			/**
+			 * go to reservation page
+			 */ 
+			private function handleWalkIn():void
+			{
+				var pageEvent:PageEvent = new PageEvent();
+				pageEvent.index = 8; // 8 - Reservation
+				pageEvent.dispatch();
+			}
+
+			
+			
+			
+			
+			private function handleAssigDragEnter(evt:DragEvent):void
+			{
+				/*
+				currenCheckInData = (evt.dragSource.dataForFormat("treeDataGridItems") as Array)[0];
+				if(currenCheckInData.label != "Individual" && currenCheckInData.person_id == model.checkInModule.currentProfileId && floorsDP.length > 0)
+				{
+					DragManager.acceptDragDrop( floorsData );
+				}
+				*/
+			}
+			
+			private function handleAssignDragDrop(evt:DragEvent):void
+			{
+				/*
+				dropIndex = floorsData.calculateDropIndex(evt);
+				if(dropIndex > -1)
+				{
+					//floorsData.selectedIndex = dropIndex;
+					handleAssign();
+					//handleCheckAssign();
+				}
+				*/
+			}
+
+			private function handleAssignDragOver(evt:DragEvent):void
+			{
+				//floorsData.selectedIndex = floorsData.calculateDropIndex(evt);
+			}
+			
+			/**
+			 * Click to personal (from left part) and get list of rooms
+			 */ 
+			private function handleCheckInDataItemClick(evt:ListEvent):void
+			{
+				/*
+				if (evt.itemRenderer.data.label == 'Individual' || evt.itemRenderer.data.label == 'Group') 
+				{					
+					btnAssign.enabled = false;
+					filterSetting.enabled = false; 
+					checkIn.enabled = false;
+					currenCheckInData = evt.itemRenderer.data;
+					model.checkInModule.currentProfileId = 0; 
+					return;
+				}
+				
+				//TODO: will uncomment
+				//if (checkInData.selectedItem.label == 'Individual' || checkInData.selectedItem.label == 'Group') 
+				{
+					btnAssign.enabled = false;
+					filterSetting.enabled = false; 
+					checkIn.enabled = false;
+					currenCheckInData = evt.itemRenderer.data; 
+					return;
+				}
+				//TODO: will uncomment
+				//if (checkInData.selectedIndex > -1 && floorsData.selectedIndex > -1)
+				{
+					btnAssign.enabled = true;
+				}
+				if (model.checkInModule.currentProfileId != evt.itemRenderer.data.person_id)
+				{
+					//filterSetting.enabled = true;
+					currenCheckInData = evt.itemRenderer.data;				
+					model.checkInModule.currentProfileId = currenCheckInData.person_id;
+					model.checkInModule.currentProfileRoomId = currenCheckInData.room_id;				
+					for (var i:int = 0; i < rsItems.length; i++)
+					{
+						(rsItems.getItemAt(i) as RoomSettingObjectVO).bIsSelected = false;
+					}
+					
+					for (i = 0; i < rsItems.length; i++)
+					{
+						for (var j:int = 0; j < evt.itemRenderer.data.room_settings.length; j++)
+						{
+							if ((rsItems.getItemAt(i) as RoomSettingObjectVO).iRsettingId == evt.itemRenderer.data.room_settings[j])
+							{
+								(rsItems.getItemAt(i) as RoomSettingObjectVO).bIsSelected = true;
+							}	
+						}
+					}
+					
+					model.checkInModule.currentCheckInProfileId = 0;
+					//floorsData.invalidateList();
+					getRoomListByDate();
+				}
+				*/
+			}
+			
+			
+			
+			/**
+			 * Get room list by date
+			 */ 
+			private function getRoomListByDate():void
+			{
+				//TODO: will uncomment
+				/*
+				var getEvt:GetRoomListByOrderEvent = new GetRoomListByOrderEvent( AppController.GET_ROOM_LIST_BY_ORDER_EVENT );
+				getEvt.startDate = currenCheckInData.startDate;
+				getEvt.endDate = currenCheckInData.endDate;
+				if (includeRoomType.selected)
+				{
+					getEvt.iRoomType = currenCheckInData.room_type_id;
+				}
+				else
+				{
+					getEvt.iRoomType = 0;
+				}
+				for (var i:int = 0; i < rsItems.length; i++)
+				{
+				    var tempForDebbug:RoomSettingObjectVO = rsItems.getItemAt(i) as RoomSettingObjectVO;
+					if ((rsItems.getItemAt(i) as RoomSettingObjectVO).bIsSelected)
+					{
+						getEvt.aRoomSettings.push((rsItems.getItemAt(i) as RoomSettingObjectVO).iRsettingId);	
+					}					 
+				}
+				getEvt.idStage = (floorNumber.selectedItem as HotelStageObjectVO).iStageId;
+				getEvt.callBack = handleGetRoomListResult;
+				roomListUpdateFlag = true;
+				CairngormEventDispatcher.getInstance().dispatchEvent( getEvt );
+				*/
+			}
+			
+			/**
+			 * update dataprovider after request to server GetRoomListByOrder and response 
+			 */ 
+			private var roomListUpdateFlag:Boolean = false;
+			private function handleGetRoomListResult():void
+			{
+				if(roomListUpdateFlag)
+				{
+					roomListUpdateFlag = false;
+					//floorsDP = model.checkInModule.floorsData;
+					//TODO: will uncomment
+				//checkInDP = model.checkInModule.checkInData;
+					//checkInData.validateNow();
+					//checkInData.expandItem(checkInDP.getItemAt(1), true);
+					selectCheckIn();
+					enabledCheckIn();					
+				}  
+			}
+
+			private function handleCheckInFilterChange():void
+			{
+				var searchResults:Array = new Array();
+				//TODO: will uncomment
+				//var checkInData:ArrayCollection = model.checkInModule.checkInData;
+				//if(searchByIndividual.selected) searchResults = searchResults.concat(GlobalFunctions.search(checkInData, "Individual", ["label"]).toArray());
+				//if(searchByGroups.selected) searchResults = searchResults.concat(GlobalFunctions.search(checkInData, "Group", ["label"]).toArray());
+				//if(searchByPreparedGroups) searchResults = searchResults.concat(GlobalFunctions.search(checkInData, "Prepared Group", ["label"]).toArray());
+				
+				//checkInDP = new ArrayCollection( searchResults );
+				//if(checkInDP.length == 0) checkInDP = checkInData;
+			}
+			
+			/**
+			 *	Get selected references for LoyaltyProgram  (in House).
+			*/
+			public function updateHotelRoomSetting (index:int,selected:Boolean):void
+			{
+				var tempSelect:Boolean = (rsItems.getItemAt(index) as RoomSettingObjectVO).bIsSelected;
+				if (tempSelect) tempSelect = false
+				else tempSelect = true;
+				(rsItems.getItemAt(index) as RoomSettingObjectVO).bIsSelected = tempSelect;
+			}
+			
+			/**
+			 *	Profiles
+			*/
+			private function handleEditProfiles():void
+			{
+				if(!isGroupSelected())
+				{
+					var event:GetProfileByIdEvent = new GetProfileByIdEvent(ProfileDelegate.GET_PROFILE_BY_ID);
+					event.profileId = getSelectedGuest().person_id;//(resultList.selectedItem as ProfilePersonViewVO).lMainId;
+					event.hotelId = Math.max(0, model.hotelsModule.hotelTotalInfo.iHotelId);
+					event.callBack = tryEditProfile;
+					CairngormEventDispatcher.getInstance().dispatchEvent(event);
+				}
+			}
+			
+			private function tryEditProfile():void
+			{
+				var pop:IFlexDisplayObject = PopUpManagerExt.createPopUp(this, SaveIndividualProfilePopupView);
+				(pop as SaveIndividualProfilePopupView).data = model.profilesModule.currentProfile;
+				(pop as SaveIndividualProfilePopupView).selectedIndex = -1;
+				needUpdateRoomsList = true;				
+				(pop as SaveIndividualProfilePopupView).callBack = getGuestsListRequest;
+				
+			}
+			
+			/**
+			 * Check enabled of button (Check In)
+			 */ 
+			private function enabledCheckIn():void
+			{
+				/*
+				btnAssign.enabled = false;
+				if(currenCheckInData == null)
+				{
+					btnAssign.enabled = false;
+					checkIn.enabled = false;	
+				} 
+				else if ((currenCheckInData != null && currenCheckInData.label == 'Individual') || (currenCheckInData != null && currenCheckInData.label == 'Group'))
+				{
+					btnAssign.enabled = false;
+					checkIn.enabled = false;
+				}
+				//TODO: will uncomment
+				//else if (checkInData.selectedIndex > -1 && floorsData.selectedIndex > -1)
+				{
+					btnAssign.enabled = true;
+				}
+				//TODO: will uncomment
+				//else if (floorsData.selectedIndex != -1 && model.checkInModule.currentProfileId!=0 && checkInDate.selectedDate.time == model.businessDate.time && model.checkInModule.currentProfileRoomId == floorsData.selectedItem.roomId)
+				{
+					checkIn.enabled = true;					
+				}
+				//TODO: will uncomment
+				//else if (model.checkInModule.currentProfileRoomId && checkInDate.selectedDate.time == model.businessDate.time )
+				{
+					checkIn.enabled = true;
+				} 
+				//else
+				{
+					checkIn.enabled = false;
+				}
+				*/
+			}
+			
+			/**
+			 * Select current item in Check In after update
+			 */ 
+			public function selectCheckIn():void
+			{
+				var individualChildren:Array = checkInDP[1].children;
+				var tempLength:int = individualChildren.length;
+				for (var i:int = 0; i < tempLength; i++)
+				{
+					if (individualChildren[i].person_id == currenCheckInData.person_id)
+					{					
+						//TODO: will uncomment
+				//checkInData.selectedIndex = i+2;					
+						return;
+					}
+				}
+			}
+			
+			
+			
+			
+			
+			
+/*----**new section**----*/
+			
+			private var lastSelectedGuest:Object = null;	
+			private var needUpdateRoomsList:Boolean = false;
+			[Bindable]
+			private var isGuestSelectedFlag:Boolean = false;
+			[Bindable]
+			private var dateChooserDisabledRange:Array = new Array();
+			
+			
+			[Bindable(event="checkInDPChanged")]
+			public function get checkInDP():ArrayCollection
+			{
+			    return _checkInDP;
+			}
+			public function set checkInDP(value:ArrayCollection):void
+			{
+				//checkInData.dataProvider = new HierarchicalData(value);
+			    _checkInDP = value;
+		        dispatchEvent(new Event("checkInDPChanged"));
+			}
+			
+			private var _guestsListDP:ArrayCollection = new ArrayCollection();
+			
+			[Bindable(event="guestsListDPChanged")]
+			public function get guestsListDP():ArrayCollection
+			{ 
+				return _guestsListDP;	
+			}
+			
+			public function set guestsListDP(value:ArrayCollection):void
+			{
+				guestsListGrid.dataProvider = new HierarchicalData(value);
+				_guestsListDP = value;
+				dispatchEvent(new Event("guestsListDPChanged"));
+			}
+			
+			private var _groupGuestsListDP:ArrayCollection = new ArrayCollection();
+			
+			[Bindable(event="groupGuestsListDPChanged")]
+			public function get groupGuestsListDP():ArrayCollection
+			{
+				return _groupGuestsListDP;				
+			}
+			
+			public function set groupGuestsListDP(value:ArrayCollection):void
+			{
+				groupGuestsListGrid.dataProvider = new HierarchicalData(value);
+				_groupGuestsListDP = value; 
+				dispatchEvent(new Event("groupGuestsListDPChanged"));
+			}
+			
+			
+			private var _roomsListDP:ArrayCollection = new ArrayCollection();
+			
+			[Bindable(event="roomsListDPChanged")]
+			public function get roomsListDP():ArrayCollection
+			{
+				return _roomsListDP;
+			}
+			
+			public function set roomsListDP(value:ArrayCollection):void
+			{
+				//floorsData.dataProvider = value;
+				_roomsListDP = value;
+				dispatchEvent(new Event("roomsListDPChanged"));
+			}
+			
+			private var _floorsListDP:ArrayCollection = new ArrayCollection();
+			
+			[Bindable(event="floorsListDPChanged")]
+			public function get floorsListDP():ArrayCollection
+			{
+				return _floorsListDP;
+			}
+			
+			public function set floorsListDP(value:ArrayCollection):void
+			{
+				_floorsListDP = value;
+				dispatchEvent(new Event("floorsListDPChanged"));
+			}
+			
+			 /**
+			 *  Colorize function for make disable state to added items
+			 *  data grid.
+			 *  
+			 *  @param item:Object
+			 *  @param rowIndex:int
+			 *  @param dataIndex:int
+			 *  @param color:uint
+			 *  
+			 *  @return color as RGB of row
+			 */
+			private function calcRowColor(item:Object, rowIndex:int,
+				dataIndex:int, color:uint):uint
+			{
+				//return ((item as AnnomalyPersonVO).sStatus == 'Not checked out') ? 0xcccccc : color;
+				/* if (item.sStatus == 'Not checked out') return 0xfbe7e9;
+				if (item.sStatus == 'Not checked in') return 0xdcfafc; */
+				/* checkInDP[1]["children"][i]["room_id"] = floorsData.selectedItem.roomId;
+				checkInDP[1]["children"][i]["children"][0]["room_id"] = floorsData.selectedItem.roomId;
+				checkInDP[1]["children"][i]["children"][0]["children"][0]["room_id"] = floorsData.selectedItem.roomId;
+				checkInDP[1]["children"][i]["children"][0]["children"][1]["room_id"] = floorsData.selectedItem.roomId;
+				checkInDP[1]["children"][i]["children"][0]["children"][2]["room_id"] = floorsData.selectedItem.roomId; */
+				return 0xcccccc;
+			}
+			
+			
+			
+			
+			
+			
+			//start test section
+			private function getGuestsListRequest():void
+			{
+				
+				var evt:GetCheckInGuestsListEvent = new GetCheckInGuestsListEvent(AppController.GET_GUESTS_LIST_EVENT);
+				evt.checkInDate = DateField.dateToString(checkInDate.selectedDate, DateUtils.DATE_SERVER_FORMAT);
+				if(guestsListTab.selectedIndex == 0)
+				{
+					evt.bIsGroup = false;
+					evt.callBack = updateGuestsList;
+				}
+				else
+				{
+					evt.bIsGroup = true;
+					evt.callBack = updateGroupGuestsList;
+				}
+				evt.bIsGroup = (guestsListTab.selectedIndex != 0) ? true:false;
+				evt.iStageId = 1;				
+				CairngormEventDispatcher.getInstance().dispatchEvent(evt);				
+			}
+			
+			
+			
+			
+			/*--section for work with room list--*/
+			
+			private const GROUP_REQUEST:String = "groupRequest";
+			private const INDIVIDUAL_REQUEST:String = "individualRequest";
+			private const FILTER_REQUEST:String = "filterRequest";
+			/*
+			private function checkCurrentSelectedGuest():Boolean
+			{
+				if(lastSelectedGuest != null)
+				{
+					if(lastSelectedGuest.personId)
+					{
+						
+					}
+				}
+				else
+				{
+					return true;
+				}
+				return false;
+			}
+			*/		
+			private function getRoomListRequest(requestType:String):void
+			{
+				var evt:GetCheckInRoomsListEvent = new GetCheckInRoomsListEvent(AppController.GET_ROOMS_LIST_EVENT)
+				
+				evt.checkInDate = DateField.dateToString(checkInDate.selectedDate, DateUtils.DATE_SERVER_FORMAT);
+				evt.iStageId = (floorNumber.selectedItem as HotelStageObjectVO).iStageId;
+				evt.aRoomSettingsList = getSelectedRoomSettings();
+				
+				if(!includeRoomType.selected)
+				{
+					requestType = FILTER_REQUEST;
+				}
+								
+				switch(requestType)
+				{
+					case GROUP_REQUEST:
+						evt.iGroupId = getCurrentGroupId();
+					break;
+					
+					case INDIVIDUAL_REQUEST:
+						evt.iOrderId = getCurrentOrderId();
+					break;
+					
+					case FILTER_REQUEST:
+					
+					break;
+				}
+				
+				evt.callBack = updateRoomList;
+				 
+				CairngormEventDispatcher.getInstance().dispatchEvent(evt);
+			}
+			
+			private function getSelectedRoomSettings():Array
+			{
+				var settingsList:Array = new Array();
+				for (var i:int = 0; i < rsItems.length; i++)
+				{				    
+					if ((rsItems.getItemAt(i) as RoomSettingObjectVO).bIsSelected)
+					{
+						settingsList.push((rsItems.getItemAt(i) as RoomSettingObjectVO).iRsettingId);	
+					}					 
+				}
+				return settingsList;
+			}
+			
+			
+			private function getCurrentGroupId():int
+			{
+				if(groupGuestsListGrid.selectedItem && groupGuestsListGrid.selectedItem.iGroupId)
+				{
+					return groupGuestsListGrid.selectedItem.iGroupId;
+				}
+				else
+				{
+					return 0;
+				}
+				
+			}
+			
+			private function getCurrentOrderId():int
+			{
+				var guest:Object = getSelectedGuest();
+				if(guest && guest.order_id)
+				{
+					return guest.order_id;
+				}
+				else
+				{
+					return 0;
+				}
+			}
+			//TODO: need rewriting.
+			private function getSelectedGuest():Object
+			{
+				var selectedGuest:Object = null;
+				if(guestsListTab.selectedIndex == 0)
+				{
+					selectedGuest = (guestsListGrid.selectedItem)?guestsListGrid.selectedItem : null;					
+				}
+				else
+				{
+					selectedGuest = (groupGuestsListGrid.selectedItem)?groupGuestsListGrid.selectedItem : null;
+				}
+				return selectedGuest;
+			}
+			
+			//TODO: need rewriting.
+			private function isCurrentGuestFromGroup():Boolean
+			{
+				if(guestsListTab.selectedIndex == 0)
+				{
+					return false;					
+				}
+				else
+				{
+					return true;
+				}
+			}
+			
+			private function isGroupSelected():Boolean
+			{
+				if(isCurrentGuestFromGroup())
+				{
+					if(getSelectedGuest() != null && getSelectedGuest().iGroupId)
+					{
+						return true;
+					}
+				}
+								
+				return false;
+				
+			} 
+			
+			private function getRoomById(id:int):Object
+			{
+				for(var i:int = 0; i < roomsListDP.length; i++)
+				{
+					if(roomsListDP.getItemAt(i).roomId == id)
+					{
+						return roomsListDP.getItemAt(i);						
+					}					
+				}
+				return null;
+			}
+/*-- end section for work with room list--*/
+			
+/*--section with click handlers--*/
+			private function handleGroupGuestClick():void
+			{
+				//var selectedGroup:Object = evt.itemRenderer.data;
+				if(getSelectedGuest() != null && getSelectedGuest().iGroupId)
+				{
+					getRoomListRequest(GROUP_REQUEST);
+				}
+				else
+				{
+					handleGuestClick();
+				}	
+			}
+			
+			private function handleGuestClick():void
+			{
+				//var selectedGuest:Object = evt.itemRenderer.data;
+				getRoomListRequest(INDIVIDUAL_REQUEST);
+				manageProfilesBtn();
+			}
+			
+			private function handleFilterClick():void
+			{
+				getRoomListRequest(FILTER_REQUEST);
+				manageProfilesBtn();
+			}
+/*--end section with click handlers--*/
+			
+/*--section with updaters--*/
+			private function updateGuestsList():void
+			{
+				guestsListDP = ObjectUtil.copy(model.checkInModule.guestsListData) as ArrayCollection;
+				if(needUpdateRoomsList)
+				{
+					needUpdateRoomsList = false;
+					selectNeedUpdateForRooms();					
+				}
+				
+				calculateNeedToBeCheckinToday();
+			}
+			
+			private function updateGroupGuestsList():void
+			{
+				groupGuestsListDP = ObjectUtil.copy(model.checkInModule.guestsListData) as ArrayCollection;
+				if(needUpdateRoomsList)
+				{
+					needUpdateRoomsList = false;
+					selectNeedUpdateForRooms();					
+				}
+				calculateNeedToBeCheckinToday();
+			}
+
+			private function updateRoomList():void
+			{
+				roomsListDP = ObjectUtil.copy(model.checkInModule.roomsListData) as  ArrayCollection;				
+				floorsData.validateDisplayList();
+				resetControls();
+				selectSpecialWishes();
+				manageProfilesBtn();
+			}
+			
+			private function updateFloorsList():void
+			{
+				
+			}
+			
+			private function selectNeedUpdateForRooms():void
+			{
+				if(isCurrentGuestFromGroup())
+				{
+					handleGroupGuestClick();
+				}
+				else
+				{
+					handleGuestClick();
+				}
+			}
+			
+			private function calculateNeedToBeCheckinToday():void
+			{
+				var count:int = 0;
+				var guest:Object;
+				if(guestsListTab.selectedIndex == 0)
+				{
+					for(var i:int = 0; i < guestsListDP.length; i++)
+					{						
+						count = guestsListDP.length;												
+					}								
+				}
+				else
+				{
+					var guestList:Array;					
+					for(var i:int = 0; i < groupGuestsListDP.length; i++)
+					{
+						guestList = groupGuestsListDP.getItemAt(i).children as Array;
+						
+						for(var j:int = 0; j < guestList.length; j++)
+						{							
+							count++;												
+						}
+					}
+					
+				}
+				counter = count;
+			}
+			
+/*-- end section with updaters--*/
+			
+/*--section with init blocks--*/
+			private function initFloorsList():void
+			{
+				floorsListDP = ObjectUtil.copy( model.hotelsModule.floorsDP ) as ArrayCollection;
+				var temp:HotelStageObjectVO = new HotelStageObjectVO();
+				temp.iStageId = 0;
+				temp.sStageName = 'All';
+				floorsListDP.addItemAt(temp, 0);
+				floorNumber.dataProvider = floorsListDP;
+				floorNumber.selectedIndex = 0; 
+			}
+			
+			private function initSpecialWishesList():void
+			{
+				 rsItems = ObjectUtil.copy( model.hotelsModule.hotelRoomSettings ) as ArrayCollection;
+				
+				 //add (smoker, non-smoker, disabled) settings to room settings list
+				 /*
+				 for(var i:int = 0; i < model.hotelsModule.hotelRoomSpecialSettings.length; i++)
+				 {
+				 	rsItems.addItem(model.hotelsModule.hotelRoomSpecialSettings.getItemAt(i));
+				 }				
+				 */
+				rsItems = new ArrayCollection(rsItems.source.sortOn("sRsettingDesctiptionLocale", Array.CASEINSENSITIVE));
+			}
+/*--end section with init blocks--*/
+
+/*--assign section-*/
+			private function handleAssign():void
+			{
+				if(isGroupSelected())
+				{
+					groupAssignment();
+				}
+				else
+				{
+				//TODO: will rewrite
+				var currenCheckInData1:Object = getSelectedGuest();
+				if(currenCheckInData1 != null && currenCheckInData1.order_id)
+				{
+				
+				//currenCheckInData
+				var getOrderFutureInfoEvent:GetOrderFutureInfoEvent = new GetOrderFutureInfoEvent();
+				getOrderFutureInfoEvent.hotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+				getOrderFutureInfoEvent.orderId = currenCheckInData1.order_id;
+				
+				getOrderFutureInfoEvent.sDateStart = currenCheckInData1.startDate;
+				getOrderFutureInfoEvent.sDateEnd = currenCheckInData1.endDate;
+				getOrderFutureInfoEvent.iRoomId = floorsData.selectedItem.roomId;
+				
+				getOrderFutureInfoEvent.callBack = handleCheckAssign; // <==========
+				getOrderFutureInfoEvent.dispatch();
+				}
+				}
+			}
+			
+			/**
+			 * check availability of assign
+			 */ 
+			private function handleCheckAssign():void
+			{
+				if( model.reservationModule.orderFutureInfo.sDateOutOfService != null)
+				{
+					var msgEvent:MsgEvent = new MsgEvent(MessageKind.WARNING,
+														"Warning",
+														"This room is out of service!",
+														MessageShowType.UNKNOWN);
+					CairngormEventDispatcher.getInstance().dispatchEvent(msgEvent);
+					return;
+				}
+				else
+				{
+					//TODO: need rewriting
+					var currenCheckInData1:Object = getSelectedGuest();
+					if(currenCheckInData1 != null && model.reservationModule.orderFutureInfo.aPersonAssign != null)
+					{
+						for each(var item:PersonAssignVO in model.reservationModule.orderFutureInfo.aPersonAssign)
+						{	
+							var cd1:Date = DateField.stringToDate(currenCheckInData1.startDate, DateUtils.DATE_SERVER_FORMAT);
+							var cd2:Date = DateField.stringToDate(currenCheckInData1.endDate, DateUtils.DATE_SERVER_FORMAT);
+							
+							var d1:Date = DateField.stringToDate(item.sDateStart, DateUtils.DATE_SERVER_FORMAT);
+							var d2:Date = DateField.stringToDate(item.sDateEnd, DateUtils.DATE_SERVER_FORMAT);
+							
+							/*
+							trace("d1: " + d1);
+							trace("d2: " + d2);
+							trace("cd1: " + cd1);
+							trace("cd2: " + cd2);
+							trace("Diff 1: " + DateUtils.dateDiff(DateUtils.DAY_OF_MONTH,cd1,d2));
+							trace("Diff 2: " + DateUtils.dateDiff(DateUtils.DAY_OF_MONTH,d1,cd2));
+							*/
+							
+							if(DateUtils.dateDiff(DateUtils.DAY_OF_MONTH,cd1,d2) > -1 &&
+							   DateUtils.dateDiff(DateUtils.DAY_OF_MONTH,d1,cd2) > -1	)
+							{			
+							
+								var sDateStart:String = DateField.dateToString(d1, DateUtils.DATE_CLIENT_FORMAT);
+								var sDateEnd:String = DateField.dateToString(d2, DateUtils.DATE_CLIENT_FORMAT);
+								var sGuestName:String = item.label;						
+								
+								var confirmPopup:ConfirmationPopupView = PopUpManagerExt.createPopUp(this, ConfirmationPopupView, true) as ConfirmationPopupView;
+								confirmPopup.title = "Warning";
+								confirmPopup.description = 'There is preassigned guest "' + sGuestName + '" from "' + sDateStart + '" to "' + sDateEnd + '" for that room';
+								confirmPopup.subDescription = "Are you sure to change room?";
+								confirmPopup.callBack = handleCheckAssign2;	
+								
+								return;			
+							}
+						}
+					}
+				}	
+				handleCheckAssign2();
+			}
+			
+			private function handleCheckAssign2():void
+			{
+				
+				if (null == floorsData.selectedItem) return;
+				
+				if (true == floorsData.selectedItem.isAssigned)
+				{
+					var reassignPrompt:ReAssignPromptPopupView = PopUpManagerExt.createPopUp(this, ReAssignPromptPopupView) as ReAssignPromptPopupView;
+					reassignPrompt.assignFunction = sendAssignPerson;
+					PopUpManagerExt.centerPopUp(reassignPrompt);
+				}
+				else
+				{
+					sendAssignPerson();
+				}
+			}			
+			
+			public static const millisecondsPerDay:int = 1000 * 60 * 60 * 24;
+
+			/**
+			 * assign person 
+			 */ 
+			private function sendAssignPerson():void
+			{
+				//TODO: need rewriting
+				var currenCheckInData1:Object = getSelectedGuest();
+				if(currenCheckInData1 != null)
+				{			
+				//var roomId:int = floorsData.selectedItem.roomId;
+				//currenCheckInData1.room_id = floorsData.selectedItem.roomId;
+				model.checkInModule.currentProfileRoomId = floorsData.selectedItem.roomId;
+				//TODO: will uncomment
+				//checkInData.dataProvider.refresh();
+				
+				var evt:SetAssignCheckInDataEvent = new SetAssignCheckInDataEvent( AppController.SET_ASSIGN_CHECK_IN_DATA_EVENT );
+
+				evt.orderId = currenCheckInData1.order_id;
+				
+				var arrRoomsDays:Array = new Array();				
+				var startDate:Date = DateField.stringToDate(currenCheckInData1.startDate, DateUtils.DATE_SERVER_FORMAT);
+				var endDate:Date = DateField.stringToDate(currenCheckInData1.endDate, DateUtils.DATE_SERVER_FORMAT);
+				var obj:Object = new Object();
+				
+				while(startDate.getTime() < endDate.getTime())
+				{	
+					obj = new Array();
+					obj[0] = DateField.dateToString(startDate, DateUtils.DATE_SERVER_FORMAT);
+					obj[1] = floorsData.selectedItem.roomId;
+					arrRoomsDays.push(obj);
+					
+					startDate.setTime(startDate.getTime() + millisecondsPerDay);				
+				}
+				
+				evt.aRoomList = arrRoomsDays;
+				//evt.roomId = floorsData.selectedItem.roomId;				
+				
+				//evt.profileId = currenCheckInData1.person_id;
+				//TODO: has been changed	
+				needUpdateRoomsList = true;						
+				evt.callBack = getGuestsListRequest;
+				
+				CairngormEventDispatcher.getInstance().dispatchEvent( evt );
+				}
+			}
+			
+			private function groupAssignment():void
+			{
+				var evt:GroupAssignEvent = new GroupAssignEvent(AppController.SET_GROUP_ASSIGN_EVENT);
+				if(isGroupSelected())
+				{
+					evt.groupId = getSelectedGuest().iGroupId;
+					evt.callBack = getGuestsListRequest;
+					needUpdateRoomsList = true;
+					CairngormEventDispatcher.getInstance().dispatchEvent(evt);
+				}
+			}
+			
+/*--end assign section-*/
+
+/*--check in section--*/
+ 
+ 			private function handleCheckInClick():void
+ 			{
+ 				showDirtyRoomsPopup();
+ 			}
+ 
+			private function sendCheckInData():void
+			{
+				var evt:SaveCheckInDataEvent = new SaveCheckInDataEvent( AppController.SAVE_CHECK_IN_DATA_EVENT );
+				var currenCheckInData1:Object = getSelectedGuest();
+				if(currenCheckInData1 != null)
+				{
+				//evt.roomId = currenCheckInData.room_id;
+				if(currenCheckInData1.iGroupId)
+				{
+					evt.reservationId = currenCheckInData1.person_id;
+				}
+				else
+				{
+					evt.orderId = currenCheckInData1.order_id;
+				}				
+				evt.callBack = handleSaveCheckInDataResult;
+			
+				CairngormEventDispatcher.getInstance().dispatchEvent( evt );
+				}
+			}
+			
+			/**
+			 * To do after check in
+			 */ 
+			private function handleSaveCheckInDataResult():void
+			{
+				model.checkInModule.currentProfileId = 0;
+				currEditedProfile = null;
+				currenCheckInData = null;
+				//checkIn.enabled = false;
+				//filterSetting.enabled = false;
+				
+				//model.checkInModule.floorsData.removeAll();
+				//floorsDP.removeAll();
+				//getCheckInData();
+				needUpdateRoomsList = true;
+				/*
+				if(model.checkInModule.reportsCarsdUrlsList)
+				{
+					for(var i:int = 0; i < model.checkInModule.reportsCarsdUrlsList.length; i++)
+					{
+						navigateToURL(new URLRequest(model.checkInModule.reportsCarsdUrlsList[i]), "_blank");
+					}	
+				}
+				*/
+				getGuestsListRequest();
+			}
+/*--end check in section--*/
+
+/*--dirty room section--*/
+			private function showDirtyRoomsPopup():void
+			{
+				var dp:ArrayCollection = new ArrayCollection();
+				if(isCurrentGuestFromGroup() && isGroupSelected())
+				{
+					
+					var group:Object = getSelectedGuest();
+					if(group != null)
+					{
+					var guests:Array = group.children;
+					var room:Object;
+					var obj:Object = new Object();
+					for(var i:int = 0; i < guests.length; i++)
+					{
+						if(guests[i].room_id != null && guests[i].room_id != "")
+						{
+							room = getRoomById(guests[i].room_id)
+							if(room != null && room.roomStatus == "Dirty")
+							{
+								obj = new Object();
+								obj.room = room.roomName;
+								obj.guest = room.persons;
+								obj.status = "Dirty";
+								dp.addItem(obj);
+							}
+						}
+					}
+					}
+			
+				}
+				if(dp.length > 0)
+				{
+					var pop:DirtyRoomsPopupView = PopUpManagerExt.createPopUp(this, DirtyRoomsPopupView) as DirtyRoomsPopupView;
+								
+					pop.dirtyRoomsDP = dp;
+					pop.callBack = sendCheckInData;
+				}
+				else
+				{
+					sendCheckInData();
+				}				
+				//pop.callBack = ;
+
+			}
+/*--end dirty rooms section--*/
+
+/*----*/
+private function manageAssignBtn():void
+{
+	btnAssign.enabled = false;
+	if(isGroupSelected())
+	{
+		btnAssign.enabled = true;
+		btnProfiles.enabled = false;
+	}
+	else if(floorsData.selectedIndex != -1 && getSelectedGuest() != null)
+	{
+		btnAssign.enabled = true;
+	}
+	
+}
+
+private function manageProfilesBtn():void
+{
+	btnProfiles.enabled = false;
+	if(isGroupSelected())
+	{	
+		btnProfiles.enabled = false;
+	}
+	else if(getSelectedGuest() != null)
+	{
+		btnProfiles.enabled = true;
+	}
+}
+
+private function manageCheckInBtn():void
+{
+	btnCheckIn.enabled = false;
+	if(isCurrentGuestFromGroup())
+	{
+		if(isGroupSelected())
+		{
+			var group:Object = getSelectedGuest();
+			if(group != null)
+			{
+				var guests:Array = group.children;				
+				for(var i:int = 0; i < guests.length; i++)
+				{
+					if(guests[i].room_id != null && guests[i].room_id != "")
+					{
+						btnCheckIn.enabled = true;
+						break;
+					}
+				}
+			}
+		}
+		else
+		{
+			btnCheckIn.enabled = isRoomAssigned();
+		}
+	}
+	else
+	{
+		btnCheckIn.enabled = isRoomAssigned();
+	}	
+}
+
+private function isRoomAssigned():Boolean
+{
+	if(getSelectedGuest()!= null && getSelectedGuest().room_id != "")
+	{
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
+private function resetControls():void
+{
+	manageAssignBtn();
+	manageCheckInBtn();
+	isGuestSelectedFlag = (getSelectedGuest() == null)?false:true;
+}
+/*----*/
+
+/*----*/
+private function uncheckSpecialWishesList():void
+{
+	for(var i:int = 0; i < rsItems.length; i++)
+	{
+		if(rsItems.getItemAt(i).bIsSelected == true)
+		{
+			rsItems.getItemAt(i).bIsSelected = false;
+		}
+	}
+}
+
+private function selectSpecialWishes():void
+{	
+	uncheckSpecialWishesList();
+	if(!isGroupSelected())
+	{
+		var guest:Object = getSelectedGuest()
+		if(guest != null && guest.room_settings)
+		{
+			for(var i:int = 0; i < guest.room_settings.length; i++)
+			{
+					for(var j:int = 0; j < rsItems.length; j++)
+					{
+						if(rsItems.getItemAt(j).iRsettingId == guest.room_settings[i])
+						{
+							rsItems.getItemAt(j).bIsSelected = true;
+							break;
+						}
+					}
+			}
+		}
+	}
+}
+/*----*/
+
+			private function changeIncludeRoomType():void
+			{				
+				if(includeRoomType.selected)
+				{
+					
+					needUpdateRoomsList = true;
+					if(isGroupSelected())
+					{
+						handleGroupGuestClick();
+					}
+					else if(getSelectedGuest() != null)
+					{
+						handleGuestClick();
+					}
+					else
+					{										
+						handleFilterClick();
+					}
+				}
+				else
+				{
+					needUpdateRoomsList = true;				
+					handleFilterClick();
+				}			
+			}
+			
+			private function getCoutnNeedCheckInGuest():void
+			{
+				
+			}
+			//end test section
+		]]>
+	</mx:Script>
+
+	<mx:HBox>
+	<mx:FormItem label="Check In date:">
+		<mx:DateField id="checkInDate"
+			editable="false"
+			dataChange="{Alert.show('data changed', '', mx.controls.Alert.OK)}"
+			disabledRanges="{dateChooserDisabledRange}"
+			width="{GlobalSettings.WIDTH_DATE_FIELD}"
+			formatString="{GlobalSettings.DATE_FORMAT}"
+			change="needUpdateRoomsList = true;getGuestsListRequest();"
+			keyUp="handkeDateKeyUp(event)"/>
+	</mx:FormItem>
+	<mx:CheckBox id="includeRoomType" 
+		selected="true" 
+		label="Only room type of guest" 
+		change="{changeIncludeRoomType()}"/>
+	<mx:Spacer width="50" />
+	<mx:Label text="Check in counter: "  fontSize="13" />
+	<mx:Label text="{counter}" fontSize="13"  />
+	</mx:HBox>
+	<mx:HBox width="100%" height="100%">
+		<!--
+			Check in dat for assign guest to some rooms.
+		  -->
+		<mx:VBox
+			width="25%" height="100%"
+			borderStyle="solid"
+			paddingLeft="5" paddingBottom="5"
+			paddingRight="5" paddingTop="5">
+			<mx:HBox width="100%">
+				<mx:TextInput id="searchField"
+					cornerRadius="5"
+					width="100%" text=""/>
+				<mx:Button
+					label="Filter"
+					width="100"
+					enabled="false"
+					click="handleSearch()"/>
+			</mx:HBox>
+			<!--mx:HBox width="100%" >
+				<mx:CheckBox id="searchByGroups"
+					label="Groups"
+					change="handleCheckInFilterChange()" enabled="false"/>
+				<mx:CheckBox id="searchByIndividual"
+					label="Individual"
+					change="handleCheckInFilterChange()" 
+					selected="true" enabled="false"/>
+				<mx:CheckBox id="searchByPreparedGroups"
+					label="Prepared groups"  enabled="false"/>
+			</mx:HBox-->
+			<!--
+				View state of available rooms.
+			  -->
+			  <mx:TabNavigator id="guestsListTab"
+				resizeToContent="true"
+				change="getGuestsListRequest()"				
+				paddingBottom="5" paddingTop="0"
+				paddingRight="5" paddingLeft="5"
+				width="100%" height="100%">			
+			
+			<mx:HBox  label="Individual"
+				width="100%" 
+				height="100%" 				
+				paddingTop="10">
+				<controls:ColoredAdvancedDataGrid id="guestsListGrid"				
+					width="100%" height="100%"
+					dragEnabled="true"		
+					headerHeight="0"		
+					itemClick="handleGuestClick()" 
+					groupItemRenderer="framework.view.pages.checkIn.CheckInItemRenderer"
+					toolTipShow="true">
+					<controls:dataProvider>
+						<mx:HierarchicalData id="checkInDataH"
+							source="{guestsListDP}"/>
+					</controls:dataProvider>
+					<controls:columns>
+						<mx:AdvancedDataGridColumn							
+							dataField="label"
+							showDataTips="true"/>
+					</controls:columns>
+				</controls:ColoredAdvancedDataGrid>
+			</mx:HBox>
+			
+			<mx:HBox label="Group"
+				width="100%" 
+				height="100%"				
+				paddingTop="10">
+				<controls:ColoredAdvancedDataGrid id="groupGuestsListGrid"				
+					width="100%" height="100%"
+					dragEnabled="true"		
+					headerHeight="0"		
+					itemClick="handleGroupGuestClick()" 
+					groupItemRenderer="framework.view.pages.checkIn.CheckInItemRenderer"
+					toolTipShow="true">
+					<controls:dataProvider>
+						<mx:HierarchicalData id="checkInDataH2"
+							source="{groupGuestsListDP}"/>
+					</controls:dataProvider>
+					<controls:columns>
+						<mx:AdvancedDataGridColumn							
+							dataField="label"
+							showDataTips="true"/>
+					</controls:columns>
+				</controls:ColoredAdvancedDataGrid> 
+			</mx:HBox>
+			</mx:TabNavigator>
+			
+			<mx:HBox width="100%">				
+				<mx:Button
+					label="Walk-In"
+					click="handleWalkIn()"/>
+				<mx:Button
+					id="btnProfiles"
+					label="Profiles..."
+					click="{handleEditProfiles()}"
+					enabled="false"/>
+				<mx:Spacer width="100%"/>
+				<mx:Button id="btnAssign"
+					label="Assign"
+					click="handleAssign()"/>					
+			</mx:HBox>
+		</mx:VBox>
+		<mx:VBox
+			width="75%" height="100%"
+			borderStyle="solid"
+			paddingLeft="5" paddingBottom="5" paddingRight="5" paddingTop="5">
+			<mx:HBox height="100%" width="100%">			
+				<checkIn:RoomListDataGrid id="floorsData"
+					width="100%" height="100%"
+					click="{resetControls()}"
+					dragEnter="{handleAssigDragEnter(event)}"
+					dragDrop="{handleAssignDragDrop(event)}"
+					dragOver="{handleAssignDragOver(event)}"
+					dataProvider="{roomsListDP}"					
+					folderClosedIcon="{null}"
+					folderOpenIcon="{null}"
+					defaultLeafIcon="{null}">
+					
+					<checkIn:rendererProviders>
+						<mx:AdvancedDataGridRendererProvider
+							columnIndex="1"
+							dataField="floor"
+							renderer="{new ClassFactory(RoomListFloorItemRenderer)}"
+							columnSpan="3" />
+					</checkIn:rendererProviders>					
+					<checkIn:columns>
+						<mx:AdvancedDataGridColumn
+							headerText="Floor"
+							dataField="stageName"
+							width="70"/>
+						<mx:AdvancedDataGridColumn
+							headerText="Room"
+							dataField="roomName"
+							width="70"/>
+						<mx:AdvancedDataGridColumn
+							headerText="Room Type"
+							dataField="typeName"
+							width="90"/>
+						<mx:AdvancedDataGridColumn
+							headerText="Settings"
+							dataField="roomSettings"
+							width="250"/>
+						<mx:AdvancedDataGridColumn
+							headerText="Status"
+							dataField="roomStatus"
+							width="70"/>
+						<mx:AdvancedDataGridColumn
+							headerText="Assigned guest name"
+							dataField="persons"/>
+					</checkIn:columns>
+				</checkIn:RoomListDataGrid>
+				
+				<mx:VBox width="150" height="100%">
+					<mx:FormItem label="Floor:">
+					<mx:ComboBox id="floorNumber"
+						dataProvider="{floorsListDP}" labelField="sStageName"/>
+					</mx:FormItem>
+					<mx:Label text="Hotel room settings:" width="120"/>
+					<mx:List id="hotelRoomSettings"
+							dataProvider="{rsItems}"
+							width="150" height="100%">
+							<mx:itemRenderer>
+								<mx:Component>
+									<mx:CheckBox
+										label="{data.sRsettingDesctiptionLocale}"
+										selected="{data.bIsSelected}"
+										change="{outerDocument.updateHotelRoomSetting(outerDocument.hotelRoomSettings.selectedIndex, this.selected)}"/>
+								</mx:Component>
+							</mx:itemRenderer>
+					</mx:List>
+					<mx:Button id="filterSetting"
+						label="Filter" enabled="{isGuestSelectedFlag}"
+						click="{handleFilterClick()}" width="150"/>				
+				</mx:VBox>				
+				</mx:HBox>
+				
+			</mx:VBox>
+	</mx:HBox>
+	<mx:HBox width="100%"
+		horizontalAlign="right">
+		<mx:Button
+			id="btnCheckIn"
+			label="Check In"			
+			click="{handleCheckInClick()}"
+			width="150"
+			enabled="true"/>
+	</mx:HBox>
+</BaseWindow>

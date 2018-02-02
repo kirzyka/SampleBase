@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="utf-8"?>
+<BasePopupView 
+	xmlns="framework.view.components.popups.*" 
+	xmlns:mx="http://www.adobe.com/2006/mxml" 
+	xmlns:components="framework.view.components.*"
+	
+	width="300" height="400"
+	
+	title="Occupancy"
+	
+	creationComplete="onCreationComplete()"
+	>
+
+	<mx:Script>
+		<![CDATA[
+			import framework.view.pages.reservationCreate.data.OccupancyItem;
+			import mx.events.CollectionEvent;
+			import mx.controls.Alert;
+			import services.vo.hotels.HotelRoomTypeObjectVO;
+			import services.vo.hotels.HotelRoomWithBedTypesObjectVO;
+			import services.vo.backend.RoomTypesObjectVO;
+			import mx.collections.ArrayCollection;
+			import services.vo.backend.RoomWithBedTypesObjectVO;
+		
+			public static const OCCUPPANCY_VIEW_CALCULATE_MAXIMUM_EVENT:String = "occuppancyViewCalculateMaximumEvent"; 
+		
+			[Bindable]
+			public var sRoomTypeName:String;
+			
+			[Bindable]
+			public static var iRoomCapacity:int;		
+			[Bindable]
+			public static var iRoomCount:int;				
+			[Bindable]
+			public static var iAdults:int;		
+			[Bindable]
+			public static var iRoomCountTotal:int;				
+			[Bindable]
+			public static var iAdultsTotal:int;
+			
+			[Bindable]
+			public static var aResult:ArrayCollection;// OccupancyItem
+
+			[Bindable]
+			private var sError:String;
+
+			private static const OCCUPANCY_COLUMN_HEADER:String = "Occupancy\n" + "(Adults per room)";
+			private static const ALLOTED_COLUMN_HEADER:String = "Alloted rooms";
+
+			private function onCreationComplete():void
+			{
+				aResult = new ArrayCollection();
+
+				for(var i:int = 0; i < iRoomCapacity; i++)
+				{					
+					aResult.addItem(new OccupancyItem(i+1,0)); 
+				}
+				autoAllocation();
+				calculateTotal();
+			}
+			
+			private function autoAllocation():void
+			{
+				/*trace("max count: " + (iAdults % iRoomCapacity).toString());
+				
+				if(iAdults > ((iRoomCount - 1) * iRoomCapacity))
+				{
+					aResult.getItemAt(iRoomCapacity - 1).iRoomCount = iAdults % iRoomCapacity;
+					var addRoom:int = (iRoomCount * iRoomCapacity) - ((iAdults % iRoomCapacity) * iRoomCapacity);	
+					aResult.getItemAt(addRoom - 1).iRoomCount =	1;
+				}
+				else
+				{
+					aResult.getItemAt(0).iRoomCount = iRoomCount - 1;
+				}*/
+			}	
+
+			public static function calculateTotal():void
+			{
+				iAdultsTotal = 0;
+				iRoomCountTotal = 0;
+				var i:int;
+				for(i = 0; i < iRoomCapacity; i++)
+				{
+					iAdultsTotal += (aResult.getItemAt(i) as OccupancyItem).iRoomCount * (i+1);
+					iRoomCountTotal += (aResult.getItemAt(i) as OccupancyItem).iRoomCount;					
+				}
+				
+			}	
+			
+			private function isValid():Boolean
+			{
+				var result:Boolean = true;
+				
+				if(iAdults != iAdultsTotal)
+				{
+					sError = "Not all adults allocated!";
+					result = false;
+				}
+				else if(iRoomCount != iRoomCountTotal)
+				{
+					sError = "Not all rooms allocated!";
+					result = false;
+				}				
+				return result;
+			}
+			
+			private function onApply():void
+			{
+				//Do Something
+				if(isValid())
+				{
+					completeCall();
+				}
+			}
+			
+			private function onCancel():void
+			{
+				close();
+			}
+						
+		]]>
+	</mx:Script>
+	<mx:Label text="{iRoomCount.toString() + ' ' + sRoomTypeName + ' rooms (Capacity ' + iRoomCapacity.toString() + ')'}" />
+	
+	<mx:DataGrid id="dgOccupancy"
+		dataProvider="{aResult}"
+		focusIn="{sError = ''}"
+		width="100%" height="100%">
+		<mx:columns>
+			<mx:DataGridColumn headerText="{OCCUPANCY_COLUMN_HEADER}"
+				dataField="iAdultsPerRoom"/>
+			<mx:DataGridColumn headerText="{ALLOTED_COLUMN_HEADER}"
+				dataField="iRoomCount"
+				rendererIsEditor="true">
+				<mx:itemRenderer>
+					<mx:Component>
+						<components:OcuppancyNumericStepper parentView="{outerDocument}"/>
+					</mx:Component>
+				</mx:itemRenderer>
+			</mx:DataGridColumn>
+		</mx:columns>
+	</mx:DataGrid>
+	
+	<mx:Label id="lblAdults" 
+		width="100%" textAlign="right"
+		text="Adults Total: {iAdults.toString() + ' / ' + iAdultsTotal.toString()}"/>	
+	<mx:Label id="lblRooms" 
+		width="100%" textAlign="right"
+		text="Room Total: {iRoomCount.toString() + ' / ' + iRoomCountTotal.toString()}"/>
+	<mx:Label id="lblError" 
+		width="100%" textAlign="center"
+		color="#FF0000"
+		text="{sError}"/>
+			
+	<mx:ApplicationControlBar width="100%" horizontalAlign="right">
+		<mx:Button id="btnApply"
+			label="{model.locale.Global_Button_Apply}"
+			click="{onApply()}"/>
+		<mx:Button id="btnCancel"
+			label="{model.locale.Global_Button_Cancel}"
+			click="{onCancel()}"/>
+	</mx:ApplicationControlBar>	
+</BasePopupView>

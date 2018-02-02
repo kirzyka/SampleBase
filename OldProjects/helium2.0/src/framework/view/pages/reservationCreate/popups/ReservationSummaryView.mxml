@@ -1,0 +1,349 @@
+<?xml version="1.0" encoding="utf-8"?>
+<BasePopupView
+ 	xmlns="framework.view.components.popups.*"
+	title="Reservation Summary"
+	xmlns:mx="http://www.adobe.com/2006/mxml" layout="vertical"
+	width="700"
+
+	close="closeWindow()"
+	showCloseButton="false"
+	creationComplete="{onCreationComplete()}">
+
+<mx:Script>
+	<![CDATA[
+		import services.events.common.PageEvent;
+		import services.events.reservation.GetPdfUrlFromHtmlEvent;
+		import mx.controls.Alert;
+		import h2olib.utils.DateUtils;
+		import mx.core.Application;
+		import flash.net.navigateToURL;
+		import services.events.reservation.GetComfLetterEvent;
+		import services.events.reservation.GetGuestListForReservationEvent;
+		import services.vo.reservation.RoomPersonsVO;
+		import mx.events.ListEvent;
+		import mx.events.ItemClickEvent;
+		import com.adobe.cairngorm.control.CairngormEventDispatcher;
+		import services.controller.AppController;
+		import services.events.reservation.SaveReservationEvent;
+		import services.vo.reservation.OrderVO;
+		import services.vo.reservation.ReservationVO;
+		import services.vo.profiles.ProfilePersonalVO;
+		import services.vo.GlobalSettings;
+		import mx.controls.DateField;
+		import services.vo.frontend.ReservationOrderVO;
+		import mx.collections.ArrayCollection;
+		import framework.model.AppModelLocator;
+		import framework.managers.PopUpManagerExt;
+		
+		[Bindable]
+		public var reservation:ReservationVO = new ReservationVO();
+		[Bindable]
+		private var order:OrderVO;
+		[Bindable]
+		private var confTypesDP:ArrayCollection = new ArrayCollection();
+
+
+		private function onCreationComplete():void
+		{
+			var orders:ArrayCollection = model.reservationModule.orders;
+			//var currReservation:ReservationVO = model.reservationCreateModule.currentReservationEvent.reservation;
+
+			setCurrentOrderData(model.reservationModule.orders.getItemAt(0) as OrderVO);
+
+			if(reservation.oConfirmation != null)
+			{
+				if(reservation.oConfirmation.sEmail != "" && reservation.oConfirmation.sEmail != null)
+				{
+					confTypesDP.addItem("Email: " + reservation.oConfirmation.sEmail);
+				}
+				if(reservation.oConfirmation.sFax != "" && reservation.oConfirmation.sFax != null)
+				{
+					confTypesDP.addItem("Fax: " + reservation.oConfirmation.sFax);
+				}
+				if(reservation.oConfirmation.sPhone != "" && reservation.oConfirmation.sPhone != null)
+				{
+					confTypesDP.addItem("Phone: " + reservation.oConfirmation.sPhone);
+				}
+				if(reservation.oConfirmation.sWhiteMail != "" && reservation.oConfirmation.sWhiteMail != null)
+				{
+					confTypesDP.addItem("White: " + reservation.oConfirmation.sWhiteMail);
+				}
+			}
+			cTypes.dataProvider = confTypesDP;
+		}
+
+		private function changeOrderShow(event:ListEvent):void
+		{
+			setCurrentOrderData(lstOrders.selectedItem as OrderVO);
+		}
+
+		private function setCurrentOrderData(value:OrderVO):void
+		{
+			order = value as OrderVO;
+
+			var guestList:ArrayCollection = new ArrayCollection();
+			for each(var room:RoomPersonsVO in order.aClientsPerRoom)
+			{
+				for each(var person:ProfilePersonalVO in room.aProfiles)
+				{
+					if (!person.sName || person.sName.length == 0)
+					{
+						guestList.addItem(person.sSurname);
+					}
+					else
+					{
+						guestList.addItem(person.sName + " " + person.sSurname);
+					}
+				}
+			}
+			gNames.dataProvider = guestList;
+		}
+
+		private function closeWindow():void
+		{
+			close();
+		}
+
+		private function handleApply():void
+		{
+			if(vsSaveReservation.selectedIndex == 0)
+			{
+				var saveReservatonEvent:SaveReservationEvent = new SaveReservationEvent(AppController.SAVE_RESERVATION_EVENT);
+				saveReservatonEvent.callBack = doAfterReservationStep1;
+				reservation.sComment = txtComment.text;
+				saveReservatonEvent.reservation = reservation;
+				saveReservatonEvent.dispatch();
+			}
+
+			if(vsSaveReservation.selectedIndex == 1)
+			{
+				var getComfLetterEvent:GetComfLetterEvent = new GetComfLetterEvent();
+				getComfLetterEvent.callBack = doAfterReservationStep2;
+				getComfLetterEvent.rsvId = model.reservationModule.newReservationID;
+				if(rbCaller.selected)
+				{
+					getComfLetterEvent.prsId = 0;
+				}
+				else
+				{
+					getComfLetterEvent.prsId = (cmbGuests.selectedItem as ProfilePersonalVO).lId;
+				}
+
+				getComfLetterEvent.dispatch();
+
+			}
+
+			if(vsSaveReservation.selectedIndex == 2)
+			{
+				var getPdfUrlFromHtmlEvent:GetPdfUrlFromHtmlEvent = new GetPdfUrlFromHtmlEvent();
+				getPdfUrlFromHtmlEvent.callBack = doAfterReservationStep3;
+				getPdfUrlFromHtmlEvent.rsvId = model.reservationModule.newReservationID;
+				getPdfUrlFromHtmlEvent.html = txtLetter.htmlText;//domWindow.parent.FCKeditorAPI.Instances.FCKeditor1.GetHTML();;
+				getPdfUrlFromHtmlEvent.dispatch();
+			}
+
+		}
+
+
+		private function doAfterReservationStep1():void
+		{
+			if(reservation.oConfirmation)
+			{
+				var getGuestListForReservationEvent:GetGuestListForReservationEvent = new GetGuestListForReservationEvent();
+				getGuestListForReservationEvent.rsvId = model.reservationModule.newReservationID;
+				getGuestListForReservationEvent.dispatch();
+				
+				vsSaveReservation.selectedIndex = 1;
+				title = "Confirmation Letter";
+				btnApply.label = "Next";
+			}
+			else
+			{
+				finish();
+			}
+		}
+
+		private function doAfterReservationStep2():void
+		{
+			vsSaveReservation.selectedIndex = 2;
+			btnApply.label = "Finish";
+		}
+
+		private function doAfterReservationStep3():void
+		{
+			navigateToURL(getURL(), "_blank" );
+			finish();
+		}
+
+		private function finish():void
+		{
+			model.reservationModule.currPage = 0;
+			model.reservationModule.reservationMode = 0;
+			model.reservationModule.orders.removeAll();
+			model.reservationModule.guestsPerRooms.removeAll();
+			model.reservationModule.reservationProfiles.removeAll();
+			
+			model.reservationModule.aGroupBasket.removeAll();
+
+			model.reservationModule.walkIn = chkWalkIn.selected;
+			completeCall();
+
+		}
+
+		private function getURL():URLRequest
+		{
+		   //"http://dev.ramada.ameria.de/H2O_WEB.html";//
+		   var fileName:String = model.reservationModule.confirmationLetterURL;
+
+		   var fullURL:String = AppModelLocator.getInstance().owner.loaderInfo.url;
+
+		   var lastIndexOfSlash:int = fullURL.lastIndexOf("/", fullURL.length-1);
+		   var firstPart:String = fullURL.substring(0, lastIndexOfSlash);
+		   var url:String = firstPart + "/" + fileName; //http://qa-ng.ramada.ameria.de/1.1/web
+
+		   return new URLRequest(url);
+		}
+
+		private function ordersLabelFunction(item:Object):String
+		{
+			var result:String = "";
+			var sDateStart:String = DateField.dateToString(DateField.stringToDate((item as OrderVO).sStartDate,GlobalSettings.DATE_SERVER_FORMAT),DateUtils.DATE_CLIENT_FORMAT);
+			var sDateEnd:String = DateField.dateToString(DateField.stringToDate((item as OrderVO).sEndDate,GlobalSettings.DATE_SERVER_FORMAT),DateUtils.DATE_CLIENT_FORMAT);
+			result = sDateStart + " - " + sDateEnd;
+
+			return result;
+		}
+
+		private function guestCmbLabelFunction(item:ProfilePersonalVO):String
+		{
+			return item.sName != null ? item.sName : ""  + " " + item.sSurname != null ? item.sSurname : "";
+		}
+
+		private function onLetterEditorCreated():void
+		{
+			txtLetter.fontFamilyArray = new Array("Arial","Segoe UI","Times New Roman","Verdana");
+		}
+	]]>
+</mx:Script>
+<mx:ViewStack id="vsSaveReservation"
+	 width="100%" height="100%">
+	<mx:HBox width="100%">
+		<mx:List id="lstOrders"
+			width="170" height="100%"
+			dataProvider="{reservation.aOrders}"
+			labelFunction="ordersLabelFunction"
+			selectedIndex="0"
+			itemClick="{changeOrderShow(event);}"/>
+		<mx:Form width="100%">
+			<mx:FormItem label="Caller Name:">
+				<mx:Label id="callerName"
+					text="{reservation.oCaller.oProfile.sName + ' ' + reservation.oCaller.oProfile.sSurname }"/>
+			</mx:FormItem>
+			<mx:FormItem label="Date of Arrival:">
+				<mx:Label id="doa"
+					text="{DateField.dateToString(DateField.stringToDate(order.sStartDate,GlobalSettings.DATE_SERVER_FORMAT),DateUtils.DATE_CLIENT_FORMAT)}"/>
+			</mx:FormItem>
+			<mx:FormItem label="Date of Departure:">
+				<mx:Label id="dop"
+					text="{DateField.dateToString(DateField.stringToDate(order.sEndDate,GlobalSettings.DATE_SERVER_FORMAT),DateUtils.DATE_CLIENT_FORMAT)}"/>
+			</mx:FormItem>
+			<mx:FormItem label="Guest Names:"
+				width="100%">
+				<mx:List id="gNames"
+					width="100%" height="60"/>
+			</mx:FormItem>
+			<mx:FormItem label="Number of Rooms:">
+				<mx:Label id="roomsCount"
+					text="{order.iRoomCount}"/>
+			</mx:FormItem>
+			<mx:FormItem label="Number of Adults:">
+				<mx:Label id="adultsCount"
+					text="{order.iTotalAdults}"/>
+			</mx:FormItem>
+
+			<mx:FormItem label="{'Children &lt; ' + model.hotelsModule.hotelTotalInfo.iChildAge1}">
+				<mx:Label
+					text="{order.iTotalChildBefore}"/>
+			</mx:FormItem>
+			<mx:FormItem label="{'Children &lt; ' + model.hotelsModule.hotelTotalInfo.iChildAge2}">
+				<mx:Label
+					text="{order.iTotalChildMiddle}"/>
+			</mx:FormItem>
+			<mx:FormItem label="{'Children &lt; ' + model.hotelsModule.hotelTotalInfo.iChildAge3}">
+				<mx:Label
+					text="{order.iTotalChildAbove}"/>
+			</mx:FormItem>
+
+			<mx:HRule width="100%"/>
+			<mx:FormItem label="Rate:">
+				<mx:Label text="{model.reservationModule.rateTypeLabel.getItemAt(order.iRateType)}"/>
+			</mx:FormItem>
+			<mx:FormItem label="Guarantee:">
+				<mx:Label id="guarantee" 
+					text="{	reservation.oGuarantee != null ? 
+							reservation.oGuarantee.iGuaranteeType == 1 ? 
+							'by Company' : reservation.oGuarantee.iGuaranteeType == 2 ? 
+							'by Travel Agency' : 
+							'by Guest' : 'no'}"/>
+			</mx:FormItem>
+			<mx:FormItem label="Confirmation Types:"
+				width="100%">
+				<mx:List id="cTypes"
+					dataProvider="{confTypesDP}"
+					rowCount="3" width="100%"/>
+			</mx:FormItem>
+			<mx:FormItem label="Total Price:">
+				<mx:Label id="totalPrice" text="{order.nPrice}"/>
+			</mx:FormItem>
+			<mx:FormItem label="Walk-In:">
+				<mx:CheckBox id="chkWalkIn"/>
+			</mx:FormItem>
+			<mx:FormItem label="Comment:" width="100%">
+				<mx:TextArea id="txtComment"
+					maxChars="512"
+					verticalScrollPolicy="on"
+					width="100%" height="60"/>
+			</mx:FormItem>
+		</mx:Form>
+	</mx:HBox>
+
+	<mx:VBox width="100%" height="100%" horizontalAlign="center" verticalAlign="middle">
+		<mx:RadioButton	id="rbCaller" label="Caller" selected="true"/>
+		<mx:RadioButton	id="rbGuest" label="Guest"/>
+		<mx:ComboBox id="cmbGuests"
+			enabled="{rbGuest.selected}"
+			dataProvider="{model.reservationModule.guestList}"
+			labelFunction="guestCmbLabelFunction"/>
+	</mx:VBox>
+
+	<mx:HBox width="100%" height="100%">
+		<!--mx:HTML id="txtLetter"
+			activate="true"
+			width="100%" height="100%"
+			complete="onhtmlTestLoadComplete(event)"
+			location="fckeditor/sample01.html"
+			verticalScrollPolicy="off" horizontalScrollPolicy="off"
+			/-->
+
+		<mx:RichTextEditor id="txtLetter"
+			creationComplete="{onLetterEditorCreated()}"
+			htmlText="{model.reservationModule.confirmationLetterBody}"
+			width="100%" height="100%"/>
+	</mx:HBox>
+</mx:ViewStack>
+
+
+
+	<mx:ApplicationControlBar width="100%">
+		<mx:Button id="btnApply"
+			label="{reservation.oConfirmation ? 'Next' : 'Finish'}" click="{handleApply()}"/>
+		<mx:Button id="btnPrev"
+			label="Back"
+			click="{vsSaveReservation.selectedIndex -= 1;}"
+			visible="{vsSaveReservation.selectedIndex > 1}"/>
+		<mx:Spacer width="100%"/>
+		<mx:Button id="btnCancel"
+			label="Close" click="{vsSaveReservation.selectedIndex > 0 ? finish() : closeWindow()}"/>
+	</mx:ApplicationControlBar>
+
+</BasePopupView>

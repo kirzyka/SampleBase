@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+<popup:DataPopupView
+	xmlns:popup="framework.view.components.popups.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:tabs="framework.view.pages.profiles.popups.individual.tabs.*"
+	title="{model.locale.Profiles_Individual_Popups_Update_Profile_Title}"
+	>
+	
+	<mx:Script>
+		<![CDATA[
+			
+			import services.vo.GlobalFunctions;
+			import mx.events.CloseEvent;
+			import services.business.profiles.ProfileDelegate;
+			import mx.utils.ObjectUtil;
+			import mx.controls.Alert;
+			import services.vo.GlobalStorage;						
+			import services.events.profiles.individual.SaveProfilesEvent;
+			import services.vo.GlobalSettings;
+			import framework.core.utils.UtilsMXML;
+			import services.controller.AppController;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.events.profiles.individual.GetWishesListEvent;
+			
+			// ================================================================= //
+			//                             VARIABLES                             //
+			// ================================================================= //
+			/**
+			 *  This property is index of editing profile by person into the
+			 *  list individual profiles.
+			 */
+			public var selectedIndex:int = -1;
+			
+			// ================================================================= //
+			//                        OVERRIDE METHODS                           //
+			// ================================================================= //
+			/**
+			 *  @override
+			 *  
+			 *  @see framework.view.components.popups.BasePopupView#data
+			 */
+			override public function set data(value:Object):void
+			{
+				super.data = value;
+				// update view for edit mode.
+				tabProfileInfo.data = data;
+				
+				btSaveProfile.enabled = true;
+			}
+			
+			// ================================================================= //
+			//                          COMMON METHODS                           //
+			// ================================================================= //
+			public function show():void
+			{
+				tabProfileInfo.location.show();
+			}			
+			
+			/**
+			 *  Thje handle to save profile by person.
+			 */
+			private function handleSaveProfile():void
+			{
+				GlobalFunctions.clearErrorTip();
+				
+				if (!tabProfileInfo.validate())
+				{
+					return;
+				}
+				
+				var event:SaveProfilesEvent = new SaveProfilesEvent(ProfileDelegate.SAVE_PROFILE);
+				event.hotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+				event.profile = tabProfileInfo.profile;
+				event.index = (isEdit) ? selectedIndex : model.profilesModule.individualPageList.length;
+				if (selectedIndex == -1) // for check in
+				{
+					event.callBack = callBack;
+					close();
+				}
+				else
+				{
+					event.callBack = close;
+				}
+				
+				CairngormEventDispatcher.getInstance().dispatchEvent(event);
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:TabNavigator
+		resizeToContent="true"
+		paddingBottom="10" paddingTop="0"
+		paddingRight="10" paddingLeft="10"
+		width="100%" height="100%">
+		<tabs:ProfilesIndividualTabView id="tabProfileInfo"/>
+		<tabs:ProfileIndividualLogTabView
+			label="Log"
+			enabled="false"/>
+	</mx:TabNavigator>
+	
+	<mx:HBox width="100%" horizontalAlign="right">		
+		<mx:Button id="btSaveProfile"
+			label="{model.locale.Global_Button_Save}"
+			click="handleSaveProfile()"
+			enabled="{UtilsMXML.and(tabProfileInfo.tiLastName.text != '',
+					tabProfileInfo.location.isFillFields)}"
+			width="{GlobalSettings.BUTTON_WIDTH_APPLY}"/>
+			<mx:Button
+			label="{model.locale.Global_Button_Cancel}"
+			click="close()"
+			width="{GlobalSettings.BUTTON_WIDTH}"/>
+	</mx:HBox>
+</popup:DataPopupView>

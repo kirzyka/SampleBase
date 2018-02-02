@@ -1,0 +1,366 @@
+<?xml version="1.0" encoding="utf-8"?>
+<BaseWindow
+	xmlns="framework.core.view.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:backend="framework.vo.backend.*"
+	xmlns:control="h2olib.control.*"
+	creationComplete="init()"
+	xmlns:controls="framework.view.components.controls.*">
+
+	<mx:Script>
+		<![CDATA[
+			import services.vo.hotels.HotelRoomObjectVO;
+			import framework.core.utils.UtilsMXML;
+			import mx.utils.ObjectUtil;
+			import h2olib.utils.DateUtils;
+			import mx.events.ListEvent;
+			import services.events.MsgEvent;
+			import services.vo.GlobalFunctions;
+			import services.events.houseKeeper.SetOutOfServiceEvent;
+			import services.vo.hotels.HotelRoomStatusVO;
+			import mx.events.FlexEvent;
+			import mx.controls.ComboBox;
+			import mx.controls.Alert;
+			import services.events.hotels.SetHotelRoomStatusEvent;
+			import services.vo.hotels.HotelStageObjectVO;
+			import services.events.hotels.GetHotelStageListEvent;
+			import services.vo.GlobalSettings;
+			import mx.events.DataGridEvent;
+			import mx.controls.dataGridClasses.DataGridColumn;
+			import services.vo.backend.RoomWithStatusVO;
+			import mx.binding.utils.ChangeWatcher;
+
+			import services.controller.AppController;
+			import services.events.backend.GetRoomListEvent;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import com.adobe.cairngorm.control.CairngormEvent;
+			import framework.model.AppModelLocator;
+
+			private var sCurrentDate:String;
+			
+			[Bindable]
+			public var oldStatus:HotelRoomStatusVO = new HotelRoomStatusVO();
+			
+			private function init():void
+			{
+				loadData();
+				CairngormEventDispatcher.getInstance().addEventListener(MsgEvent.NAME, refreshAfterNotification);
+			}
+
+			override public function show():void
+			{
+				if(isCreated)
+				{
+					loadData();
+				}
+			}
+			
+			public function refreshAfterNotification(evt:MsgEvent):void
+			{
+				var pre:GetHotelStageListEvent = new GetHotelStageListEvent(AppController.GET_HOTEL_STAGES);
+				CairngormEventDispatcher.getInstance().dispatchEvent(pre);
+			}
+
+			/**
+			 * Request data from server
+			 */			
+			private function loadData():void
+			{
+				sCurrentDate = DateField.dateToString(dfDate.selectedDate, GlobalSettings.DATE_SERVER_FORMAT );
+				CairngormEventDispatcher.getInstance().dispatchEvent(new CairngormEvent(AppController.HOUSEKEEPING_GET_STATUS_LIST_EVENT));
+
+				var pre:GetHotelStageListEvent = new GetHotelStageListEvent(AppController.GET_HOTEL_STAGES);
+				CairngormEventDispatcher.getInstance().dispatchEvent(pre);
+				ChangeWatcher.watch(model.hotelsModule,"stageDP",hotelStagesLoadCompleete);
+			}
+
+			/**
+			 * Select current floor
+			 */ 
+			private function hotelStagesLoadCompleete(event:Event):void
+			{
+				if(cmbFloors.selectedItem)
+				{
+					getRoomList((cmbFloors.selectedItem as HotelStageObjectVO).iStageId);
+				}
+			}
+			
+			/**
+			 * get list of rooms
+			 * @param id of stage 
+			 */			
+			private function getRoomList(stageID:int):void
+			{
+				var getRoomListEvent:GetRoomListEvent = new GetRoomListEvent(AppController.HOUSEKEEPING_GET_ROOM_LIST_EVENT);
+				getRoomListEvent.hotelStageId = stageID;
+				getRoomListEvent.sDate = sCurrentDate;
+				CairngormEventDispatcher.getInstance().dispatchEvent(getRoomListEvent);
+			}
+
+			/**
+			 * Label Functions //////////////////////////////////////////////////////////////////
+			 */ 
+			private function floorsLabelFunction(item:Object):String
+			{
+				var result:String = "";
+					result = (item as HotelStageObjectVO).sStageName;
+				return result;
+			}
+
+			private function dgRoomNumberLabelFunction(data:Object,column:DataGridColumn):String
+			{
+				var result:String = "";
+					result = (data as RoomWithStatusVO).oRoom != null ? (data as RoomWithStatusVO).oRoom.sRoomName : "";
+				return result;
+			}
+
+			private function dgRoomTypeLabelFunction(data:Object,column:DataGridColumn):String
+			{
+				var result:String = "";
+					result = (data as RoomWithStatusVO).oRoomType != null ? (data as RoomWithStatusVO).oRoomType.sShortName : "";
+				return result;
+			}
+
+			private function dgRoomStatusLabelFunction(data:Object,column:DataGridColumn):String
+			{
+				var result:String = "";
+					result = (data as RoomWithStatusVO).oHousekeepStatus != null ? (data as RoomWithStatusVO).oHousekeepStatus.sName : "";
+				return result;
+			}
+
+			private function dgRoomVacantLabelFunction(data:Object,column:DataGridColumn):String
+			{
+				var result:String = "";
+					result = (data as RoomWithStatusVO).sRoomStatus;
+				return result;
+			}
+
+			private function dgRoomReservationStatusLabelFunction(data:Object,column:DataGridColumn):String
+			{
+				var result:String = "";
+					result = (data as RoomWithStatusVO).oReservationStatus != null ? (data as RoomWithStatusVO).oReservationStatus.sName : "";
+				return result;
+			}
+
+			private function dgGuestNameLabelFunction(data:Object,column:DataGridColumn):String
+			{
+				var result:String = "";
+					result = (data as RoomWithStatusVO).sGuestName;
+				return result;
+			}
+			///////////////////////////////////////////////////////////////////////////////////////
+			/**
+			 * Request for change status of room
+			 */ 
+			private function dgItemEditEndHandler(event:DataGridEvent):void
+			{
+				if (oldStatus.sName != (event.itemRenderer.data as RoomWithStatusVO).oHousekeepStatus.sName)
+				{
+					var setHotelRoomStatusEvent:SetHotelRoomStatusEvent = new SetHotelRoomStatusEvent(AppController.HOUSEKEEPING_SET_STATUS_EVENT);
+					setHotelRoomStatusEvent.iRoomId = (event.itemRenderer.data as RoomWithStatusVO).oRoom.iRoomId;
+					setHotelRoomStatusEvent.oHotelRoomStatus = (event.itemRenderer.data as RoomWithStatusVO).oHousekeepStatus;
+					setHotelRoomStatusEvent.sDate = sCurrentDate;
+					CairngormEventDispatcher.getInstance().dispatchEvent(setHotelRoomStatusEvent);
+				}
+			}
+			
+			/**
+			 * Request for change status of room
+			 */ 
+			public function changeStatus(event:ListEvent):void
+			{
+				var currentItem:HotelRoomStatusVO = new HotelRoomStatusVO();
+				currentItem = ComboBox(event.target).selectedItem as HotelRoomStatusVO;
+				
+				var setHotelRoomStatusEvent:SetHotelRoomStatusEvent = new SetHotelRoomStatusEvent(AppController.HOUSEKEEPING_SET_STATUS_EVENT);
+				setHotelRoomStatusEvent.iRoomId = (dgRoomlist.selectedItem as RoomWithStatusVO).oRoom.iRoomId;
+				setHotelRoomStatusEvent.oHotelRoomStatus = currentItem;
+				setHotelRoomStatusEvent.sDate = sCurrentDate;
+				CairngormEventDispatcher.getInstance().dispatchEvent(setHotelRoomStatusEvent);
+			}
+			
+			/**
+			 * set rooms and dates - out of service
+			 */
+			private function setOOS():void
+			{
+				var roomIdArray:Array = [];
+				for (var i:int=0; i<dgRoomlist.selectedItems.length; i++)
+				{
+					roomIdArray.push((dgRoomlist.selectedItems[i] as RoomWithStatusVO).oRoom.iRoomId);
+				}
+				var evt:SetOutOfServiceEvent = new SetOutOfServiceEvent();
+				evt.aRoomList = roomIdArray;
+				evt.sDateFrom = DateField.dateToString(outOfServiceDateFrom.selectedDate, GlobalSettings.DATE_SERVER_FORMAT );
+				evt.sDateTo = DateField.dateToString(outOfServiceDateTo.selectedDate, GlobalSettings.DATE_SERVER_FORMAT );
+				evt.callBack = finishSetOOS;
+				CairngormEventDispatcher.getInstance().dispatchEvent(evt);
+			}
+			
+			/**
+			 * after set out of service
+			 */
+			private function finishSetOOS():void
+			{
+				getRoomList((cmbFloors.selectedItem as HotelStageObjectVO).iStageId);
+			}
+
+			private function dfDateChange():void
+			{
+				sCurrentDate = DateField.dateToString(dfDate.selectedDate, GlobalSettings.DATE_SERVER_FORMAT );
+				getRoomList((cmbFloors.selectedItem as HotelStageObjectVO).iStageId);
+			}
+
+		    public function addData(event:FlexEvent) : void
+		    {
+		    	ComboBox(event.target).dataProvider = model.houseKeeperModule.roomStatuses;
+		    }
+		    
+		    public function addOldState(event:FlexEvent) : void
+		    {
+		    	oldStatus = ComboBox(event.target).selectedItem as HotelRoomStatusVO;
+		    }
+		    
+		     /**
+		     *  ////////////////////////////////////sort of string/////////////////////////////
+		     */ 
+		     private function roomNumberSortCompareFunc(itemA:Object, itemB:Object):int {
+                /**
+                 * Perform a string sort. 
+                 */
+                return ObjectUtil.stringCompare((itemA as RoomWithStatusVO).oRoom.sRoomName, (itemB as RoomWithStatusVO).oRoom.sRoomName, true);
+            }
+            
+             private function roomTypeSortCompareFunc(itemA:Object, itemB:Object):int {
+                /**
+                 * Perform a string sort. 
+                 */
+                  return ObjectUtil.stringCompare((itemA as RoomWithStatusVO).oRoomType.sShortName, (itemB as RoomWithStatusVO).oRoomType.sShortName, true);
+            }
+            
+             private function roomStatusSortCompareFunc(itemA:Object, itemB:Object):int {
+                /**
+                 * Perform a string sort. 
+                 */
+                 return ObjectUtil.stringCompare((itemA as RoomWithStatusVO).oHousekeepStatus.sName, (itemB as RoomWithStatusVO).oHousekeepStatus.sName, true);
+            }
+            
+             private function statusVacationSortCompareFunc(itemA:Object, itemB:Object):int {
+                /**
+                 * Perform a string sort. 
+                 */
+                 return ObjectUtil.stringCompare((itemA as RoomWithStatusVO).sRoomStatus, (itemB as RoomWithStatusVO).sRoomStatus, true);
+            }
+                        
+             private function reservationSortCompareFunc(itemA:Object, itemB:Object):int {
+                /**
+                 * Perform a string sort. 
+                 */
+                 return ObjectUtil.stringCompare((itemA as RoomWithStatusVO).oReservationStatus.sName, (itemB as RoomWithStatusVO).oReservationStatus.sName, true);
+            }
+            
+             private function guestSortCompareFunc(itemA:Object, itemB:Object):int {
+                /**
+                 * Perform a string sort. 
+                 */
+                 return ObjectUtil.stringCompare((itemA as RoomWithStatusVO).sGuestName, (itemB as RoomWithStatusVO).sGuestName, true);
+            }
+
+		]]>
+		
+	</mx:Script>
+	<mx:HBox width="100%">
+		<mx:Label text="Floor:"/>
+		<control:ComboBoxEx id="cmbFloors"
+			labelFunction="floorsLabelFunction"
+			dataProvider="{model.hotelsModule.stageDP}"
+			change="{getRoomList((cmbFloors.selectedItem as HotelStageObjectVO).iStageId)}"/>
+		<mx:DateField id="dfDate"
+			restrict="0-9"
+			selectedDate="{model.businessDate}"
+			width="{GlobalSettings.WIDTH_DATE_FIELD}"
+			formatString="{GlobalSettings.DATE_FORMAT}"
+			disabledRanges="{[ {rangeEnd: DateUtils.dateSub(DateUtils.DAY_OF_MONTH, 1, model.businessDate)} ]}"
+			change="{dfDateChange()}"/>
+		<mx:Label text="Out of service date from:"/>
+			<mx:DateField id="outOfServiceDateFrom"
+				restrict="0-9"
+				selectedDate="{model.businessDate}"
+				width="{GlobalSettings.WIDTH_DATE_FIELD}"
+				disabledRanges="{[ {rangeEnd: DateUtils.dateSub(DateUtils.DAY_OF_MONTH, 1, model.businessDate)},{rangeStart: DateUtils.dateAdd(DateUtils.DAY_OF_MONTH, 1, outOfServiceDateTo.selectedDate)} ]}"
+				formatString="{GlobalSettings.DATE_FORMAT}"/>
+			<mx:Label text="Out of service date to:"/>
+			<mx:DateField id="outOfServiceDateTo"
+				restrict="0-9"
+				selectedDate="{model.businessDate}"
+				width="{GlobalSettings.WIDTH_DATE_FIELD}"
+				disabledRanges="{[ {rangeEnd: DateUtils.dateSub(DateUtils.DAY_OF_MONTH, 1, outOfServiceDateFrom.selectedDate)} ]}"
+				formatString="{GlobalSettings.DATE_FORMAT}"/>
+			<mx:Button label="Set out of service" 
+				enabled="{UtilsMXML.and((dgRoomlist.selectedIndex != -1), 
+										ObjectUtil.dateCompare(DateUtils.dateSub(DateUtils.DAY_OF_MONTH, 1, model.businessDate), outOfServiceDateFrom.selectedDate) != 1)  }" 
+				click="{setOOS()}"/>
+	</mx:HBox>
+	
+	<!--sortCompareFunction=""-->
+	<mx:DataGrid id="dgRoomlist"
+		dataProvider="{model.hotelsModule.roomDP}"
+		editable="true"
+		sortableColumns="true"		
+		width="100%" height="100%"
+		allowMultipleSelection="true">
+		<mx:columns>
+			<mx:DataGridColumn
+				headerText="Room Number"
+				labelFunction="dgRoomNumberLabelFunction"				
+				sortable="true"
+				sortCompareFunction="roomNumberSortCompareFunc"
+				editable="false"/>
+			<mx:DataGridColumn
+				headerText="Room Type"
+				labelFunction="dgRoomTypeLabelFunction"
+				sortCompareFunction="roomTypeSortCompareFunc"
+				sortable="true"
+				editable="false"/>
+			<mx:DataGridColumn
+				headerText="Room Status"
+				labelFunction="dgRoomStatusLabelFunction"
+				editorDataField="oHousekeepStatus"
+				sortCompareFunction="roomStatusSortCompareFunc"
+				dataField="oHousekeepStatus"
+				sortable="true"
+				editable="true">
+				<mx:itemEditor>
+					<mx:Component>
+						<controls:RoomStatusComboBoxItemEditor
+							labelField="sName"
+							selectedIndex="0"
+							enabled="{data.bEditStatus}"
+							oldStatus="{outerDocument.oldStatus}"
+							change="{outerDocument.changeStatus(event)}"
+							initialize="{outerDocument.addData(event)}"
+							creationComplete="{outerDocument.addOldState(event)}"/>
+					</mx:Component>
+				</mx:itemEditor>
+			</mx:DataGridColumn>
+			<mx:DataGridColumn
+				headerText="Occupied / Vacant"
+				labelFunction="dgRoomVacantLabelFunction"
+				sortCompareFunction="statusVacationSortCompareFunc"
+				sortable="true"
+				editable="false"/>
+			<mx:DataGridColumn
+				headerText="Reservation Status"
+				labelFunction="dgRoomReservationStatusLabelFunction"
+				sortCompareFunction="reservationSortCompareFunc"
+				sortable="true"
+				editable="false"/>
+			<mx:DataGridColumn
+				headerText="Guest Name"
+				labelFunction="dgGuestNameLabelFunction"
+				sortCompareFunction="guestSortCompareFunc"
+				sortable="true"
+				editable="false"/>
+		</mx:columns>
+	</mx:DataGrid>
+</BaseWindow>

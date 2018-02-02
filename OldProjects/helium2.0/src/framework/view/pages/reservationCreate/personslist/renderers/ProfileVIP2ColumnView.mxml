@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:HBox xmlns:mx="http://www.adobe.com/2006/mxml" 
+	horizontalAlign="center" 
+	width="100%" 
+	horizontalScrollPolicy="off">
+	
+	<mx:Script>
+		<![CDATA[
+			import services.vo.common.VipHotelVO;
+			import services.vo.profiles.ProfilePersonalVO;
+			import services.vo.GlobalStorage;
+			import mx.controls.DataGrid;
+			import mx.collections.ArrayCollection;
+			import services.vo.GlobalSettings;
+			
+			private var profile:ProfilePersonalVO;
+			
+			override public function set data(value:Object):void
+			{
+				//super.data = value;
+				
+				if(value as ProfilePersonalVO)
+				{
+					profile = value as ProfilePersonalVO;
+					vip2.selectedIndex = 0;
+					
+					for(var i:int=0;i<(vip2.dataProvider as ArrayCollection).length;i++)
+						if(((vip2.dataProvider as ArrayCollection).getItemAt(i) as VipHotelVO).lId == profile.lVipHotelId)
+							vip2.selectedIndex = i;
+							
+					profile.lVipHotelId = (vip2.selectedItem as VipHotelVO).lId;
+				}
+			}   
+			
+			private function getVIPHotelLabel(item:Object):String
+			{
+				return (item as VipHotelVO).sName;
+			}
+			
+			private function handleVIP2Change():void
+			{
+				profile.lVipHotelId = (vip2.selectedItem as VipHotelVO).lId;
+			}
+			
+			private function handleBoxComplete():void
+			{
+				(owner as DataGrid).invalidateList();
+			}
+			 
+		]]>
+	</mx:Script>
+	
+	<mx:ComboBox id="vip2" dataProvider="{GlobalStorage.vipHotel}"
+		labelFunction="getVIPHotelLabel" change="handleVIP2Change()" creationComplete="handleBoxComplete()"/>
+	
+</mx:HBox>

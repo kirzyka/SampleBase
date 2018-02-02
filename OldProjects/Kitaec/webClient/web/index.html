@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=0" />
+	<title>Kitaec</title>
+
+    <link rel="shortcut icon" type="image/x-icon" href="css/images/favicon.ico" />
+
+	<link href='http://fonts.googleapis.com/css?family=Lobster' rel='stylesheet' type='text/css'>
+	<link href='http://fonts.googleapis.com/css?family=Coda' rel='stylesheet' type='text/css' />
+	<link href='http://fonts.googleapis.com/css?family=Jura:400,500,600,300' rel='stylesheet' type='text/css' />
+
+	<link rel="stylesheet" href="http://kitaec-avaprojects.rhcloud.com/css/style.css" type="text/css" media="all" />
+	<link rel="stylesheet" href="http://kitaec-avaprojects.rhcloud.com/css/css_modules/calendar.css" type="text/css" media="all" />
+
+    <script src="http://kitaec-avaprojects.rhcloud.com/js/lib/jquery-1.8.0.min.js"></script>
+	<script src="http://kitaec-avaprojects.rhcloud.com/js/lib/jquery.touchwipe.1.1.1.js"></script>
+	<script src="http://kitaec-avaprojects.rhcloud.com/js/lib/jquery.carouFredSel-5.5.0-packed.js"></script>
+
+	<script src="http://kitaec-avaprojects.rhcloud.com/js/lib/jquery.cookie.js"></script>
+	<script src="http://kitaec-avaprojects.rhcloud.com/js/lib/functions.js"></script>
+    <script src="http://kitaec-avaprojects.rhcloud.com/js/lib/clndr.min.js"></script>
+    <script src="http://kitaec-avaprojects.rhcloud.com/js/lib/moment-with-langs.min.js"></script>
+    <script src="http://kitaec-avaprojects.rhcloud.com/js/lib/underscore-min.js"></script>
+	<script src="js/offer.js"></script>
+
+
+<!--[if lt IE 9]>
+<script src="js/lib/modernizr.custom.js"></script>
+<![endif]-->
+
+</head>
+<body>
+
+<!-- wrapper -->
+<div class="wrapper">
+
+        <div class="overlay"></div>
+
+<div class="popup-select" id="popup-select">
+    <ul class="brown-bg"></ul>
+</div>
+<div class="popup-date" id="popup-date">
+    <div class="calendar"></div>
+</div>
+
+<script id="calendarTemplate" type="text/template">
+    <div class="controls">
+        <div class="clndr-previous-button">&lsaquo;</div>
+        <div class="month"><%= month %></div>
+        <div class="clndr-next-button">&rsaquo;</div>
+    </div>
+    <div class="days-container">
+        <div class="days">
+            <div class="headers">
+                <% _.each(daysOfTheWeek, function(day) { %>
+                <div class="day-header"><%= day %></div>
+                <% }); %>
+            </div>
+            <% _.each(days, function(day) { %>
+            <div class="<%= day.classes %>"><%= day.day %></div>
+            <% }); %>
+        </div>
+    </div>
+</script>
+
+<header class="header" xmlns="http://www.w3.org/1999/html">
+    <div class="shell">
+        <div class="header-top brown-bg-2">
+            <a class="logo" title="Morkovka" href="/index.html">Morkovka</a>
+            <span class="ultra-orange logo-label">Morkovka</span>
+
+            <ul id="nav">
+                <li>
+                    <a id="nav-selected" href="#" class="">Вегано Хулигано</a>
+                    <ul id="nav-drop-list"><li><a href="#" class="nav-item undefined" data-id="undefined" title="<p>Жодна жива істота не є власністю людини, щоб та дозволяла собі обривати її життя, аби використати в їжу та як одяг, для експериментів заради “науки” та “краси”, або ж позбавляти волі для розваги чи вчиняти жорстоко по-іншому. Кожна жива істота прийшла у цей світ так само, як і людина, щоб прожити своє власне щасливе життя. Вивчіть наш сайт та дізнайтеся про це докладніше.</p>">Вегано Хулигано</a></li><li><a href="#" class="nav-item undefined" data-id="undefined" title="<p>Совершенство — основной ингредиент</p>
+<p>Рецепт успеха компании до гениального прост: команда профессионалов, качественные продукты плюс отличное современное оборудование. Иное дело — достичь совершенства каждого «ингредиента». Но с этим компания Fresh Factory прекрасно справилась.</p>
+<p>Fresh Factory, торговая марка компании ОАЗИС Соки Фреш, вышла на рынок в 2003 году. Сейчас компания занимает лидирующую позицию в сегменте свежих соков и планирует расширить сеть до национального масштаба. Осуществлению планов компании помогает принципиальный подход к производству, а именно:</p>
+<ul>
+<li>постоянный контроль качества ингредиентов и конечного продукта;</li>
+<li>полный отказ от консервантов, красителей и полуфабрикатов;</li>
+<li>направленность на абсолютное удовлетворение конечного потребителя;</li>
+<li>скорость и безусловное качество обслуживания.</li>
+</ul>
+<p>Если говорить об ассортименте, то соковые станции имеют в своем меню багатый выбор свежих соков, сезонных коктейлей из отборных, экологически чистых фруктов и овощей. Меню кафе гораздо шире. Кроме свежевыжатых соков, посетителям предлагают кондитерские изделия, мясо и хлеб собственного приготовления, салаты, супы, десерты, сезонные коктейли, сэндвичи, кофе и чай.</p>
+<p>Все торговые точки оборудованы самой современной техникой мирового уровня, имеются специальные системы учета и контроля качества продукции, получаемой конечным потребителем. Для повышения лояльности клиентов постоянно проводятся дисконтные и накопительные программы, маркетинговые акции.</p>
+<p>Итак, приветствуем на нашей фабрике свежести!</p>">FreshFactory</a></li></ul>
+                </li>
+            </ul>
+
+            <nav id="navigation">
+                <ul>
+                    <li class="active"><a href="/index.html">Меню</a></li>
+                    <li><a id="mnuSupLink" href="/supplier.html?sup=1">Поставщики</a></li>
+                    <li><a href="/rules.html">Правила</a></li>
+                    <li><a href="/contact.html">Контакты</a></li>
+                </ul>
+            </nav>
+
+            <div class="basket">
+                <div class="basket-icon"></div>
+                <p id="basketMsg">Корзина пуста</p>
+                <div id="order" class="button"><p>Заказать</p></div>
+            </div>
+
+            <div class="cl">&nbsp;</div>
+        </div>
+
+    </div>
+</header>
+
+        <!-- shell -->
+        <div class="shell">
+            <!-- main -->
+            <div class="main">
+
+                <section class="post">
+
+                    <div id="pb" class="progress-box">
+                        <div class="left">
+                            <div class="location">
+                                <span class="office"></span>
+                                <p id="selectedAddress" class="address">Бизнес центр Ирва</p>
+                                <a href="#" class="open-popup-location" rel="popup-select">Другой адрес (1)</a>
+                            </div>
+                            <div class="date">
+                                <span id="selectedDate" class="day">23</span>
+                                <p id="selectedMonth" class="month">апреля</p>
+                                <a href="#" class="open-popup-date" rel="popup-select">Другой день</a>
+                            </div>
+                            <div class="time">
+                                <span class="clock"></span>
+                                <p id="selectedTime" class="value">11:00</p>
+                                <a href="#" class="open-popup-time" rel="popup-select">Другое время (3)</a>
+                            </div>
+
+                        </div>
+                        <div class="middle">
+                            <div class="progress-bar stripes"><span class="green-bg" style="width: 0%;"></span></div>
+                            <div class="msg">До БЕСПЛАТНОЙ доставки осталось сделать приблизительно 13 заказов.</div>
+                        </div>
+                        <div class="right">
+                            <div class="info">
+                                <p>Cтоимость доставки вашего заказа:</p>
+                                <div class="price">50</div><span class="currency">грн.</span>
+                                <p class="status">До бесплатной доставки осталось: 6 заказов</p>
+                            </div>
+                        </div>
+                        <div class="cl">&nbsp;</div>
+                    </div>
+
+                </section>
+
+                <!-- cols -->
+                <section id="menuOffers" class="cols"><div class="offerWrapper"><div class="offer" data-title="Яблочный пирог" data-price="10" data-offer-id="2"><p class="title">Яблочный пирог</p><p class="description">Очень вкусная выпечка. Яблочный пирог или запеканка.</p><a class="button" href="#"><p>Хочу</p></a></div><div class="price"><p class="amount">10</p><p>грн.</p></div></div><div class="offerWrapper"><div class="offer" data-title="Борщ + салат" data-price="10" data-offer-id="4"><p class="title">Борщ + салат</p><p class="description">Выгодное предложение. Вместе вкуснее! Пей борщ, хрусти салат!</p><a class="button" href="#"><p>Хочу</p></a></div><div class="price"><p class="amount">10</p><p>грн.</p></div></div><div class="offerWrapper"><div class="offer" data-title="Пельмени" data-price="18" data-offer-id="5"><p class="title">Пельмени</p><p class="description">Сибирские пельмени в огуречном соусе. Состав: Тесто,мясо,соус,гель для душа</p><a class="button" href="#"><p>Хочу</p></a></div><div class="price"><p class="amount">18</p><p>грн.</p></div></div><div class="offerWrapper"><div class="offer" data-title="Помидоры рубленые" data-price="45" data-offer-id="6"><p class="title">Помидоры рубленые</p><p class="description">Помидоры, рубленые комнатным тапком. Состав: Помидор,тапок,вкус</p><a class="button" href="#"><p>Хочу</p></a></div><div class="price"><p class="amount">45</p><p>грн.</p></div></div><div class="offerWrapper"><div class="offer" data-title="Русских дух" data-price="4000" data-offer-id="7"><p class="title">Русских дух</p><p class="description">Русских дух (пахнет Русью). Состав: Калинка,малинка,матрёшка,березка</p><a class="button" href="#"><p>Хочу</p></a></div><div class="price"><p class="amount">4000</p><p>грн.</p></div></div><div class="offerWrapper"><div class="offer" data-title="Компот и яблочный пирог" data-price="15" data-offer-id="8"><p class="title">Компот и яблочный пирог</p><p class="description">Ешь пирог, пей компот! Веселей, эгегей!</p><a class="button" href="#"><p>Хочу</p></a></div><div class="price"><p class="amount">15</p><p>грн.</p></div></div><div class="cl">&nbsp;</div></section>
+                <!-- end of cols -->
+
+                <section class="content">
+                    <h2>Кто мы такие</h2>
+                    <p>Maecenas vel est sit amet massa dignissim <span>hendrerit</span> sit amet ac ante. Praesent dapibus neque vel enim adipiscing vel feugiat leo luctus. Nulla semper varius nulla, eu euismod turpis volutpat in. Nullam neque diam, facilisis vitae suscipit eu, gravida ut tortor. Duis faucibus lectus nec metus elementum ac <a href="#">adipiscing</a> lorem consectetur. Nulla dui ipsum, <em>iaculis a mollis vel</em>, sodales a ipsum. Nam tincidunt consequat lacus eget imperdiet. Nullam posuere convallis libero, vitae lobortis libero fermentum eu. Ut id venenatis lectus. <strong>Donec eget</strong> quam et dolor facilisis commodo nullam tempor aliquet vulputate phasellus ac libero sed justo luctus vehicula.<br> <a href="#" class="more">meet the team</a></p>
+                </section>
+
+                <div class="socials">
+                    <p>Расскажи о нас своим друзьям</p>
+
+                    <ul>
+                        <li><a href="#" class="facebook-ico">facebook-ico</a></li>
+                        <li><a href="#" class="twitter-ico">twitter-ico</a></li>
+                        <li><a href="#" class="skype-ico">skype-ico</a></li>
+                        <li><a href="#" class="rss-ico">rss-ico</a></li>
+                    </ul>
+                </div>
+            </div>
+            <!-- end of main -->
+        </div>
+        <!-- end of shell -->   
+
+        <div id="footer">
+    <!-- shell -->
+    <div class="shell">
+        <!-- footer-cols -->
+        <div class="footer-cols">
+            <div class="col">
+                <h2>ПОСТАВЩИКИ</h2>
+                <ul>
+                    <li><a href="#">Вегано Хулигано</a></li>
+                    <li><a href="#">Фреш Фактори</a></li>
+                </ul>
+            </div>
+
+            <div class="col">
+                <h2>ПРАВИЛА</h2>
+                <ul>
+                    <li>не жлобись</li>
+                    <li>не голодай</li>
+                    <li>не молчи</li>
+                    <li>не забывай</li>
+                </ul>
+            </div>
+
+            <div class="col">
+                <h2>КОНТАКТЫ</h2>
+                <p>Email: <a href="#">info@kitaec.com</a></p>
+                <p>Phone: 655-606-605</p>
+                <p>Address: Kiev City</p>
+            </div>
+
+            <div class="col">
+                <h2>ПАРТНЁРСТВО</h2>
+                <p>мы открыты для ваших предложений. будем рады сотрудничеству с качественным поставщиком еды, который не делает миксы из отходов, не промывает рис узваром и не фарширует курицу колбасой из позавчерашней солянки.</p>
+            </div>
+
+            <div class="cl">&nbsp;</div>
+        </div>
+        <!-- end of footer-cols -->
+        <div class="footer-bottom">
+            <div class="footer-nav">
+                <ul>
+                    <li><a href="index.html">Меню</a></li>
+                    <li><a href="order.html">Мой заказ</a></li>
+                    <li><a href="supplier.html">Поставщики</a></li>
+                    <li><a href="rules.html">Правила</a></li>
+                    <li><a href="contact.html">Контакты</a></li>
+                </ul>
+            </div>
+            <p class="copy">Copyright © 2014<span>|</span>Design by: <a href="http://kitaec.com" target="_blank">www.Kitaec.com</a></p>
+            <div class="cl">&nbsp;</div>
+        </div>
+    </div>
+    <!-- end of shell -->
+</div>
+
+    </div>
+	<!-- end of wrapper -->
+
+</body>
+</html>

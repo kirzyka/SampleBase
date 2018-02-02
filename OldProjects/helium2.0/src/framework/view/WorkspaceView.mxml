@@ -1,0 +1,311 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:vat="framework.view.pages.vat.*"
+	xmlns:roomSettings="framework.view.pages.roomSettings.*"
+	xmlns:roomTypes="framework.view.pages.roomTypes.*"
+	xmlns:hotels="framework.view.pages.hotels.*"
+	xmlns:bar="framework.view.pages.bar.*"
+	xmlns:components="framework.view.components.*"
+	xmlns:reservation="framework.view.pages.reservationCreate.*"
+	xmlns:profiles="framework.view.pages.profiles.*"
+	xmlns:checkIn="framework.view.pages.checkIn.*"
+	xmlns:items="framework.view.pages.items.*"
+	xmlns:reports="framework.view.pages.reports.*"
+	xmlns:rates="framework.view.pages.rates.*"
+	xmlns:inHouse="framework.view.pages.inHouse.*"
+	xmlns:miscellaneous="framework.view.pages.miscellaneous.*"
+	xmlns:defaultPage="framework.view.pages.defaultPage.*"
+	xmlns:security="framework.view.pages.security.*"
+	xmlns:houseKeeper="framework.view.pages.houseKeeper.*"
+	xmlns:CheckOut="framework.view.pages.CheckOut.*"
+	xmlns:dashboardPage="framework.view.pages.dashboardPage.*"
+	xmlns:checkOut="framework.view.pages.checkOut.*"
+	xmlns:search="framework.view.pages.reservationEdit.*"
+	xmlns:cashShift="framework.view.pages.cashShift.*"
+	xmlns:businessDay="framework.view.pages.businessDay.*"
+	xmlns:invoiceManagment="framework.view.pages.invoiceManagment.*"
+	width="100%" height="100%"
+	verticalGap="0"
+	creationComplete="handleInit()">
+	
+	<mx:Script>
+		<![CDATA[
+			import framework.view.pages.hotels.data.HotelStatus;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.controller.AppController;
+			import framework.core.view.BaseWindow;
+			import services.vo.cashShift.CashierVO;
+			import mx.controls.DateField;
+			import services.events.common.PageEvent;
+			import mx.events.FlexEvent;
+			import framework.core.utils.UtilsGolobal;
+			import mx.events.ItemClickEvent;
+			import mx.core.Container;
+			import mx.containers.Panel;
+			import framework.core.utils.UtilsMXML;
+			import framework.core.utils.UtilsSecurity;
+			import framework.managers.PopUpManagerExt;
+			import mx.core.UIComponent;
+			import mx.containers.TitleWindow;
+			import mx.containers.Tile;
+			import mx.controls.Alert;
+			import services.vo.GlobalFunctions;
+			import mx.binding.utils.BindingUtils;
+			import mx.controls.Button;
+			import framework.view.components.NavigationPlaceNameView;
+			import framework.model.AppModelLocator;
+			import services.vo.GlobalSettings;
+			
+			
+			[Bindable]
+			private var model:AppModelLocator = AppModelLocator.getInstance();
+			
+			private function handleInit():void
+			{
+				stage.addEventListener(KeyboardEvent.KEY_DOWN, focus);
+				BindingUtils.bindSetter(updateModuleIndex, model, "backendIndex");
+				//BindingUtils.bindSetter(NavigationPlace.handleInit, model, "backendIndex");
+				for (var i:Number=0; i<model.backendModuls.length; i++)
+				{
+					BindingUtils.bindSetter(NavigationPlace.handleInit, model.backendModuls[i], "currPage");
+				}
+				idNavigation.addEventListener(ItemClickEvent.ITEM_CLICK, showPage);
+				
+				CairngormEventDispatcher.getInstance().addEventListener(PageEvent.NAME, handleOpenPage);
+			}
+			
+			private function handleOpenPage(e:PageEvent):void
+			{
+				var page:BaseWindow = pages[e.index] as BaseWindow
+				setPage(page);
+				trace("Open Page: " + page.label);
+				
+				for(var i:int = 0; i < idNavigation.dataProvider.length; i++)
+				//for each(var o:Object in idNavigation.tabBar.dataProvider)
+				{
+					var obj:Object = idNavigation.dataProvider[i];
+					if (obj["label"] == page.label)
+					{
+						idNavigation.selectedIndex = i;
+						break;
+					}
+				}
+			}
+			
+			private function updateModuleIndex(arg:Number):void
+			{
+				if (model.backendIndex == 0 ) return;
+				backend.selectedIndex = model.backendIndex;
+				for each(var page:BaseWindow in pages)
+				{
+					if(page.label == model.backendLabel)
+					{
+						setPage(page);
+					}
+				}
+				model.backendIndex = 0;
+			}
+
+			public function setState():void
+			{
+				backend.removeAllChildren();
+				model.workspaceViewList = new Array();
+				
+				for each(var page:BaseWindow in pages)
+				{
+					try {
+						var obj:Object = new Object();
+						obj.label = page.label;
+						obj.enabled = page.enabled;
+						
+						if(model.isFrontend)
+						{
+							if(page.viewType == BaseWindow.VIEW_FRONTEND || page.viewType == BaseWindow.VIEW_BOTHEND)
+							{
+								model.workspaceViewList.push(obj);
+							}
+						}
+						else
+						{
+							if(page.viewType == BaseWindow.VIEW_BACKEND || page.viewType == BaseWindow.VIEW_BOTHEND)
+							{
+								model.workspaceViewList.push(obj);
+							}
+						}
+					} catch(e:Error){}
+				}
+				idNavigation.dataProvider = model.workspaceViewList;
+				backend.addChild(dashboardPage);
+				backend.selectedIndex = 0;
+				model.moduleView = backend;
+			}
+			
+			private function focus(ew:KeyboardEvent):void
+			{
+				if (systemManager.numModalWindows != 0) return;
+				
+				/*if ((ew.shiftKey) && ((ew.keyCode > 48) && (ew.keyCode < 58)))
+				{
+					var index:int = ew.keyCode - 49;
+					if ((backend.getChildAt(index) as UIComponent).enabled)
+					{
+						model.backendIndex = backend.selectedIndex = index;
+					}
+				}*/
+			}
+			
+			private function showPage(event:ItemClickEvent):void
+			{
+				for each(var page:BaseWindow in pages)
+				{
+					if(page.label == event.label)
+					{
+						if (event.label == "Rates" || event.label == "Reports")
+						{
+							if (UtilsMXML.and(
+							model.hotelsModule.hotelTotalInfo.iHotelId != 0,
+							UtilsMXML.or (model.hotelsModule.hotelTotalInfo.iHotelStatusId == HotelStatus.CODE_COMPLETE,
+							model.hotelsModule.hotelTotalInfo.iHotelStatusId == HotelStatus.CODE_ROOM_TYPE_COMPLETE)
+							))
+							{
+								setPage(page);
+							}
+							else
+							{
+								Alert.show("Fully configurated hotel should be selected.");
+								//backend.selectedIndex = 0;
+								var pageEvent:PageEvent = new PageEvent();
+								pageEvent.index = 0; // 0 - Dashboard
+								pageEvent.dispatch();
+							}
+						}
+						else
+						{
+							setPage(page);
+						}
+					}
+				}
+			}
+			
+			private function setPage(page:BaseWindow):void
+			{
+				try
+				{
+					backend.selectedIndex = backend.getChildIndex(page);
+					page.show();
+				}
+				catch(e:Error)
+				{
+					if(page && page.isCreated)
+					{
+						page.dispatchEvent(new FlexEvent(FlexEvent.CREATION_COMPLETE));
+						page.show();
+					}
+					else
+					{
+						page.addEventListener(FlexEvent.CREATION_COMPLETE, onPageCreated);
+					}
+					backend.addChild(page);
+					backend.selectedIndex = backend.getChildIndex(page);
+				}
+			}
+			
+			private function onPageCreated(e:FlexEvent):void
+			{
+				(e.target as BaseWindow).removeEventListener(FlexEvent.CREATION_COMPLETE, onPageCreated);
+				(e.target as BaseWindow).show();
+			}
+		]]>
+	</mx:Script>
+
+	<!--<mx:ToggleButtonBar dataProvider="{backend}" width="100%" buttonHeight="40" itemClick="handleChange()"/>-->
+	<mx:Array id="pages">
+		<dashboardPage:DashboardPageView id="dashboardPage"
+			label="Dashboard"
+			viewType="{BaseWindow.VIEW_BOTHEND}" styleName="PageBig"/>
+		<hotels:HotelMainView id="hotels"
+			label="Hotels"
+			enabled="{UtilsSecurity.isHasPermission(UtilsSecurity.VIEW_HOTEL_LIST)}"
+			viewType="{BaseWindow.VIEW_BACKEND}"/>
+		<roomSettings:RoomSettingsView id="roomSettings"
+			label="Room Settings"
+			viewType="{BaseWindow.VIEW_BACKEND}"
+			enabled="{/* UtilsMXML.and(
+						model.hotelsModule.currPage == 0, */
+						UtilsSecurity.isHasPermission(UtilsSecurity.VIEW_ROOM_SETTINGS)/* ) */}"/>
+		<roomTypes:RoomTypesView id="roomTypes"
+			label="Room Types"
+			viewType="{BaseWindow.VIEW_BACKEND}"
+			enabled="{/* UtilsMXML.and(
+						model.hotelsModule.currPage == 0, */
+						UtilsSecurity.isHasPermission(UtilsSecurity.VIEW_ROOM_TYPES)/* ) */}"/>
+		<items:ItemsModuleView id="itemsGroups"
+			label="Transactions"
+			viewType="{BaseWindow.VIEW_BACKEND}" />
+	 	<rates:RatesMainView id="rates"
+			label="Rates"
+			viewType="{BaseWindow.VIEW_BACKEND}"
+			enabled="{UtilsMXML.and(
+						model.hotelsModule.hotelTotalInfo.iHotelId != 0,
+						UtilsMXML.or (model.hotelsModule.hotelTotalInfo.iHotelStatusId == HotelStatus.CODE_COMPLETE,
+						model.hotelsModule.hotelTotalInfo.iHotelStatusId == HotelStatus.CODE_ROOM_TYPE_COMPLETE)
+						)}"/>
+		<miscellaneous:MiscellaneousMainView id="miscellaneous"
+			label="Miscellaneous"
+			viewType="{BaseWindow.VIEW_BACKEND}"
+			enabled="{UtilsSecurity.isHasOneFromPermissions(UtilsSecurity.VIEW_SALUTATION,UtilsSecurity.VIEW_LANGUAGE)}"/>
+		<security:SecurityManager id="securityManager"
+			label="Security"
+			viewType="{BaseWindow.VIEW_BACKEND}"
+			/>
+		
+		<reservation:ReservationPage id="reservation"
+			label="Reservation"
+			viewType="{BaseWindow.VIEW_FRONTEND}"/>
+		<profiles:ProfilesModuleView id="profiles"
+			label="Profiles"
+			viewType="{BaseWindow.VIEW_FRONTEND}"
+			enabled="{UtilsSecurity.isHasPermission(UtilsSecurity.VIEW_PROFILES)}"/>
+		<checkIn:CheckInView id="checkIn"
+			label="Check In"
+			viewType="{BaseWindow.VIEW_FRONTEND}"
+			enabled="{model.isBusinessDayOpen}"/>
+		<inHouse:InHouseView id="inHouse"
+			label="In House"
+			viewType="{BaseWindow.VIEW_FRONTEND}"/>
+		<checkOut:CheckOutModuleView id="checkOut"
+			label="Check Out"
+			viewType="{BaseWindow.VIEW_FRONTEND}"/>
+		<houseKeeper:HouseKeeperView id="houseKeeper"
+			viewType="{BaseWindow.VIEW_FRONTEND}"
+			label="House Keeper"/>
+		<search:ReservationSearchView id="reservationSearch"
+			viewType="{BaseWindow.VIEW_FRONTEND}"
+			label="Search"/>
+		<cashShift:CashShift id="cashShift"
+			viewType="{BaseWindow.VIEW_FRONTEND}"
+			label="Cash Shift"/>
+		<businessDay:BusinessDayView id="bdc"
+			viewType="{BaseWindow.VIEW_FRONTEND}"
+			label="Business Day"/>	
+		<reports:ReportsView id="reports"
+			label="Reports"
+			viewType="{BaseWindow.VIEW_FRONTEND}"
+			enabled="{UtilsMXML.and(
+						model.hotelsModule.hotelTotalInfo.iHotelId != 0,
+						UtilsMXML.or (model.hotelsModule.hotelTotalInfo.iHotelStatusId == HotelStatus.CODE_COMPLETE,
+						model.hotelsModule.hotelTotalInfo.iHotelStatusId == HotelStatus.CODE_ROOM_TYPE_COMPLETE)
+						)}"/>
+		<invoiceManagment:InvoiceManagmentView id="invoiceManagmentView"
+			viewType="{BaseWindow.VIEW_FRONTEND}"
+			label="Invoices"/>
+	</mx:Array>
+	
+	<components:NavigationTabBarView id="idNavigation"
+		width="100%"/>
+	<components:NavigationPlaceNameView id="NavigationPlace"
+		width="100%"/>
+	
+	<mx:ViewStack id="backend"
+		width="100%" height="100%"/>
+</mx:VBox>

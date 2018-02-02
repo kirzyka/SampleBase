@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<view:VSubWindow
+	xmlns:view="framework.core.view.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:hotels="framework.view.pages.hotels.*"
+	creationComplete="init()">
+	
+	<mx:Script>
+		<![CDATA[
+			import services.business.items.ItemsDelegate;
+			import services.vo.GlobalSettings;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			
+			import services.controller.AppController;
+			import services.events.items.itemGroups.SaveSystemGroupEvent;
+			import framework.model.AppModelLocator;
+			import services.vo.items.ItemsGroupVO;
+			
+			import mx.events.CloseEvent;
+			import framework.managers.PopUpManagerExt;
+			
+			// ==================================================================== //
+			//                     COMMON FUNCTIONS FOR MODULE                      //
+			// ==================================================================== //
+			/**
+			 *  The handler to show current popup view.
+			 */
+			private function init():void
+			{
+				focusManager.setFocus(tiGroupName);
+			}
+			/**
+			 *  The handle to save new system main group.
+			 */
+			private function handleSave():void
+			{
+				// make system group item
+				var group:ItemsGroupVO = new ItemsGroupVO();
+				group.sName = tiGroupName.text;
+				// remote call to save system group
+				var event:SaveSystemGroupEvent = new SaveSystemGroupEvent(ItemsDelegate.SAVE_SYSTEM_GROUP);
+				event.group = group;
+				event.callBack = close;
+				CairngormEventDispatcher.getInstance().dispatchEvent(event);
+			}
+			/**
+			 *  The close handler for popup.
+			 */
+			private function close():void
+			{
+				owner.dispatchEvent(new CloseEvent(CloseEvent.CLOSE));
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:Form width="100%">
+		<mx:FormItem
+			label="{model.locale.Items_Groups_Popups_AddGroup_MainGroup_Name}:"
+			width="100%">
+			<mx:TextInput id="tiGroupName"
+				maxChars="25"
+				enter="handleSave()"
+				width="100%"/>
+		</mx:FormItem>
+	</mx:Form>
+	<mx:HBox width="100%">
+		<mx:Button
+			label="{model.locale.Global_Button_Save}"
+			click="handleSave()"
+			enabled="{tiGroupName.text.length != 0}"
+			width="{GlobalSettings.BUTTON_WIDTH_APPLY}"/>
+		<mx:Spacer width="100%" />
+		<mx:Button
+			label="{model.locale.Global_Button_Cancel}"
+			click="close()"
+			width="{GlobalSettings.BUTTON_WIDTH}"/>
+	</mx:HBox>
+</view:VSubWindow>

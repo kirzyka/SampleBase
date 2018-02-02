@@ -1,0 +1,223 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:HBox xmlns:mx="http://www.adobe.com/2006/mxml"
+		width="100%" height="300"
+		borderStyle="solid"	borderThickness="1"
+		initialize="init()"
+		creationComplete="creationCompleteHandler()" xmlns:control="h2olib.control.*">
+	<mx:Script>
+		<![CDATA[
+			import framework.core.utils.UtilsGolobal;
+			import framework.view.pages.reservationCreate.caller.FindTAProfilesPopupView;
+			import services.vo.common.SourceCodesVO;
+			import services.vo.common.MarketCodesVO;
+			import mx.managers.PopUpManagerChildList;
+			import services.vo.profiles.ProfileCallerVO;
+			import mx.core.Application;
+			import services.vo.profiles.ProfilePersonalVO;
+			import services.vo.profiles.CompanyProfileVO;
+			import framework.view.pages.reservationCreate.popups.FindProfilesPopupViewForReservation;
+			import framework.view.pages.reservationCreate.caller.FindCompanyProfilesPopupView;
+			import framework.managers.PopUpManagerExt;
+			import services.vo.GlobalStorage;
+			import framework.model.AppModelLocator;
+
+			private var _caller:ProfileCallerVO;
+			
+			[Bindable]
+			private var emptyMarketCode:MarketCodesVO = new MarketCodesVO();
+			[Bindable]
+			private var emptySourceCode:SourceCodesVO = new SourceCodesVO();
+			private function init():void
+			{
+				emptyMarketCode.sDescription = "none";
+				emptySourceCode.sDescription = "none";
+			}
+
+			[Bindable]
+			public function get caller():ProfileCallerVO
+			{
+				if(_caller != null)
+				{
+					_caller.iMarketCodeId = (cmbMarketCodes.selectedItem as MarketCodesVO).iId;
+					_caller.oMarketCode = cmbMarketCodes.selectedItem as MarketCodesVO;
+					_caller.iSourceCodeId = (cmbSourceCodes.selectedItem as SourceCodesVO).iId;
+					_caller.oSourceCode = cmbSourceCodes.selectedItem as SourceCodesVO;
+					
+				}
+				
+				return _caller;
+			}
+
+			public function set caller(value:ProfileCallerVO):void
+			{
+				_caller = value;
+				//Inicialize
+				cmbMarketCodes.setItemByField("iId",_caller.iMarketCodeId);
+				cmbSourceCodes.setItemByField("iId",_caller.iSourceCodeId);
+			}
+
+			/*[Bindable]
+			public var callerFirstName:String;
+			[Bindable]
+			public var callerLastName:String;
+			[Bindable]
+			public var callerTel:String;
+			[Bindable]
+			public var callerCompany:CompanyProfileVO;*/
+
+	 		private function creationCompleteHandler():void
+	 		{
+				
+	 		}
+
+			private function onLastNameChange(event:Event):void
+			{
+				caller.oProfile.sSurname = txtLastName.text;
+				caller.oProfile.lId = 0;
+			}
+
+			private function onFirstNameChange(event:Event):void
+			{
+				caller.oProfile.sName = txtFirstName.text;
+				caller.oProfile.lId = 0;
+			}
+
+			private function onPhoneChange(event:Event):void
+			{
+				if(caller.oProfile.lId == 0)
+				{
+					caller.oProfile.phone = txtCallerPhone.text;
+				}
+			}
+
+			private function addCallerProfileHandler():void {
+				var pop:FindProfilesPopupViewForReservation = PopUpManagerExt.createPopUp(AppModelLocator.getInstance().owner.mainView, FindProfilesPopupViewForReservation) as FindProfilesPopupViewForReservation;
+				pop.callBack = setCallerProfile;
+				PopUpManagerExt.centerPopUp( pop );
+			}
+
+			private function addCompanyHandler():void
+			{
+				var pop:FindCompanyProfilesPopupView = PopUpManagerExt.createPopUp(AppModelLocator.getInstance().owner.mainView, FindCompanyProfilesPopupView) as FindCompanyProfilesPopupView;
+				pop.title = "Company";
+				pop.callBack = setCallerCompany;
+				PopUpManagerExt.centerPopUp(pop);
+			}
+
+			private function addTravelAgencyHandler():void {
+				var pop:FindTAProfilesPopupView = PopUpManagerExt.createPopUp(AppModelLocator.getInstance().owner.mainView, FindTAProfilesPopupView) as FindTAProfilesPopupView;
+				pop.title = "Travel Agency";
+				pop.callBack = setCallerTravelAgency;
+				PopUpManagerExt.centerPopUp(pop);
+			}
+
+			private function setCallerProfile(profile:ProfilePersonalVO):void {
+				caller = new ProfileCallerVO();
+				caller.oProfile = profile;
+				caller.iCompanyId = profile.lCompanyId;
+				caller.sCompanyName = profile.sCompanyName;
+				txtCallerPhone.text = caller.oProfile.phone;
+			}
+
+			private function setCallerCompany(company:CompanyProfileVO,isTravelAgency:Boolean = false):void {
+				caller.iCompanyId = company.lMainId;
+				caller.sCompanyName = company.sName;
+				caller.bIsTravelAgency = isTravelAgency;
+				//callerCompany = company;
+				txtCompany.text = company.sName;
+			}
+
+			private function setCallerTravelAgency(company:CompanyProfileVO,isTravelAgency:Boolean = true):void {
+				caller.iTravelAgencyId = company.lMainId;
+				caller.sTravelAgencyName = company.sName;
+				caller.bIsTravelAgency = isTravelAgency;
+				//callerCompany = company;
+				txtTravelAgency.text = company.sName;
+			}
+
+			private function getMarketCodeLabel(item:MarketCodesVO):String
+			{
+				return /* item.sName + "-" +  */item.sDescription;
+			}
+
+			private function getSourceCodeLabel(item:SourceCodesVO):String
+			{
+				return /* item.sName + "-" +  */item.sDescription;
+			}
+
+
+		]]>
+	</mx:Script>
+	<mx:Form>
+		<mx:FormItem label="Name:"
+			required="true">
+			<mx:HBox>
+				<mx:TextInput id="txtLastName"
+					change="{onLastNameChange(event)}"
+					text="{caller.oProfile ? caller.oProfile.sSurname : ''}"
+					
+					maxChars="50"
+					maxWidth="150"/>
+				<mx:Button id="btnCallerProfileAdd"
+					label="Profile"
+					click="{addCallerProfileHandler()}"/>
+			</mx:HBox>
+		</mx:FormItem>
+		<mx:FormItem label="First Name:">
+			<mx:TextInput id="txtFirstName"
+				change="{onFirstNameChange(event)}"
+				text="{caller.oProfile ? caller.oProfile.sName : ''}"
+				maxChars="50"
+				maxWidth="150"/>
+		</mx:FormItem>
+		<mx:FormItem label="Caller Phone:" >
+			<mx:TextInput id="txtCallerPhone"
+				enabled="false"
+				change="{onPhoneChange(event)}"
+				maxChars="20" restrict="0-9\-\+()"
+				maxWidth="150"/>
+		</mx:FormItem>
+	</mx:Form>
+	<mx:Form>
+		<mx:FormItem label="Company:">
+			<mx:HBox horizontalAlign="center"
+				verticalAlign="middle">
+				<mx:TextInput id="txtCompany"
+					text="{caller.sCompanyName}"
+					editable="true"
+					maxChars="50"
+					maxWidth="150"/>
+				<mx:Button id="btnAddCompany"
+					label="Profile"
+					click="{addCompanyHandler()}"/>
+			</mx:HBox>
+		</mx:FormItem>
+		<mx:FormItem label="Travel Agency:">
+			<mx:HBox horizontalAlign="center"
+				verticalAlign="middle">
+				<mx:TextInput id="txtTravelAgency"
+					text="{caller.sTravelAgencyName}"
+					editable="true"
+					maxChars="50"
+					maxWidth="150"/>
+				<mx:Button id="btnAddTravelAgency"
+					label="Profile"
+					click="{addTravelAgencyHandler()}"/>
+			</mx:HBox>
+		</mx:FormItem>
+	</mx:Form>
+	<mx:Form>
+		<mx:FormItem label="Market Code:">
+			<control:ComboBoxEx id="cmbMarketCodes"
+				dataProvider="{UtilsGolobal.addFirstItem(emptyMarketCode,GlobalStorage.marketCodes)}" 
+				width="120"
+				labelFunction="getMarketCodeLabel"/>
+		</mx:FormItem>
+		<mx:FormItem label="Source Code:">
+			<control:ComboBoxEx id="cmbSourceCodes"
+				dataProvider="{UtilsGolobal.addFirstItem(emptySourceCode,GlobalStorage.sourceCodes)}"
+				width="120"
+				labelFunction="getSourceCodeLabel"/>
+		</mx:FormItem>
+	</mx:Form>
+</mx:HBox>

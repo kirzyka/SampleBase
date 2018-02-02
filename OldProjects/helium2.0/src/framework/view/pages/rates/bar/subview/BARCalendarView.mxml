@@ -1,0 +1,690 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:HBox xmlns:mx="http://www.adobe.com/2006/mxml" width="100%" height="100%" 
+	creationComplete="handleInit()" xmlns:bar="framework.view.pages.bar.*">
+	
+	<mx:Metadata>
+		[Event(name="selectDate", type="services.events.rates.bar.SelectBARDateEvent")]
+	</mx:Metadata>
+	
+	<mx:Script>
+		<![CDATA[
+			import mx.controls.ComboBox;
+			import services.vo.rates.bar.BARSaveItemVO;
+			import services.events.rates.bar.SelectBARDateEvent;
+			import services.events.rates.bar.GetBarItemsInfoEvent;
+			import framework.view.pages.rates.bar.events.CalendarEvent;
+			import mx.formatters.DateBase;
+			import mx.controls.DateField;
+			import services.vo.GlobalStorage;
+			import services.vo.GlobalSettings;
+			import services.vo.GlobalImageAssets;
+			import mx.core.Application;
+			import mx.collections.ArrayCollection;
+			import mx.events.CollectionEvent;
+			import services.controller.AppController;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.vo.backend.DateResultVO;
+			import services.vo.GlobalFunctions;
+			import mx.core.IFlexDisplayObject;
+			import mx.core.UIComponent;
+			import framework.model.AppModelLocator;
+			import mx.events.DragEvent;
+			import mx.collections.CursorBookmark;
+			import mx.managers.CursorManager;
+			import mx.managers.DragManager;
+			import mx.core.DragSource;
+			import mx.controls.Alert;
+			import mx.controls.Label;
+			import mx.containers.Box;
+			
+			[Bindable]
+			private var assets:GlobalImageAssets = GlobalImageAssets.getInstance();
+			
+			[Bindable]
+			public var comboMonth:ComboBox = new ComboBox();
+			
+			[Bindable]
+			public var comboYear:ComboBox = new ComboBox();
+			//show="getBARsData(null)"
+			//private var days:Array = ["Sunday", "Monday", "Tuesday","Wednesday","Thursday","Friday","Saturday"];
+			private var rowCount:int = 5;
+			//private var motnh:Array = [];
+			
+			private const CELL_COLOR_CTA:String = "#CEF9C4";
+			private const CELL_COLOR_CTA_SELECT:String = "#B0F99F";
+			private const CELL_ROLL_OVER_COLOR:String = "#CCCCCC";
+			private const CELL_ROLL_OUT_COLOR:String = "undefined";
+			
+			private var isCellDraged:Boolean = false;
+			private var isMouseDown:Boolean = false;
+			private var isCalendarComple:Boolean = false;
+			
+			private var selectedCells:Array = [];
+			private var cells:Array = [];
+			
+			private var currDate:Date;
+			private var currMonth:Number;
+			private var currYear:Number;
+			
+			private var flagRevert:Boolean=false;
+			private var flagFill:Boolean=false;
+			
+			private var selectedCell:BARCalendarItemView = null;
+			
+			[Bindable]
+			private var model:AppModelLocator = AppModelLocator.getInstance();	
+			
+			/**
+			 *	Refresh data.
+			 */
+			private function handleInit():void
+			{
+				selectedCells = new Array();
+				cells = new Array();
+				currDate = GlobalFunctions.getDate();
+				currMonth = 0;
+				currYear = currDate.getFullYear();				
+				model.ratesModule.barModule.cellsData.addEventListener(CollectionEvent.COLLECTION_CHANGE, handleGetItemsData);
+				stage.addEventListener(MouseEvent.MOUSE_UP, handleCellMouseUp);
+			}			
+					
+			
+			/**
+			 *	Select BAR items, depends on Dates.
+			 * 
+			 * 	@param from:Date - Date From
+			 * 	@param too:Date - Date To
+			*/
+			public function selectPeriod(from:Date, too:Date):void
+			{				
+				removeCellHighlight();		
+				
+				sendSelectedCellsEvent(from, too);				
+			}
+			/**
+			 *	Refresh data. Create days visualization.
+			*/
+			public function getBARsData(callBackFnc:Function = null):void
+			{
+				setBarGetter();
+				
+				var evt:GetBarItemsInfoEvent = new GetBarItemsInfoEvent(AppController.GET_BAR_ITEMS_INFO_EVENT)
+				evt.callBack = callBackFnc;
+				CairngormEventDispatcher.getInstance().dispatchEvent( evt );
+			}
+			/**
+			 *	Clear item selection.
+			*/
+			public function clear():void
+			{
+				removeCellHighlight();
+			}
+			
+			
+			/**
+			 *	Select BARs, where close to arrival = true.
+			*/
+			private function selectCTA():void
+			{			
+			for(var i:int = 0; i < cells.length; i++)
+				{
+					var saveItem:BARSaveItemVO = model.ratesModule.barModule.cellsData.getItemAt(i) as BARSaveItemVO;
+					var cellItem:BARCalendarItemView = cells[i] as BARCalendarItemView;	
+							
+					if (saveItem.oBarHotel.bIsClosedToArrival && cellItem.enabled)
+					{
+						highlightCell( cellItem , CELL_COLOR_CTA );
+						if (selectedCells != null && cellItem.currDate != null && cellItem != null)
+						{
+							var cellsLength:int = selectedCells.length;
+							for(var j:int = 0; j < cellsLength; j++)
+							{
+								if (selectedCells[j].currDate == cellItem.currDate)
+								{	
+									highlightCell( cellItem , CELL_COLOR_CTA_SELECT );		
+								}
+							}
+						}
+					}					
+				}
+			}
+			
+			/**
+			 *	After get month data, select first date.
+			*/
+			public function handleGetNextMonthData():void
+			{
+				var today:Date = normalizeDate(GlobalFunctions.getDate());
+				//if(flagFill)
+				model.ratesModule.barModule.listOfDate = [];
+				var cellsLength:int = cells.length;
+				for(var i:int = 0; i < cellsLength; i++)
+				{				
+					highlightCell(cells[i] as BARCalendarItemView, CELL_ROLL_OUT_COLOR);
+					var cellItem:BARCalendarItemView = cells[i] as BARCalendarItemView;
+					var saveItem:BARSaveItemVO = model.ratesModule.barModule.cellsData.getItemAt(i) as BARSaveItemVO;
+					
+					var cellDate:Date;
+					if ((saveItem as BARSaveItemVO).sBarDate != "")
+					{ 
+						cellDate = DateField.stringToDate((saveItem as BARSaveItemVO).sBarDate, "DD/MM/YYYY");
+						model.ratesModule.barModule.listOfDate[i] = cellDate;
+					 }
+					else
+					{
+						cellDate = DateField.stringToDate((cellItem as BARCalendarItemView).currDate, "DD/MM/YYYY");
+						model.ratesModule.barModule.listOfDate[i] = cellDate;
+					} 
+					if ((saveItem as BARSaveItemVO).sBarDate!="")
+					cellItem.currDate = (saveItem as BARSaveItemVO).sBarDate;
+					cellItem.itemData = saveItem;
+					cellItem.enabled = (compare(cellDate, today) != -1);
+					calendarItems.setChildIndex(cellItem, i);
+					
+					
+					if (saveItem.oBarHotel.bIsClosedToArrival && cellItem.enabled)
+					{
+						highlightCell( cellItem , CELL_COLOR_CTA );
+					}
+					
+					if ((saveItem as BARSaveItemVO).sBarDate == DateField.dateToString(today, "DD/MM/YYYY"))
+						{
+							highlightCell( cellItem , CELL_ROLL_OVER_COLOR );
+							var evt:CalendarEvent = new CalendarEvent(CalendarEvent.ITEM_SELECT);
+							evt.cell = cellItem;
+							dispatchEvent(evt);
+						}
+					else if (cellItem.enabled && cellDate.month != today.month && (cellDate.getDate() == 1) && (cellDate.month == model.ratesModule.barModule.barGetter.iMonth-1))
+						{
+							highlightCell( cellItem , CELL_ROLL_OVER_COLOR );
+							evt = new CalendarEvent(CalendarEvent.ITEM_SELECT);
+							evt.cell = cellItem;
+							dispatchEvent(evt);
+						}
+				}
+				
+			}
+			/**
+			 *	Fill BARGetterObjectVO for get BAR items data.
+			 */
+			private function setBarGetter():void
+			{
+				model.ratesModule.barModule.barGetter.iHotel = model.hotelsModule.hotelTotalInfo.iHotelId;
+				model.ratesModule.barModule.barGetter.iYear = model.currYear;//GlobalFunctions.getDate().getFullYear();
+				model.ratesModule.barModule.barGetter.iMonth = model.currMonthIndex + 1;
+			}
+			/**
+			 *	After get BAR data, create calendar items. Fill data.
+			 */
+			public function handleGetItemsData(evt:CollectionEvent = null):void
+			{
+				if(model.ratesModule.barModule.cellsData.length < model.ratesModule.barModule.totalCells) return;
+		
+			 	if (calendarItems.numChildren == 0)
+			 	buildCalendar();
+			 	
+			 	fillCalendar();
+			 	model.ratesModule.barModule.cellsData.removeEventListener(CollectionEvent.COLLECTION_CHANGE, handleGetItemsData);
+			}
+			/**
+			 *	Create calendar visualization.
+			 */
+			private function buildCalendar():void
+			{
+				var cellWidth:Number = calendarItems.width / GlobalSettings.days.length;
+				var totalDays:Number = -GlobalFunctions.getDate().getDate() + 1;
+				
+				var cellItem:BARCalendarItemView;
+				var dateResult:DateResultVO;
+				rowCount = model.ratesModule.barModule.cellsData.length/GlobalSettings.days.length;
+				for(var i:int = 0; i < rowCount; i++)
+					{
+						for(var j:int = 0; j < GlobalSettings.days.length; j++)
+						{
+							cellItem = new BARCalendarItemView();
+							var nextX:int = cellWidth * j;
+							var nextY:int = cellItem.height * i;
+				
+							cellItem.x = nextX;
+							cellItem.y = nextY;
+							cellItem.width = cellWidth;
+							
+							cellItem.addEventListener(MouseEvent.CLICK, handleShowItemDescription);
+							
+							cellItem.addEventListener(MouseEvent.MOUSE_DOWN, handleCellMouseDown);
+							cellItem.addEventListener(MouseEvent.MOUSE_MOVE, handleCellMouseMove);
+							
+							cellItem.addEventListener(MouseEvent.MOUSE_OVER, handleCellRollOver);
+							cellItem.addEventListener(MouseEvent.MOUSE_OUT, handleCellRollOut);
+							
+							calendarItems.addChild(cellItem);
+							cells.push(cellItem);
+						}
+					};
+			}
+			
+			/**
+			 *	Clear calendar visualization.
+			 */
+		/* 	public function cleareCalendar():void
+			{
+				for (var i:int = calendarItems.numChildren; i>0; i--)
+				{
+					calendarItems.removeChildAt(i);					
+				}
+				cells.splice();
+			} */
+			
+			private function handleShowItemDescription(e:MouseEvent):void
+			{
+				var evt:CalendarEvent = new CalendarEvent(CalendarEvent.ITEM_SELECT);
+				evt.cell = e.currentTarget as BARCalendarItemView;
+				dispatchEvent(evt);
+			}
+			
+			public function compare(date1:Date, date2:Date):Number
+			{			
+				try{
+					var date1Timestamp:Number = date1.getTime();
+					var date2Timestamp:Number = date2.getTime();
+					
+					var result:Number = -1;
+					
+					if (date1Timestamp == date2Timestamp)
+					{
+						result = 0;
+					}
+					else if (date1Timestamp > date2Timestamp)
+					{
+						result = 1;
+					}
+				}
+				catch(e:Error){}
+				
+				return result;
+			}
+			
+			/**
+			 *	Set BAR item data to components.
+			*/
+			private function fillCalendar():void
+			{
+				//clearCalendar();
+				var cellWidth:Number = calendarItems.width / GlobalSettings.days.length;
+				var totalDays:Number = -GlobalFunctions.getDate().getDate() + 1;
+				
+				var today:Date = GlobalFunctions.getDate();
+				var todayDateSum:int = today.getDate() + (today.getMonth() + 1)*32;
+				var dateResult:Date;
+				var nextDateSum:int;
+				var isValid:Boolean = true;
+				var isFirstDaySelected:Boolean = false;
+				
+				
+				today = normalizeDate(today);
+				for(var i:int = 0; i < model.ratesModule.barModule.cellsData.length; i++)
+				{
+					var cellItem:BARCalendarItemView = cells[i] as BARCalendarItemView;
+					
+					var data:Object = new Object();
+					data.index = i;
+					data.itemData = model.ratesModule.barModule.cellsData.getItemAt(i);
+					
+					var cellDate:Date = DateField.stringToDate((data.itemData as BARSaveItemVO).sBarDate, "DD/MM/YYYY");
+					
+					cellItem.data = data;
+					cellItem.currDate = (model.ratesModule.barModule.cellsData.getItemAt(i) as BARSaveItemVO).sBarDate;
+					cellItem.enabled = (compare(cellDate, today) != -1);
+					var saveItem:BARSaveItemVO = model.ratesModule.barModule.cellsData.getItemAt(i) as BARSaveItemVO;
+					if (saveItem.oBarHotel.bIsClosedToArrival && cellItem.enabled)
+					{
+						highlightCell( cellItem , CELL_COLOR_CTA );
+					}
+					if (cellItem.enabled && !isFirstDaySelected)
+					{
+						selectFirstDayInMonth(cells[i], i);
+						isFirstDaySelected = true;
+					}
+				}
+							
+			}
+			
+			public function clearCalendar():void
+			{
+				var cellsLength:int = cells.length;
+				for (var i:int=0; i<cellsLength; i++)
+					calendarItems.removeChild(cells[i] as BARCalendarItemView);
+				cells.splice(0);
+			}
+
+			/**
+			 *	Create days visualization.
+			*/
+			private function selectFirstDayInMonth(item:BARCalendarItemView, index:int):void
+			{
+				selectedCells = [];
+				
+				var data:Object = new Object();
+				data.index = index;
+				data.itemData = model.ratesModule.barModule.cellsData.getItemAt(index);
+				item.data = data;
+				
+				selectedCells.push( item );
+				
+				highlightCell( item , CELL_ROLL_OVER_COLOR );
+				this.dispatchEvent( new CalendarEvent(CalendarEvent.CREATION_COMPLETE) );
+			}
+			/**
+			 *	Find first and last selected BAR item cell and highlight all cells between those. 	
+			*/
+			private function handleCellRollOver(evt:MouseEvent):void
+			{
+				if(!evt.currentTarget.enabled) return;
+				
+				highlightCell(evt.currentTarget as BARCalendarItemView, CELL_ROLL_OVER_COLOR);	
+				
+				if(isMouseDown)
+				{
+					clearSelectedCells(selectedCells[0] as BARCalendarItemView);
+					
+					var nextIndex:int = evt.currentTarget.data.index;//3
+					var currIndex:int = selectedCell.data.index;//5
+					
+					if(nextIndex == currIndex) return;
+					
+					selectedCells = [];
+					
+					var firstIndex:int = (nextIndex < currIndex) ? nextIndex : currIndex;
+					var endIndex:int = (nextIndex > currIndex) ? nextIndex : currIndex;
+					
+					for(var j:int = firstIndex; j <= endIndex; j++)
+					{
+						highlightCell(cells[j], CELL_ROLL_OVER_COLOR);
+						selectedCells.push(cells[j]);
+					}
+				}				
+				selectCTA();
+			}
+			
+			/**
+			 *	Remove highlight from current cell. 
+			 * 
+			 * 	@param evt:MouseEvent
+			*/
+			private function handleCellRollOut(evt:MouseEvent):void
+			{
+				if(!evt.currentTarget.enabled) return;
+				
+				if(isMouseDown || 
+				  (selectedCells.length > 0 && isCellSelected(evt.currentTarget as BARCalendarItemView))) return;
+				
+				highlightCell(evt.currentTarget as BARCalendarItemView, CELL_ROLL_OUT_COLOR);
+			}
+			
+			/**
+			 *	Remove highlight from current cell. 	
+			*/
+			private function removeCellHighlight():void
+			{
+				var saveItem:BARSaveItemVO; 
+				for(var i:int = 0; i < selectedCells.length; i++)
+				{
+					removeHightlight(BARCalendarItemView(selectedCells[i]));			
+				}
+				selectedCells = [];
+				
+				selectCTA();
+			}
+			
+			/**
+			 *	Remove highlight from cell by param.
+			 * 
+			 * 	@param cell:BARCalendarItemView
+			*/
+			private function removeHightlight(cell:BARCalendarItemView):void
+			{
+				highlightCell(cell, CELL_ROLL_OUT_COLOR);
+			}
+			
+			/**
+			 *	Check is Cell already highlighted.
+			 * 
+			 * 	@param cell:BARCalendarItemView
+			*/
+			private function isCellHighlighted(cell:BARCalendarItemView):Boolean
+			{
+				var result:Boolean = (cell.getStyle("backgroundColor") != CELL_ROLL_OUT_COLOR) 
+				
+				return result;
+			}
+			
+			/**
+			 *	Check is Cell already selected.
+			 * 
+			 * 	@param cell:BARCalendarItemView
+			*/
+			private function isCellSelected(cell:BARCalendarItemView):Boolean
+			{
+				if(selectedCells.length == 0) return false;
+				//if(selectedCells.length == 1) return true;
+				
+				var result:Boolean;
+				
+				if(selectedCells[0].data.index > selectedCells[selectedCells.length-1].data.index)
+					result = (cell.data.index <= selectedCells[0].data.index && cell.data.index >= selectedCells[selectedCells.length-1].data.index);
+				else 
+					result = (cell.data.index >= selectedCells[0].data.index && cell.data.index <= selectedCells[selectedCells.length-1].data.index);
+				
+				return result;
+			}
+			
+			/**
+			 *	Check is Cell already selected.
+			 * 
+			 * 	@param cell:BARCalendarItemView
+			*/
+			private function highlightCell(target:BARCalendarItemView, color:String):void
+			{
+				target.setStyle("backgroundColor", color);
+			}
+			 
+			/**
+			 *	Clear selected cells.	
+			 * 	Select cell from param.
+			 * 
+			 * 	@param event:MouseEvent
+			 */ 
+			private function handleCellMouseDown(event:MouseEvent):void
+			{
+				if(!event.currentTarget.enabled || !(event.currentTarget as BARCalendarItemView)) return;
+				
+				clearSelectedCells(event.currentTarget as BARCalendarItemView);
+				
+				selectedCells[0] = event.currentTarget;
+				selectedCell = event.currentTarget as BARCalendarItemView;
+				
+				isMouseDown = true;
+				
+				selectCTA();
+			}
+			
+			/**
+			 *	Clear selected cells except param.	
+			 * 
+			 * 	@param cell:BARCalendarItemView
+			*/
+			private function clearSelectedCells(cell:BARCalendarItemView):void
+			{
+				for(var i:int=0;i<cells.length;i++)
+				{
+					if(cells[i] == cell) continue;
+					
+					highlightCell(cells[i] as BARCalendarItemView, CELL_ROLL_OUT_COLOR);
+				}
+				
+				selectedCells = [];
+			}
+			
+			/**
+			 *	Complete select. Send data to BAR view.	
+			 * 
+			 * 	@param event:MouseEvent
+			*/
+			private function handleCellMouseUp(event:MouseEvent):void
+			{
+				if(!isMouseDown) return;
+				
+				isMouseDown = false;
+				
+				if(selectedCells.length > 0)
+				{
+					sendSelectedCellsEvent(null, null);
+				}
+			}
+			
+			/**
+			 *	Send data to BAR view.	
+			 * 
+			 * 	@param dateStart:Date - Date of first selected BAR item
+			 * 	@param dateEnd:Date - Date of last selected BAR item
+			*/
+			public function sendSelectedCellsEvent(dateStart:Date, dateEnd:Date):void
+			{
+				if(selectedCells.length == 0) return;
+				
+				var evt:SelectBARDateEvent = new SelectBARDateEvent(SelectBARDateEvent.SELECT_DATA);
+				
+				var index:int = (selectedCells[0] as BARCalendarItemView).getIndex();
+					
+				evt.endDateObj = model.ratesModule.barModule.cellsData.getItemAt((selectedCells[0] as BARCalendarItemView).getIndex()) as BARSaveItemVO;
+				evt.startDateObj = model.ratesModule.barModule.cellsData.getItemAt((selectedCells[selectedCells.length-1] as BARCalendarItemView).getIndex()) as BARSaveItemVO;
+				
+				evt.startDate = (selectedCells[0] as BARCalendarItemView).date;
+				evt.endDate = (selectedCells[selectedCells.length - 1] as BARCalendarItemView).date;
+				
+				evt.selectedCells = selectedCells;
+				
+				this.dispatchEvent( evt );
+				
+				selectCTA();
+			}
+			/**
+			 * 	@param event:MouseEvent
+			*/
+			private function handleCellMouseMove(event:MouseEvent):void
+			{
+				if(!event.currentTarget.enabled) return;
+				
+				if(isMouseDown)
+				{
+					
+				}
+				//Drag functionaly
+				/* var dragInitiator:BARCalendarItemView = BARCalendarItemView(event.currentTarget);
+                var ds:DragSource = new DragSource();
+                ds.addData(dragInitiator, "cell");               
+                DragManager.doDrag(dragInitiator, ds, event);
+                
+                
+                isCellDraged = true; */
+                //selectCTA();
+			}
+			/**
+			 * 	Pepare functionality for drag.
+			 * 
+			 * 	@param event:DragEvent
+			*/
+			private function handleDragEnter(event:DragEvent):void
+			{
+				if (event.dragSource.hasFormat("cell"))
+				{
+					DragManager.acceptDragDrop(BARCalendarItemView(event.currentTarget));
+				}
+			}
+			
+			
+			/**
+			 * 	Set data for current month, and get BAR data.
+			*/
+			public function showMonth():void
+			{
+				currMonth = model.currMonthIndex - 2;
+				getBARsData(handleGetNextMonthData);
+				removeCellHighlight();
+			}
+			
+			
+			private function normalizeDate(input:Date):Date
+			{
+				return new Date(input.fullYear, input.month, input.date);
+			}
+			
+			/**
+			 * Click on left/right button
+			 */			 
+			private function clickLeftButton():void // click to left button
+			{
+				if (comboMonth.selectedIndex != 0)
+				{
+					comboMonth.selectedIndex--; 
+					model.currMonthIndex = comboMonth.selectedIndex;
+				}
+				else
+				{
+					model.currYear --;
+					comboYear.selectedIndex --;
+					comboMonth.selectedIndex = 11;
+					model.currMonthIndex = comboMonth.selectedIndex;					
+				}
+			}
+			
+			private function clickRightButton():void // click to right button
+			{
+				if (comboMonth.selectedIndex != 11)
+				{
+					comboMonth.selectedIndex++; 
+					model.currMonthIndex = comboMonth.selectedIndex;
+				}
+				else
+				{
+					model.currYear ++;
+					comboYear.selectedIndex ++;
+					comboMonth.selectedIndex = 0;
+					model.currMonthIndex = comboMonth.selectedIndex;					
+				}
+			}
+		]]>
+	</mx:Script>	
+	<!--
+		Control button for change month to prevoius month by current
+		model.currMonthIndex; 
+		model.currMonthIndex++; 
+	  -->
+	<mx:VBox height="100%" verticalAlign="middle">
+		<mx:Button id="btnPrevMonth"
+				   icon="{assets.barPrevMonthIcon}" width="22"
+				   click="{clickLeftButton()}"/>
+	</mx:VBox>
+	<!--
+		Visual part for view of days of the week;
+	  -->
+	<mx:VBox width="100%" height="100%" paddingRight="10">
+		<mx:HBox width="100%" horizontalGap="0">
+			<mx:Repeater id="rpDays" dataProvider="{GlobalSettings.days}">
+				<mx:Box width="{calendarItems.width / GlobalSettings.days.length}"
+						horizontalAlign="center" backgroundColor="#999999" borderStyle="solid">
+					<mx:Label text="{String(rpDays.currentItem)}"/>
+				</mx:Box>
+			</mx:Repeater>
+		</mx:HBox>
+		<mx:Canvas id="calendarItems" width="100%" height="100%" horizontalScrollPolicy="off"/>
+	</mx:VBox>
+	<!--
+		Control button for change month to next month by current
+	  -->
+	<mx:VBox height="100%" verticalAlign="middle">
+		<mx:Button id="btnNextMonth"
+				   icon="{assets.barNextMonthIcon}" width="22"
+				   click="{clickRightButton();}"/>
+	</mx:VBox>
+</mx:HBox>

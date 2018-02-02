@@ -1,0 +1,46 @@
+<?xml version="1.0"?>
+<popup:AddOfferPopupBase
+        xmlns:fx="http://ns.adobe.com/mxml/2009"
+        xmlns:popup="kitaec.view.offer.popup.*"
+        xmlns:s="library://ns.adobe.com/flex/spark"
+        title="Редактировать / Добавить предложение"
+        width="400"
+        height="400">
+
+    <popup:layout>
+        <s:VerticalLayout/>
+    </popup:layout>
+
+    <s:DataGrid
+        width="100%"
+        height="100%">
+        <s:columns>
+            <s:ArrayList>
+                <s:GridColumn headerText="Предложение на сегодня?" dataField="name"/>
+                <s:GridColumn headerText="Цена" dataField="price"/>
+                <s:GridColumn headerText="Выбрать" dataField=""/>
+            </s:ArrayList>
+        </s:columns>
+    </s:DataGrid>
+
+    <s:HGroup
+        width="100%"
+        verticalAlign="middle">
+        <s:ComboBox/>
+        <s:Spacer/>
+        <s:FormItem
+            label="Цена">
+            <s:TextInput/>
+        </s:FormItem>
+    </s:HGroup>
+
+    <s:HGroup
+        width="100%"
+        horizontalAlign="right">
+        <s:Button
+            label="Сохранить"/>
+        <s:Button
+            label="Отмена"/>
+    </s:HGroup>
+
+</popup:AddOfferPopupBase>

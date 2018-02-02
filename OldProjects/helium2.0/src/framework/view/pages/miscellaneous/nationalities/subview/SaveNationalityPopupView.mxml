@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<popup:DataPopupView
+	xmlns:popup="framework.view.components.popups.*" 
+	addTitle="Add nationality"
+	editTitle="Edit nationality" 
+	xmlns:mx="http://www.adobe.com/2006/mxml" layout="vertical" showCloseButton="true" 
+	close="closeWindow()" creationComplete="init()">
+	
+	<mx:Script>
+		<![CDATA[
+			import services.events.miscellaneous.nationalities.GetNationalityEvent;
+			import services.events.miscellaneous.nationalities.AddNationalitiesEvent;
+			import services.vo.common.NationalityVO;
+			import services.vo.GlobalSettings;
+			import services.controller.AppController;
+			import framework.model.AppModelLocator;
+			import mx.events.CloseEvent;
+			import mx.collections.ArrayCollection;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import framework.managers.PopUpManagerExt;
+			
+			[Bindable]
+			private var submitEnable:Boolean = true;
+			
+			[Bindable]
+			private var currentNationality:NationalityVO = new NationalityVO();
+						
+			private function init():void
+			{
+				if (isEdit)
+				{
+					currentNationality = data as NationalityVO;
+				}
+				nationality.text = currentNationality.sName;
+			}
+			
+			private function handleCreateNationality():void
+			{
+				var evt:AddNationalitiesEvent = new AddNationalitiesEvent (AppController.ADD_NATIONALITIES_EVENT);
+				evt.nationality.sName = nationality.text;
+				evt.nationality.lId = currentNationality.lId;
+				CairngormEventDispatcher.getInstance().dispatchEvent( evt );
+				completeCall();	
+			}
+			/**
+			 * 	Close Popup.
+			*/
+			private function closeWindow(evt:CloseEvent = null):void
+			{
+				PopUpManagerExt.removePopUp( this );
+			}
+			/**
+			 * 	Check: Is all required fields are filled.
+			*/
+			private function checkFillRequiredFields():void
+			{
+				if(nationality.text.length > 0) submitEnable = true;
+				else submitEnable = false;
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:FormItem label="Nationality:" required="true">
+	<mx:HBox>
+		<mx:TextInput id="nationality" change="checkFillRequiredFields()" width="200" maxChars="50"/>
+	</mx:HBox>
+	</mx:FormItem>
+	
+	<mx:HBox width="100%" horizontalAlign="right">
+		<mx:Button id="submit_From_AddNationalityPopupView" label="Save" click="handleCreateNationality()" 
+			width="{GlobalSettings.BUTTON_WIDTH_APPLY}"
+			change="checkFillRequiredFields()" enabled="{submitEnable}" />
+		<mx:Button id="cancel_From_AddNationalityPopupView" label="Cancel" click="closeWindow()"  width="{GlobalSettings.BUTTON_WIDTH}" />
+	</mx:HBox>
+	
+</popup:DataPopupView>

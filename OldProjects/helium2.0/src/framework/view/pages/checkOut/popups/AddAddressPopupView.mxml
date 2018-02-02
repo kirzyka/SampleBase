@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<BasePopupView 
+	xmlns="framework.view.components.popups.*" 
+	xmlns:mx="http://www.adobe.com/2006/mxml" 
+	width="500" height="500"
+	creationComplete="onCreationComplete()"
+	title="Add address">
+
+<mx:Script>
+	<![CDATA[
+		import framework.core.utils.UtilsMXML;
+		import framework.view.pages.checkOut.data.AccountListItem;
+		import services.events.checkOut.GetAddressListEvent;
+	
+		private function onCreationComplete():void
+		{
+			getAddressList();
+		}
+		
+		private function getAddressList():void
+		{
+			var getAddressListEvent:GetAddressListEvent = new GetAddressListEvent();
+			getAddressListEvent.iOrderId = model.checkOutModule.iOrderId;
+			getAddressListEvent.dispatch();
+		}
+	
+		private function onApply():void
+		{
+			
+		}
+	]]>
+</mx:Script>
+	<mx:Label text="Accounts"/>
+	
+	<mx:DataGrid id="dgAccounts"
+		dataProvider="{model.checkOutModule.aAccountsForAddAddressPopup}"
+		
+		width="100%" height="100%">
+		<mx:columns>
+			<mx:DataGridColumn headerText="Account type"
+				dataField="sType"/>
+			<mx:DataGridColumn headerText="Company"/>
+			<mx:DataGridColumn headerText="Guest name"/>
+		</mx:columns>
+	</mx:DataGrid>
+
+	<mx:Label text="Addresses"/>
+	
+	<mx:DataGrid id="dgAddresses"
+		dataProvider="{dgAccounts.selectedItem != null ? (dgAccounts.selectedItem as AccountListItem).children: null}"
+		width="100%" height="100%">
+		<mx:columns>
+			<mx:DataGridColumn headerText="Address"
+				dataField="sName"/>
+		</mx:columns>
+	</mx:DataGrid>
+	
+	<mx:ApplicationControlBar width="100%" horizontalAlign="right">
+		<mx:Button id="btnApply"
+			label="{model.locale.Global_Button_Apply}"
+			enabled="{UtilsMXML.and(dgAccounts.selectedItem != null, dgAddresses.selectedItem != null)}"
+			click="{onApply()}"/>
+		<mx:Button id="btnClose"
+			label="{model.locale.Global_Button_Cancel}"
+			click="{close(null)}"/>
+	</mx:ApplicationControlBar>
+</BasePopupView>

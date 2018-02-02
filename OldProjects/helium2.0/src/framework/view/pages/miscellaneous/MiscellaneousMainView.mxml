@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<BaseWindow
+	xmlns="framework.core.view.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:tabnav="h2olib.control.advancedTabNavigator.*"
+	xmlns:hotels="framework.view.pages.hotels.*"
+	xmlns:vat="framework.view.pages.miscellaneous.vat.*"
+	xmlns:countries="framework.view.pages.miscellaneous.countries.*"
+	xmlns:langueges="framework.view.pages.miscellaneous.langueges.*"
+	xmlns:nationalities="framework.view.pages.miscellaneous.nationalities.*"
+	xmlns:loyaltyPrograms="framework.view.pages.miscellaneous.loyaltyPrograms.*"	
+	layout="absolute" xmlns:salutation="framework.view.pages.miscellaneous.salutation.*"
+	creationComplete="{init()}">
+
+	<mx:Script>
+		<![CDATA[
+			import framework.core.view.VSubWindow;
+			import mx.binding.utils.ChangeWatcher;
+			import mx.binding.utils.BindingUtils;
+			import services.vo.GlobalStorage;
+			import framework.model.AppModelLocator;
+			
+			private function init():void
+			{
+				(leftMenu.selectedChild as VSubWindow).update();
+			}
+			
+			private function selectPage():void
+			{
+				model.miscellaneousModule.currPage = leftMenu.selectedIndex;
+				(leftMenu.selectedChild as VSubWindow).update();
+			}
+		]]>
+	</mx:Script>
+
+	<tabnav:AdvancedTabNavigator id="leftMenu" 
+		change="{selectPage()}"
+		creationPolicy = "queued" 
+		selectedIndex="{model.miscellaneousModule.currPage}"
+		width="100%" height="100%" tabPosition="leftTop"  tabWidth="170">
+			<countries:CountriesView id="countries" label="Countries and Regions" width="100%" height="100%"/>
+			<langueges:LanguegesView id="languages" label="Languages" width="100%" height="100%"/>
+			<nationalities:NationalitiesView id="nationalities" label="Nationalities" width="100%" height="100%"/>
+			<vat:VATView id="vat" label="VAT" width="100%" height="100%"/>
+			<loyaltyPrograms:loyaltyProgramsView id="loyaltyPrograms" label="Loyalty Programs" width="100%" height="100%"/>
+			<salutation:SalutationsView id="salutations" label="Salutation" width="100%" height="100%" />
+	</tabnav:AdvancedTabNavigator>
+</BaseWindow>

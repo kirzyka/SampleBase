@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:HBox xmlns:mx="http://www.adobe.com/2006/mxml" width="100%" horizontalAlign="center" verticalAlign="middle">
+	
+	<mx:Script>
+		<![CDATA[
+			import mx.managers.PopUpManagerChildList;
+			import framework.model.AppModelLocator;
+			import services.vo.rates.companyRates.CompanyRateObjectVO;
+			import framework.view.pages.rates.companyRates.TransactionsSplittingCompanyRatePopupView;
+			import framework.managers.PopUpManagerExt;
+			import framework.view.pages.rates.companyRates.EditCompanyRatePopupView;
+			import services.vo.GlobalImageAssets;
+			import services.controller.AppController;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.vo.backend.BedTypeObjectVO;
+			
+			private var model:AppModelLocator = AppModelLocator.getInstance();
+			
+			private function handleEdit():void
+			{
+				model.ratesModule.currentRate = data as CompanyRateObjectVO;
+				var pop:TransactionsSplittingCompanyRatePopupView = new TransactionsSplittingCompanyRatePopupView();
+				pop = PopUpManagerExt.createPopUp(model.owner, TransactionsSplittingCompanyRatePopupView, true, PopUpManagerChildList.POPUP) as TransactionsSplittingCompanyRatePopupView;	
+				PopUpManagerExt.centerPopUp(pop);
+			}
+			
+			override public function set data(value:Object):void
+			{
+				super.data = value;
+			}
+		]]>
+	</mx:Script>
+
+	<mx:Image source="{GlobalImageAssets.getInstance().transactionIcon}" id="del" alpha="1" click="handleEdit()" />
+</mx:HBox>

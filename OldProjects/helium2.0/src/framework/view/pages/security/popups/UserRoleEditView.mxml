@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8"?>
+<DataPopupView 
+	xmlns="framework.view.components.popups.*" 
+	xmlns:mx="http://www.adobe.com/2006/mxml" 
+	xmlns:control="h2olib.control.*"
+	width="250" height="120"
+	horizontalAlign="center" verticalAlign="middle"
+	horizontalScrollPolicy="off" verticalScrollPolicy="off"
+	creationComplete="init()"
+	editTitle="Change Role">
+	
+	<mx:Script>
+		<![CDATA[
+			import services.events.security.AddSystemUserEvent;
+			import services.events.security.SetUserHotelRoleEvent;
+			import mx.managers.IFocusManagerContainer;
+			import mx.managers.IFocusManager;
+			import services.vo.frontend.RoleVO;
+			import mx.controls.PopUpButton;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.controller.AppController;
+			import services.events.security.SetUserHotelRoleEvent;
+			import services.vo.frontend.UserVO;
+			import framework.managers.PopUpManagerExt;
+			import framework.model.AppModelLocator;
+						
+
+			public var isSystemRole:Boolean = false;
+			public var currentUser:UserVO;
+			public var hotelID:int;
+			public var doAfterComplete:Function;
+			
+			private function init():void
+			{
+					this.x=this.parent.width/2 - this.width/2;
+					this.y=this.parent.height/2 - this.height/2;
+					if(!isSystemRole)
+					{
+						cmbRole.setItemByField("lId",currentUser.oHotelRole != null ? currentUser.oHotelRole.lId : 0);
+					}
+					else
+					{
+						cmbRole.setItemByField("lId",currentUser.oSysRole != null ? currentUser.oSysRole.lId : 0);
+					}
+			}
+			
+			private function changeRole(event:Event):void
+			{
+          
+	            var parentFocusManager:IFocusManager = (this as IFocusManagerContainer).focusManager;
+	            if(parentFocusManager) 
+	            {
+	                var component:* = parentFocusManager.getFocus();                
+	                if(component == event.target) 
+	                {
+	                	if(!isSystemRole)
+	                	{
+							var setUserHotelRoleEvent:SetUserHotelRoleEvent = new SetUserHotelRoleEvent();
+							setUserHotelRoleEvent.iUserId = currentUser.oUser.lId;
+							setUserHotelRoleEvent.iHotelId = hotelID;
+							setUserHotelRoleEvent.iRoleId = (cmbRole.selectedItem as RoleVO) != null ? (cmbRole.selectedItem as RoleVO).lId : 0;
+							setUserHotelRoleEvent.isAddUser = false;	
+							CairngormEventDispatcher.getInstance().dispatchEvent(setUserHotelRoleEvent);
+	                	}
+	                	else
+	                	{
+	                		var addSystemUser:AddSystemUserEvent = new AddSystemUserEvent();
+	                		addSystemUser.sLogin = currentUser.oUser.sUserLogin;
+	                		addSystemUser.iRoleId = (cmbRole.selectedItem as RoleVO) != null ? (cmbRole.selectedItem as RoleVO).lId : 0;
+	                		addSystemUser.iUserId = currentUser.oUser.lId;
+	                		CairngormEventDispatcher.getInstance().dispatchEvent(addSystemUser);
+	                	}
+	                	
+	                	completeCall();	  
+	                }                    
+	            }				
+			}
+			
+			private function closeMe():void
+			{
+				PopUpManagerExt.removePopUp(this);
+			}
+		]]>
+	</mx:Script>
+	
+	<control:ComboBoxEx id="cmbRole"
+		labelField="sName"
+		change="{changeRole(event)}"
+		dataProvider="{data}" 
+		width="100%"/>
+	<mx:HBox width="100%">
+		<mx:Spacer width="100%"/>
+		<mx:Button id="btnClose"
+			label="Close"
+			click="{closeMe()}"/>			
+	</mx:HBox>
+</DataPopupView>

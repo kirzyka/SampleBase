@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<BasePopupView
+	xmlns="framework.view.components.popups.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	width="320" height="140"
+	creationComplete="creationCompleteHandler()"
+	title="Cancel Reservation"
+	horizontalAlign="center">
+<mx:Script>
+	<![CDATA[
+		import services.events.search.CancelReservationEvent;
+		import services.vo.search.CancelationReason;
+		import services.events.search.CancelOrderEvent;
+		import services.command.search.CancelOrderCommand;
+		import services.vo.reservation.OrderVO;
+		import services.events.search.GetCancelationReasonsEvent;
+		import services.vo.reservation.ReservationVO;
+		import com.adobe.cairngorm.control.CairngormEventDispatcher;
+		import com.adobe.cairngorm.control.CairngormEvent;
+
+		[Bindable]
+		public var reservationId:int;
+		//model.reservationEditModule.reservationForEdit
+
+		private function creationCompleteHandler():void
+		{
+			var getCancelationReasonsEvent:GetCancelationReasonsEvent = new GetCancelationReasonsEvent();
+			CairngormEventDispatcher.getInstance().dispatchEvent(getCancelationReasonsEvent);
+		}
+
+		private function cancelReservation():void
+		{
+			var cancelReservationEvent:CancelReservationEvent = new CancelReservationEvent();
+			cancelReservationEvent.reservationId = reservationId;
+			cancelReservationEvent.reason = cmbReasons.selectedItem as CancelationReason;
+			cancelReservationEvent.callBack = doAfterCancel;
+			CairngormEventDispatcher.getInstance().dispatchEvent(cancelReservationEvent);
+
+		}
+
+		private function doAfterCancel():void
+		{
+			completeCall();
+		}
+
+	]]>
+</mx:Script>
+<mx:HBox>
+	<mx:Label text="Reasons:"/>
+	<mx:ComboBox id="cmbReasons"
+		dataProvider="{model.searchModule.reservationCanceletionReasons}"
+		labelField="sName"/>
+</mx:HBox>
+<mx:ApplicationControlBar width="100%">
+	<mx:Button id="btnReservationCancel"
+		label="Cancel Reservation"
+		click="{cancelReservation()}"
+		enabled="{cmbReasons.selectedItem}"/>
+	<mx:Spacer width="100%"/>
+	<mx:Button id="btnClose"
+		label="Close"
+		click="{close()}"/>
+</mx:ApplicationControlBar>
+</BasePopupView>

@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Box xmlns:mx="http://www.adobe.com/2006/mxml">
+
+	<mx:Script>
+		<![CDATA[
+			import mx.collections.ArrayCollection;
+			import services.vo.reservation.ConfirmationVO;
+			import services.vo.profiles.ProfileCallerVO;
+			import services.vo.frontend.CallerVO;
+			import services.vo.profiles.CompanyProfileVO;
+			import services.vo.profiles.ProfilePersonalVO;
+			import services.vo.GlobalImageAssets;
+
+			import framework.core.utils.UtilsMXML;
+			import framework.model.AppModelLocator;
+
+			//--------------------------------------------------------//
+			//						VARs							  //
+			//--------------------------------------------------------//
+
+			public var confirmation:ConfirmationVO = new ConfirmationVO();						
+			
+			[Bindable]
+			private var model:AppModelLocator = AppModelLocator.getInstance();
+			private var currentPersonTypeOfConfirmatiom:Array = new Array();
+			private var confirmationData:Array = new Array();
+
+			//--------------------------------------------------------//
+			//						METHODs							  //
+			//--------------------------------------------------------//
+
+			public function clearForm():void
+			{
+				cmbConfirmTo.selectedIndex = 0;
+			}
+			
+			private function getPersonalConfirmationData(person:ProfilePersonalVO,company:CompanyProfileVO = null):void 
+			{
+				currentPersonTypeOfConfirmatiom = new Array();
+				confirmationData = new Array();
+				for(var i:int = 0; i < model.reservationModule.typeOfConfirmation.length; i++) 
+				{
+					var confirmationDataItem:Array = person.getDataForConfirmation(model.reservationModule.typeOfConfirmation[i].id);
+					if(company) 
+					{
+						confirmationDataItem.concat(company.getDataForConfirmation(model.reservationModule.typeOfConfirmation[i].id));
+					}
+					if(confirmationDataItem.length > 0) 
+					{
+						confirmationData.push(confirmationDataItem);
+						currentPersonTypeOfConfirmatiom.push(model.reservationModule.typeOfConfirmation[i]);
+					}
+				}
+				cmbConfirmType.dataProvider = currentPersonTypeOfConfirmatiom;
+				cmbPersonalData.dataProvider = confirmationData[0];
+				cmbConfirmType.selectedIndex = 0;
+			}	
+					
+			/** 	Label Functions 	**/
+						
+			private function personsLabelFunction(profile:ProfilePersonalVO):String {
+				var name:String = "";
+				if(profile.sName != null) {
+					name = profile.sName;
+				}
+				return name + " " + profile.sSurname;
+			}
+
+			/**		Handlers			**/
+			private function onPersonChange():void {
+
+				if(model.reservationModule.reservationProfiles.length > 0)
+				{
+					if(cmbPersons == null)
+					{
+					var person:ProfilePersonalVO = model.reservationModule.reservationProfiles.getItemAt(cmbPersons.selectedIndex) as ProfilePersonalVO;
+					getPersonalConfirmationData(person);
+					}
+				}
+			}			
+
+			private function onConfirmationTypeChange():void 
+			{
+				cmbPersonalData.dataProvider = confirmationData[cmbConfirmType.selectedIndex];				
+			}
+
+			private function onConfirmationToChange():void 
+			{
+				cmbConfirmType.dataProvider = new ArrayCollection();
+				cmbPersonalData.dataProvider = new ArrayCollection();
+				switch(cmbConfirmTo.selectedIndex)
+				{
+					case 1:
+						var caller:ProfileCallerVO = model.reservationModule.caller;
+						var company:CompanyProfileVO = model.reservationModule.callerCompany.lMainId == 0 ? null : model.reservationModule.callerCompany;
+						getPersonalConfirmationData(caller.oProfile,company);
+					break;
+					case 2:
+						if(model.reservationModule.reservationProfiles.length > 0)
+						{
+							getPersonalConfirmationData(model.reservationModule.reservationProfiles.getItemAt(0) as ProfilePersonalVO);
+						}
+					break;					
+					case 3:
+						cmbConfirmType.dataProvider = model.reservationModule.typeOfConfirmation;
+					break;	
+				}				
+			}
+			
+			public function getPersonalData():String
+			{
+				var str:String = "";
+				if(vstackPersonalData.selectedIndex == 0)
+				{
+					return cmbPersonalData.selectedLabel;
+				}
+				else if(vstackPersonalData.selectedIndex == 1)
+				{
+					return txtPersonalData.text;
+				}
+				return "";	
+			}			
+		]]>
+	</mx:Script>
+
+	<mx:HBox>
+		<mx:Form>
+			<mx:FormItem label="Confirm To:">
+				<mx:ComboBox
+					id="cmbConfirmTo"
+					dataProvider="{model.reservationModule.typeConfirmationTo}"
+					prompt="Select Comfirm To"
+					change="{onConfirmationToChange()}"/>
+			</mx:FormItem>
+			<mx:FormItem
+				label="Persons:"
+				visible="{UtilsMXML.and(UtilsMXML.or(cmbConfirmTo.selectedIndex == 2,cmbConfirmTo.selectedIndex == 3), 
+										model.reservationModule.reservationProfiles.length > 0)}"
+				show="onPersonChange()">
+				<mx:ComboBox
+					id="cmbPersons"
+					dataProvider="{model.reservationModule.reservationProfiles}"
+					labelFunction="personsLabelFunction"
+					change="onPersonChange()"/>
+			</mx:FormItem>
+		</mx:Form>
+		<mx:Form>
+			<mx:FormItem label="Type of Confirmation:"
+				visible="{cmbConfirmTo.selectedIndex > 0}">
+				<mx:ComboBox id="cmbConfirmType"
+					width="150"
+					change="{onConfirmationTypeChange()}"/>
+			</mx:FormItem>
+			<mx:FormItem label="Details:"
+				visible="{cmbConfirmTo.selectedIndex > 0}"
+				direction="horizontal">
+				<mx:ViewStack id="vstackPersonalData" selectedIndex="{cmbConfirmTo.selectedIndex == 3 ? 1 : 0}">
+					<mx:Box>
+						<mx:ComboBox id="cmbPersonalData" width="150" />						
+					</mx:Box>
+					<mx:Box>
+						<mx:TextInput id="txtPersonalData" width="150" />						
+					</mx:Box>					
+				</mx:ViewStack>
+			</mx:FormItem>
+		</mx:Form>
+	</mx:HBox>
+</mx:Box>

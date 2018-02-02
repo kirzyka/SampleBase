@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link href='https://fonts.googleapis.com/css?family=Open+Sans:400,700' rel='stylesheet' type='text/css'>
+
+<!--    <link rel="stylesheet" href="http://code.jquery.com/mobile/1.4.5/jquery.mobile.structure-1.4.5.min.css"/>-->
+    <link rel="stylesheet" href="style/_base.css"/>
+    <link rel="stylesheet" href="style/control/cp-panel.css"/>
+    <link rel="stylesheet" href="style/control/popup.css"/>
+    <link rel="stylesheet" href="style/control/table.css"/>
+    <link rel="stylesheet" href="style/header.css"/>
+    <link rel="stylesheet" href="style/menu.css"/>
+    <link rel="stylesheet" href="style/content.css"/>
+
+    <title>CodeGenerator</title>
+</head>
+<body>
+
+<div id="popTest" class="popup">
+
+    <div class="overlay"></div>
+
+    <div class="container">
+        <div class="test_popup_container">
+            POPUP
+        </div>
+    </div>
+
+</div>
+
+
+<div id="header_container">
+    <div id="header">
+        <div class="text_overflow">
+            <h1 id="logo">
+                <a href="/">
+                    <div id="large_header">
+                        <span class="part1">code</span>
+                        <span class="part2">generator</span>
+                        <span class="part3">0.01</span>
+                    </div>
+                </a>
+            </h1>
+            <ul id="header_nav">
+                <li class="main active" data-id="40" original-title="">
+                    <span>Regex Tester</span>
+                </li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<div id="inline_menu">
+    menu
+</div>
+
+<div id="content">
+    <div id="regex_editor" class="box_overflow_fix">
+        <div id="main_editor" class="box_overflow_fix">
+
+            <div class="regex_container">
+                <div class="regex">
+                    <div class="regex_body">
+                        <div class="slash_l">/</div>
+                        <div class="regex_body_container">
+                            <input id="txtRegExBody" type="text"
+                                   value="((.*)\tDD List)|((.*)\tDate picker)|((.*)\tText field)">
+                        </div>
+                        <div class="slash_r">/</div>
+                    </div>
+                    <div class="regex_right">
+                        <input id="txtRegExFlag" type="text" value="gi" maxlength="3">
+
+                        <div id="btnRegExSave" class="button">Save regex</div>
+                    </div>
+                </div>
+                <div class="clear"></div>
+                <div id="btnGenerate" class="button">Generate</div>
+            </div>
+
+            <div class="inout_container box_overflow_fix">
+                <div class="source_container">
+                    <textarea id="txtTestResult" style="width: 100%; height: 100%" rows="10"></textarea>
+                </div>
+
+                <div class="output_container">
+                    <textarea id="txtSubstResult" style="width: 100%; height: 100%" rows="10"></textarea>
+                </div>
+            </div>
+
+        </div>
+    </div>
+    <div id="regex_treeview" class="box_overflow_fix">
+
+        <div id="cpRegex" class="cp-container">
+            <div class="header">
+                <div class="btn"></div>
+                <span class="caption">regex</span>
+            </div>
+            <div class="content">
+                <div class="container">
+                    <div class="regex_list_container">
+                        <div id="tblRegex" class="table">
+                            <div class="header">
+                                <div class="head head1">id</div>
+                                <div class="head head2">regex</div>
+                                <div class="head head3"></div>
+                            </div>
+                            <div class="tbody">
+                                <table cellpadding="0" cellspacing="0" border="0"></table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="cpGroups" class="cp-container">
+            <div class="header">
+                <div class="btn"></div>
+                <span class="caption">groups</span>
+            </div>
+            <div class="content">
+                <div class="container">
+                    <div id="btnGetGroups" class="button">get</div>
+                    <div class="group_list_container">
+                        <ol id="lstGroup"></ol>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="cpTemplates" class="cp-container">
+            <div class="header">
+                <div class="btn"></div>
+                <span class="caption">templates</span>
+            </div>
+            <div class="content">
+                <div class="container">
+                    <div id="tblTemplate" class="table">
+                        <div class="header">
+                            <div class="head head1">id</div>
+                            <div class="head head2">key</div>
+                            <div class="head head3">name</div>
+                            <div class="head head4"></div>
+                        </div>
+                        <div class="tbody">
+                            <table cellpadding="0" cellspacing="0" border="0"></table>
+                        </div>
+                    </div>
+                    <div class="v_pad_5 box_overflow_fix">
+                        <div id="btnTemplateNew" class="button">New</div>
+                        <div id="btnTemplateSave" class="button">Save</div>
+                    </div>
+                    <div class="rel h_line box_overflow_fix">
+                        <div class="template-key-container">
+                            <input id="txtTemplateKey" type="text" value="">
+                        </div>
+                        <div class="template-name-container">
+                            <input id="txtTemplateName" type="text" value="">
+                        </div>
+                    </div>
+                    <div class="clear"></div>
+                    <textarea id="txtTemplate" style="width: 100%; height: 100%" rows="10"></textarea>
+                </div>
+            </div>
+        </div>
+
+        <div id="cpSubstitution" class="cp-container">
+            <div class="header">
+                <div class="btn"></div>
+                <span class="caption">substitution</span>
+            </div>
+            <div class="content">
+                <div class="container">
+                    <textarea id="txtSubstitution" style="width: 100%; height: 100%" rows="10"></textarea>
+                </div>
+            </div>
+        </div>
+
+
+    </div>
+</div>
+
+<script src="js/jquery.min.js"></script>
+<!--<script src="http://code.jquery.com/jquery-1.11.1.min.js"></script>
+<script src="http://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>-->
+
+<script src="js/app.js"></script>
+</body>
+</html>

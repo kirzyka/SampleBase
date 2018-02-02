@@ -1,0 +1,676 @@
+<?xml version="1.0" encoding="utf-8"?>
+<view:VSubWindow
+	xmlns:view="framework.core.view.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:components="framework.view.components.*"
+	xmlns:pager="h2olib.control.pager.*"
+	xmlns:searchBox="h2olib.control.searchBox.*"
+	xmlns:control="h2olib.control.*">
+	
+	<mx:Script>
+		<![CDATA[
+			import framework.view.pages.items.popups.management.EditVATPeriodsPopupView;
+			import services.events.PageBaseEvent;
+			import services.vo.items.ArrangementCodeVO;
+			import mx.utils.ObjectUtil;
+			import services.events.items.arrangementCodes.GetArrangementsEvent;
+			import services.business.items.ItemsDelegate;
+			import services.cairngorm.BaseEvent;
+			import framework.core.utils.UtilsMXML;
+			import services.vo.hotels.HotelInfoTotalVO;
+			import services.events.hotels.GetHotelsListEvent;
+			import com.adobe.cairngorm.control.CairngormEvent;
+			import services.events.IBaseEvent;
+			import services.events.items.management.DeleteSystemTransactionEvent;
+			import framework.view.components.popups.events.PopupEvent;
+			import services.events.items.management.DeleteSystemArticleEvent;
+			import framework.view.components.popups.DeletePopupView;
+			import framework.view.pages.items.data.GroupData;
+			import framework.view.pages.items.popups.management.SaveTransactionPopupView;
+			import mx.controls.Tree;
+			import services.events.items.management.GetHotelTransactionsEvent;
+			import services.events.items.management.GetSystemTransactionsEvent;
+			import services.events.items.management.GetSystemTransactionsCountEvent;
+			import services.events.items.management.GetAllowedHotelsEvent;
+			import services.events.items.itemGroups.GetSystemGroupsListEvent;
+			import services.events.items.itemGroups.GetHotelItemsGroupsEvent;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			
+			import services.controller.AppController;
+			import framework.model.AppModelLocator;
+			import services.vo.items.ItemsGroupVO;
+			import services.vo.items.HotelItemVO;
+			
+			import h2olib.control.pager.event.PagerEvent;
+			
+			import mx.events.ListEvent;
+			import mx.events.TreeEvent;
+			import mx.events.ItemClickEvent;
+			import mx.collections.ArrayCollection;
+			import mx.controls.advancedDataGridClasses.AdvancedDataGridColumn;
+			import mx.controls.treeClasses.TreeListData;
+			import mx.controls.treeClasses.TreeItemRenderer;
+			import mx.core.IFlexDisplayObject;
+			import mx.managers.PopUpManagerChildList;
+			import framework.managers.PopUpManagerExt;
+			
+			// ================================================================= //
+			//                           VARIABLES                               //
+			// ================================================================= //
+			private var item:ItemsGroupVO = new ItemsGroupVO();
+			
+			[Bindable]
+			private var visibleRowCount:Number = 0;
+			
+			/**
+			 *  This property is list of groups by hotel id (system or hotel).
+			 *  
+			 *  @default new ArrayCollection()
+			 *  
+			 *  @see services.vo.backend.ItemsGroupVO
+			 */
+			private var _groupProvider:/* ItemsGroupVO */ArrayCollection = new ArrayCollection();
+			/**
+			 *  This proeprty is data provider for transactions.
+			 *  
+			 *  @default new ArrayCollection()
+			 *  
+			 *  @see services.vo.backend.HotelItemVO
+			 */
+			private var _transactionProvider:/* HotelItemVO */ArrayCollection = new ArrayCollection();
+			/**
+			 *  This property is id of the hotel. It changes when user selects
+			 *  some of allowed hotels.
+			 *  <p>It have to make refresh (set last used hotel) by update. If
+			 *  property is <code>-1</code>, it's mean then in the system using
+			 *  basic (system) list of groups and subgroup, and transaction and
+			 *  articles by groups.
+			 *  
+			 *  @default -1
+			 */
+			private var _hotelId:Number = -1;
+			
+			// ================================================================= //
+			//                        OVERRIDE METHODS                           //
+			// ================================================================= //
+			/**
+			 *  @override
+			 *  
+			 *  Update handler. Get allowed hotels by user. If arrangement codes
+			 *  doesn't esixt in the system, will get also them.
+			 *  <p>This method use for refresh view in the system.
+			 *  
+			 *  @see framework.view.components.views.SubWindow#update
+			 *  @see services.events.items.management.GetAllowedHotelsEvent
+			 *  @see services.events.items.arrangementCodes.GetArrangementsEvent
+			 */
+			override public function update():void
+			{
+				var event:BaseEvent;
+				// clear transactions
+				transactionProvider.removeAll();
+				// get allowed hotel to current logined user in the system
+				event = new GetAllowedHotelsEvent(ItemsDelegate.GET_ALLOWED_HOTELS);
+				event.callBack = updateHotelSelection;
+				CairngormEventDispatcher.getInstance().dispatchEvent(event);
+				// check and get arrangement codes
+				if (model.transactionModule.arrangementCodesList.length == 0)
+				{
+					event = new GetArrangementsEvent(ItemsDelegate.GET_ARRANGEMENTS_LIST);
+					CairngormEventDispatcher.getInstance().dispatchEvent(event);
+				}
+				// close all items in groups view as Tree
+				if (itemsTree)
+				{
+					for each(var item:ItemsGroupVO in itemsTree.dataProvider)
+					{
+						itemsTree.expandItem(item, false);
+					}
+				}
+			}
+			/**
+			 *  Update selection for hotel by last actived hotel id.
+			 */
+			private function updateHotelSelection():void
+			{
+				cmbHotelChooser.setItemByField("iHotelId", hotelId);
+			}
+			/**
+			 *  Change current active hotel. Update all view by new id
+			 *  of selected hotel.
+			 *  
+			 *  
+			 */
+			private function onHotelChanged():void
+			{
+				var event:BaseEvent;
+				// store id of selected hotel.
+				hotelId = (cmbHotelChooser.selectedItem as HotelInfoTotalVO).iHotelId;
+				// clear list of transaction when hotel is changed
+				transactionProvider.removeAll();
+				// update groups by id of the hotel. If id of hotel is <code>-1</code>,
+				// get system groups
+				if (hotelId != -1)
+				{
+					event = new GetHotelItemsGroupsEvent(ItemsDelegate.GET_HOTEL_GROUPS);
+					(event as GetHotelItemsGroupsEvent).hotelId = hotelId;
+				}
+				else
+				{
+					event = new GetSystemGroupsListEvent(ItemsDelegate.GET_SYSTEM_GROUPS);
+				}
+				event.callBack = handleSearchByGroup;
+				CairngormEventDispatcher.getInstance().dispatchEvent(event);
+			}
+			/**
+			 *  Filter function for groups and subgroups by selected hotel.
+			 *  
+			 *  @param data:Object - group from list of groups by hotel.
+			 *  
+			 *  @return state of visible group in list by search pattern.
+			 */
+			private function filterByGroup(data:Object):Boolean
+			{
+				var group:ItemsGroupVO = data as ItemsGroupVO;
+				var key:String = searchByGroup.text.toUpperCase();
+				// apply filter to group
+				if (group.sName.toUpperCase().indexOf(key) != -1)
+				{
+					return true;
+				}
+				// apply filter to sub groups
+				for each(var subgroup:ItemsGroupVO in group.aSubGroups)
+				{
+					if (subgroup.sName.toUpperCase().indexOf(key) != -1)
+					{
+						return true;
+					}
+				}
+				
+				return false;
+			}
+			/**
+			 *  The handle for make search by groups. Refresh view for groups and
+			 *  subgroups by change id of current selected hotel.
+			 */
+			private function handleSearchByGroup():void
+			{
+				// for validate tree
+				if (hotelId == -1)
+				{
+					//itemsTree.dataProvider = model.transactionModule.systemGroupsList;
+					groupProvider = model.transactionModule.systemGroupsList;
+				}
+				else
+				{
+					//itemsTree.dataProvider = model.transactionModule.hotelGroupsList;
+					groupProvider = model.transactionModule.hotelGroupsList;
+				}
+				// apply search params to groups
+				groupProvider.filterFunction = filterByGroup;
+				groupProvider.refresh();
+			}
+			/**
+			 *  The handle for make search by transaction.
+			 */
+			private function handleSearchByTransaction():void
+			{
+				var key:String = searchByTransaction.text;
+				var event:PageBaseEvent;
+				
+				if (hotelId == -1)
+				{
+					event = new GetSystemTransactionsEvent(ItemsDelegate.GET_SYSTEM_TRANSACTIONS);
+					(event as GetSystemTransactionsEvent).sysGroupId = item.lId;
+				}
+				else
+				{
+					event = new GetHotelTransactionsEvent(ItemsDelegate.GET_HOTEL_TRANSACTIONS);
+					(event as GetHotelTransactionsEvent).hotelId = hotelId;
+					(event as GetHotelTransactionsEvent).groupId = item.lId;
+				}
+				event.pattern = key;
+				event.page = 1;
+				event.count = pager.itemPerPageCount;
+				event.callBack = refresh;
+				CairngormEventDispatcher.getInstance().dispatchEvent(event as CairngormEvent);
+			}
+			
+			
+			
+			
+			
+			private function calcVisibleRow():void
+			{
+				visibleRowCount = Math.round((adgTransactions.height - adgTransactions.headerHeight - 16) / adgTransactions.rowHeight);
+			}
+			
+			
+			
+			
+			
+			
+			
+			
+			/**
+			 *  The handler for change view of transactions by blocks.
+			 *  
+			 *  @param e:PagerEvent
+			 */
+			private function handleGetBlockTransaction(e:PagerEvent):void
+			{
+				var event:PageBaseEvent;
+				// check system or hote transactions need
+				if (hotelId == -1)
+				{
+					event = new GetSystemTransactionsEvent(ItemsDelegate.GET_SYSTEM_TRANSACTIONS);
+					(event as GetSystemTransactionsEvent).sysGroupId = item.lId;
+				}
+				else
+				{
+					event = new GetHotelTransactionsEvent(ItemsDelegate.GET_HOTEL_TRANSACTIONS);
+					(event as GetHotelTransactionsEvent).hotelId = hotelId;
+					(event as GetHotelTransactionsEvent).groupId = item.lId;
+				}
+				// make remote call
+				event.page = e.index;
+				event.count = e.count;
+				event.callBack = refresh;
+				CairngormEventDispatcher.getInstance().dispatchEvent(event as BaseEvent);
+			}
+			/**
+			 *  Definition id o main group and his subgroups in the selection of any
+			 *  of the groups (subgroups) in the list of possible system or hotel.
+			 * 
+			 *  @param item:ItemsGroupVO - seleted item into the Tree.
+			 *  	
+			 *  @return data with id of main and sub groups.
+			 *  
+			 *  @see services.vo.backend.ItemsGroupVO
+			 *  @see framework.view.pages.items.data.GroupData
+			 */
+			private function checkSelectedGroups(item:ItemsGroupVO):GroupData
+			{
+				if (!item) return new GroupData();
+				
+				var groups:ArrayCollection = model.transactionModule.systemGroupsList;
+				for each(var group:ItemsGroupVO in groups)
+				{
+					for each(var subgroup:ItemsGroupVO in group.aSubGroups)
+					{
+						if (subgroup.lId == item.lId)
+						{
+							return new GroupData(group.lId, subgroup.lId);
+						}
+					}
+				}
+				return new GroupData();
+			}
+			
+			/**
+			 *  The handler to add new transaction for some selected sub group
+			 *  by group.
+			 *  When new transaction is added, we have to update view by tree
+			 *  of group (for example, expand item for which added transaction).
+			 */
+			private function openAddTransactionPopup():void
+			{
+				var pop:SaveTransactionPopupView = PopUpManagerExt.createPopUp(model.owner, SaveTransactionPopupView) as SaveTransactionPopupView;
+				pop.groupProvider = groupProvider;
+				pop.visibleVAT = true;
+				pop.selectGroups(checkSelectedGroups(itemsTree.selectedItem as ItemsGroupVO));
+				if (adgTransactions.selectedItem)
+				{
+					pop.transactionId = (adgTransactions.selectedItem as HotelItemVO).lId;
+				}
+				pop.callBack = refresh;
+			}
+			
+			private function openEditTransactionPopup():void
+			{
+				var pop:SaveTransactionPopupView = PopUpManagerExt.createPopUp(model.owner, SaveTransactionPopupView) as SaveTransactionPopupView;
+				pop.hotelId = hotelId;
+				pop.visibleVAT = false;
+				pop.groupProvider = groupProvider;
+				pop.data = adgTransactions.selectedItem;
+				pop.transactionId = (adgTransactions.selectedItem as HotelItemVO).lId;
+				pop.callBack = refresh;
+			}
+			
+			
+			private function openEditVATPeriodsPopup():void
+			{
+				var pop:EditVATPeriodsPopupView = PopUpManagerExt.createPopUp(model.owner, EditVATPeriodsPopupView) as EditVATPeriodsPopupView;
+				pop.itemId = (adgTransactions.selectedItem as HotelItemVO).lId;
+				pop.basicList = (cmbHotelChooser.selectedIndex == 0);
+				pop.callBack = refresh;
+			}
+			
+			/**
+			 *  The handle to open popup for delete selected transaction or article.
+			 */
+			private function openDeletePopup():void
+			{
+				var pop:DeletePopupView = PopUpManagerExt.createPopUp(this, DeletePopupView) as DeletePopupView;
+				pop.callBack = refresh;
+				
+				if ((adgTransactions.selectedItem as HotelItemVO).bIsArticle)
+				{
+					pop.title = model.locale.Items_Managment_Popups_DeleteArticle_Title;
+					pop.description = model.locale.Items_Managment_Popups_DeleteArticle_Description;
+					pop.addEventListener(PopupEvent.DELETE_HANDLER, tryDeleteArticle);
+				}
+				else
+				{
+					pop.title = model.locale.Items_Managment_Popups_DeleteTransaction_Title;
+					pop.description = model.locale.Items_Managment_Popups_DeleteTransaction_Description;
+					pop.addEventListener(PopupEvent.DELETE_HANDLER, tryDeleteTransaction);
+				}
+			}
+			/**
+			 *  Try to delete selected transaction by opened popup.
+			 *  
+			 *  @param e:PopupDeleteEvent
+			 */
+			private function tryDeleteTransaction(e:PopupEvent):void
+			{
+				(e.target as DeletePopupView).removeEventListener(PopupEvent.DELETE_HANDLER, tryDeleteArticle);
+				
+				var event:DeleteSystemTransactionEvent = new DeleteSystemTransactionEvent(ItemsDelegate.DELETE_SYSTEM_TRANSACTION);
+				event.sysGroupId = (adgTransactions.selectedItem as HotelItemVO).lId;
+				event.index = adgTransactions.selectedIndex;
+				event.callBack = (e.target as DeletePopupView).completeCall;
+				CairngormEventDispatcher.getInstance().dispatchEvent(event);
+			}
+			/**
+			 *  Try to delete selected article by his transaction by opened popup.
+			 *  
+			 *  @param e:PopupDeleteEvent
+			 */
+			private function tryDeleteArticle(e:PopupEvent):void
+			{
+				(e.target as DeletePopupView).removeEventListener(PopupEvent.DELETE_HANDLER, tryDeleteArticle);
+				
+				var i:int = 0;
+				var item:HotelItemVO = adgTransactions.selectedItem as HotelItemVO;
+				var list:ArrayCollection = model.transactionModule.transactionList;
+				
+				var event:DeleteSystemArticleEvent = new DeleteSystemArticleEvent(ItemsDelegate.DELETE_SYSTEM_ARTICLE);
+				event.articleId = item.lId;
+				
+				// Search index of transaction into the list of transactions
+				for(i = 0; i < list.length; i++)
+				{
+					var trans:HotelItemVO = list.getItemAt(i) as HotelItemVO;
+					if (trans.lId == item.lGroupId)
+					{
+						event.transactionIndex = i;
+						break;
+					}
+				}
+				
+				var articles:Array = (list.getItemAt(event.transactionIndex) as HotelItemVO).aSubItems;
+				// Search index of article into the list of transactions
+				for(i = 0; i < articles.length; i++)
+				{
+					var article:HotelItemVO = articles[i] as HotelItemVO;
+					if (article.lId == item.lId)
+					{
+						event.articleIndex = i;
+						break;
+					}
+				}
+				
+				event.callBack = (e.target as DeletePopupView).completeCall;
+				CairngormEventDispatcher.getInstance().dispatchEvent(event);
+			}
+			
+			/**
+			 *  The handle of selecting item in list of the groups.
+			 */
+			private function handleSelectItem(e:ListEvent):void
+			{
+				// set possible open or close selected item
+				var tree:Tree = e.currentTarget as Tree;
+				item = e.itemRenderer.data as ItemsGroupVO;
+				tree.expandItem(item, !tree.isItemOpen(item), true);
+				// check possible to make request to server for 
+				// get transaction by selected items sub group.
+				if (((e.itemRenderer as TreeItemRenderer).listData as TreeListData).depth == 2)
+				{
+					model.transactionModule.transactionList.removeAll();
+					var hotel:HotelInfoTotalVO = cmbHotelChooser.selectedItem as HotelInfoTotalVO;
+					if (hotel.iHotelId == -1)
+					{
+						getSystemTransactions(item.lId);
+					}
+					else
+					{
+						var event:GetHotelTransactionsEvent = new GetHotelTransactionsEvent(ItemsDelegate.GET_HOTEL_TRANSACTIONS);
+						event.hotelId = hotel.iHotelId;
+						event.groupId = item.lId;
+						event.page = 1;
+						event.count = pager.itemPerPageCount;
+						event.callBack = refresh;
+						CairngormEventDispatcher.getInstance().dispatchEvent(event);
+					}
+				}
+			}
+			
+			private function getSystemTransactions(id:Number):void
+			{
+				var event:GetSystemTransactionsEvent = new GetSystemTransactionsEvent(ItemsDelegate.GET_SYSTEM_TRANSACTIONS);
+				event.sysGroupId = id;
+				event.page = 1;
+				event.count = pager.itemPerPageCount;
+				event.callBack = refresh;
+				CairngormEventDispatcher.getInstance().dispatchEvent(event);
+			}
+			
+			public function refresh():void
+			{
+				adgTransactions.dataProvider = hdTrasnsactions;
+				(hdTrasnsactions.source as ArrayCollection).refresh();
+				// update view for transactions
+				transactionProvider = model.transactionModule.transactionList;
+			}
+			
+			private function arrangementById(id:Number):ArrangementCodeVO
+			{
+				var codes:ArrayCollection = model.transactionModule.arrangementCodesList;
+				for each(var code:ArrangementCodeVO in codes)
+				{
+					if (code.lId == id) return code;
+				}
+				
+				return new ArrangementCodeVO();
+			}
+			/**
+			 *  Label function for view arrangement codes by them code.
+			 *  
+			 *  @param item:Object - item of data provider.
+			 *  @param column:AdvancedDataGridColumn - column in grid.
+			 *  
+			 *  @result list of arrangement codes as String.
+			 */
+			private function funcArrgView(item:Object, column:AdvancedDataGridColumn):String
+			{
+				var codes:String = "";
+				var arrgs:Array = (item as HotelItemVO).aArrgCodes;
+				// check arrangement codes for view
+				for each(var codeId:Number in arrgs)
+				{
+					codes += arrangementById(codeId).sCode + ", ";
+				}
+				// delete last ", " if any codes are added
+				if (codes.length > 0)
+				{
+					codes = codes.substr(0, codes.length - 2);
+				}
+				
+				return codes;
+			}
+			
+			// ================================================================= //
+			//                       GETTERS AND SETTERS                         //
+			// ================================================================= //
+			[Bindable(event="hotelIdChanged")]
+			/**
+			 *  Id of the current used hotel.
+			 */
+			protected function get hotelId():Number
+			{
+				return _hotelId;
+			}
+			/**
+			 *  @private
+			 */
+			protected function set hotelId(value:Number):void
+			{
+				_hotelId = value;
+				
+				dispatchEvent(new Event("hotelIdChanged"));
+			}
+			
+			[Bindable(event="groupProviderChanged")]
+			/**
+			 *  The list of groups by hotel id (system or hotel).
+			 */
+			protected function get groupProvider():ArrayCollection
+			{
+				return _groupProvider;
+			}
+			/**
+			 *  @private
+			 */
+			protected function set groupProvider(value:ArrayCollection):void
+			{
+				_groupProvider = value;
+				
+				dispatchEvent(new Event("groupProviderChanged"));
+			}
+			
+			[Bindable(event="transactionProviderChanged")]
+			protected function get transactionProvider():ArrayCollection
+			{
+				return _transactionProvider;
+			}
+			/**
+			 *  @private
+			 */
+			protected function set transactionProvider(value:ArrayCollection):void
+			{
+				_transactionProvider = ObjectUtil.copy(value) as ArrayCollection;
+				
+				dispatchEvent(new Event("transactionProviderChanged"));
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:HBox width="100%" height="100%" paddingBottom="5" paddingLeft="5" paddingRight="5" paddingTop="5">
+		<mx:VBox width="300" height="100%">
+			<searchBox:SearchBox id="searchByGroup"
+				label="{model.locale.Items_Managment_SearchBox_Group}"
+				maxChars="25"
+				focusOut="handleSearchByGroup()"
+				enter="handleSearchByGroup()"
+				height="24"/>
+			<mx:Tree id="itemsTree"
+				dataProvider="{groupProvider}"
+				labelField="sName"
+				itemClick="handleSelectItem(event)"
+				width="100%" height="100%"/>
+		</mx:VBox>
+		
+		<mx:VBox width="100%" height="100%">
+			<mx:HBox width="100%">
+				<searchBox:SearchBox id="searchByTransaction"
+					label="{model.locale.Items_Managment_SearchBox_Transaction}"
+					maxChars="25"
+					focusOut="handleSearchByTransaction()"
+					enter="handleSearchByTransaction()"
+					width="250"
+					height="24"/>
+				<mx:Spacer width="100%" />
+				<control:ComboBoxEx id="cmbHotelChooser"
+					dataProvider="{model.transactionModule.allowedHotels}"
+					labelField="sHotelName"
+					change="onHotelChanged()"
+					height="24"/>
+			</mx:HBox>
+			
+			<mx:AdvancedDataGrid id="adgTransactions"
+				width="100%" height="100%"
+				resizableColumns="false"
+				draggableColumns="false"
+				updateComplete="calcVisibleRow()" headerHeight="22" rowHeight="33" styleName="grid">
+				<mx:dataProvider>
+					<mx:HierarchicalData id="hdTrasnsactions"
+						source="{transactionProvider}"
+						childrenField="aSubItems"/>
+				</mx:dataProvider>
+				<mx:columns>
+					<mx:AdvancedDataGridColumn
+						headerText="{model.locale.Items_Managment_Columns_Transaction}"
+						dataField="sName"
+						fontWeight="bold"
+						width="250"/>
+					<mx:AdvancedDataGridColumn
+						headerText="{model.locale.Items_Managment_Columns_Code}"
+						dataField="sTransactionCode"
+						fontWeight="bold"
+						width="70"/>
+					<mx:AdvancedDataGridColumn
+						headerText="{model.locale.Items_Managment_Columns_Price}"
+						dataField="fPrice"
+						fontWeight="bold"
+						width="70"/>
+					<mx:AdvancedDataGridColumn
+						headerText="{model.locale.Items_Managment_Columns_VAT}"
+						dataField="iVat"
+						fontWeight="bold"
+						width="70"/>
+					<mx:AdvancedDataGridColumn
+						headerText="{model.locale.Items_Managment_Columns_Arregement}"
+						labelFunction="funcArrgView"
+						fontWeight="bold"/>
+				</mx:columns>
+			</mx:AdvancedDataGrid>
+			<!--
+				Control panel for change blocks for view transactions and control
+				transaction (add, edit and delete).
+			  -->
+			<mx:HBox width="100%">
+				<mx:Button
+					label="{model.locale.Global_Button_Add}"
+					enabled="{UtilsMXML.and(itemsTree.selectedItem,
+								!ItemsGroupVO(itemsTree.selectedItem).bIsGroup,
+								hotelId == -1)}"
+					click="openAddTransactionPopup()"
+					width="100"/>
+				<mx:Button
+					label="{model.locale.Global_Button_Edit}"
+					enabled="{adgTransactions.selectedItem}"
+					click="openEditTransactionPopup()"
+					width="100"/>
+				<mx:Button
+					label="{model.locale.Items_Managment_Buttons_EditVATPeriods}"
+					enabled="{adgTransactions.selectedItem}"
+					click="openEditVATPeriodsPopup()"
+					width="100"/>
+				<mx:Button
+					label="{model.locale.Global_Button_Delete}"
+					click="openDeletePopup()"
+					enabled="{false/*UtilsMXML.and(adgTransactions.selectedItem, hotelId == -1)*/}"
+					width="100"/>
+				
+				<mx:Spacer width="100%"/>
+				
+				<pager:Pager id="pager"
+					count="{model.transactionModule.transactionCount}"
+					fit="{visibleRowCount}"
+					pageChange="callLater(handleGetBlockTransaction, [event])"/>
+			</mx:HBox>
+		</mx:VBox>
+	</mx:HBox>
+</view:VSubWindow>

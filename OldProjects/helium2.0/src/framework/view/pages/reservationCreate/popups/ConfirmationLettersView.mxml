@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<BasePopupView 
+	xmlns="framework.view.components.popups.*" 
+	xmlns:mx="http://www.adobe.com/2006/mxml" width="400" height="300">
+
+
+<mx:Label text="Template"/>
+<mx:ComboBox id="cmbTamplates"/>	
+
+<mx:ApplicationControlBar width="100%">
+	<mx:Button id="btnOk"
+		click=""/>
+	<mx:Button id="btnCancel"
+		/>	
+</mx:ApplicationControlBar>
+</BasePopupView>

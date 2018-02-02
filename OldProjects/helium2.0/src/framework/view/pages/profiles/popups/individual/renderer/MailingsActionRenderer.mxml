@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:HBox xmlns:mx="http://www.adobe.com/2006/mxml" width="100%" height="100%">
+	<mx:Script>
+		<![CDATA[
+			import services.vo.common.MailingsVO;
+			
+			private function changeSelectedState():void
+			{
+				(data as MailingsVO).bIsSelected = !(data as MailingsVO).bIsSelected;
+			}
+		]]>
+	</mx:Script>
+	<mx:CheckBox
+		selected="{(data as MailingsVO).bIsSelected}"
+		click="changeSelectedState()"/>
+	<mx:Label
+		id="title"
+		text="{(data as MailingsVO).sName}"/>
+</mx:HBox>

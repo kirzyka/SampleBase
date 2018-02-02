@@ -1,0 +1,929 @@
+<?xml version="1.0" encoding="utf-8"?>
+<BasePopupView
+	xmlns="framework.view.components.popups.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:control="h2olib.control.*"
+	xmlns:subviewResEdit="framework.view.pages.reservationEdit.subview.*"
+	xmlns:subviewResCreate="framework.view.pages.reservationCreate.subview.*"
+	xmlns:reservationEdit="framework.view.pages.reservationEdit.popups.*"
+	xmlns:reservationCreate="framework.view.pages.reservationCreate.*"
+	
+	width="1100" height="700"
+	title="Edit Reservation"
+	creationPolicy="all"
+	creationComplete="{creationCompleteHandler();}" >
+<mx:Script>
+	<![CDATA[
+		import services.vo.reservation.ReservationVO;
+		import framework.view.components.popups.events.PopupEvent;
+		import mx.charts.chartClasses.DataDescription;
+		import services.vo.reservation.PersonAssignVO;
+		import services.events.reservation.GetOrderFutureInfoEvent;
+		import services.controller.AppController;
+		import services.vo.reservation.OrderVO;
+		import framework.view.pages.reservationEdit.OrderPersonsPerRoomsView;
+		import services.events.hotels.GetRealRoomTypeListEvent;
+		import h2olib.control.enum.MessageShowType;
+		import h2olib.control.enum.MessageKind;
+		import services.events.MsgEvent;
+		import framework.view.components.popups.ConfirmationPopupView;
+		import mx.controls.Menu;
+		import mx.events.MenuEvent;
+		import services.events.rates.bar.GetBARsByDateEvent;
+		import services.vo.backend.RoomWithBedTypesObjectVO;
+		import services.vo.rates.bar.BarPriceVO;
+		import services.events.rates.bar.GetHotelBarPriceEvent;
+		import services.vo.rates.companyRates.CompanyRateObjectVO;
+		import services.vo.backend.PackageVO;
+		import framework.module.ReservationModule;
+		import framework.core.utils.UtilsMXML;
+		import services.vo.backend.RoomTypesObjectVO;
+		import services.vo.reservation.ConfirmationVO;
+		import services.vo.reservation.DepositVO;
+		import services.vo.reservation.GuaratneeVO;
+		import services.vo.reservation.CreditCardVO;
+		import services.vo.reservation.CreditCardTypeVO;
+		import services.vo.common.ContactVO;
+		import framework.core.utils.UtilsGolobal;
+
+		import mx.utils.ObjectUtil;
+		import h2olib.utils.DateUtils;
+		import mx.managers.PopUpManagerChildList;
+		import framework.managers.PopUpManagerExt;
+		import framework.view.pages.reservationCreate.popups.SelectRateReservationPopupView;
+		import mx.controls.Alert;
+		import mx.managers.PopUpManager;
+		import services.vo.GlobalFunctions;
+		import services.vo.GlobalSettings;
+		import com.adobe.cairngorm.control.CairngormEventDispatcher;
+		import services.events.reservation.SaveReservationEvent;
+		import services.vo.reservation.RoomPersonsVO;
+		import framework.model.AppModelLocator;
+		import framework.view.pages.reservationCreate.personslist.OrderPersonsListView;
+		import services.vo.reservation.OrderVO;
+		import mx.core.Application;
+		import services.vo.hotels.HotelRoomWithBedTypesObjectVO;
+		import services.vo.hotels.HotelRoomTypeObjectVO;
+		import mx.collections.ArrayCollection;
+
+
+		[Bindable]
+		private var roomTypes:ArrayCollection = new ArrayCollection();
+
+		[Bindable]
+		private var iRoomQualityId:int;
+		[Bindable]
+		private var iRateId:int;
+		[Bindable]
+		private var iBarId:int;
+
+		[Bindable]
+		public var lockArrivalDate:Boolean = false;
+
+		[Bindable]
+		private var altRateMNU:Menu;
+		
+		[Bindable]
+		private var departureWarningDays:Array;
+
+		public var selectRateReservationPopupView:SelectRateReservationPopupView;
+		
+		private function creationCompleteHandler():void
+		{
+			altRateMNU = new Menu();
+            var dp:Object = [{label: "BAR", index: 0}, {label: "Company Rate", index: 1}, {label: "Package", index: 2}];
+            altRateMNU.dataProvider = dp;
+            altRateMNU.selectedIndex = ReservationModule.BAR;
+            altRateMNU.addEventListener(MenuEvent.ITEM_CLICK, btnAltRateClick);
+            pubAlternativeRate.popUp = altRateMNU;
+            pubAlternativeRate.label = altRateMNU.dataProvider[altRateMNU.selectedIndex].label;
+
+
+			setCancelReservationEnabled();
+			cmbRoomType.enabled = false;
+
+
+			var e:GetRealRoomTypeListEvent = new GetRealRoomTypeListEvent();
+			e.iHotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+			e.callBack = createRoomTypeList;
+			CairngormEventDispatcher.getInstance().dispatchEvent(e);
+			
+			//Guarantee
+
+			guaranteeView.guarantee = model.reservationModule.reservationForEdit.oGuarantee;
+
+			//Confirm
+			confirmationView.confirmation = model.reservationModule.reservationForEdit.oConfirmation;
+
+			setCancelReservationEnabled();
+		}
+
+		private function createRoomTypeList():void
+		{
+			for each(var roomType:HotelRoomWithBedTypesObjectVO in model.hotelsModule.realRoomTypeList)
+			{
+				for each(var bedType:HotelRoomTypeObjectVO in roomType.aRoomWithBedTypes)
+				{
+
+					roomTypes.addItem({ id:bedType.iId,
+										label:roomType.label + " - " + bedType.oRoomType.oBedType.sTypeName,
+										item:bedType,
+										capacity:bedType.iRoomCapacity});
+				}
+			}
+		}
+
+		private function cancelOrder():void
+		{
+			var popupOrderCncl:CancelOrderView = PopUpManagerExt.createPopUp(this, CancelOrderView, true) as CancelOrderView;
+			popupOrderCncl.iOrderId = (lstOrdersDate.selectedItem as OrderVO).iOrderId;
+			popupOrderCncl.callBack = doAfterCanceledOrder;
+			PopUpManagerExt.centerPopUp(popupOrderCncl);
+
+		}
+
+		private function doAfterCanceledOrder():void
+		{
+			setCancelReservationEnabled();
+		}
+
+		private function setCancelReservationEnabled():void
+		{
+			btnCancelReservation.enabled = false;
+			for each(var order:OrderVO in lstOrdersDate.dataProvider)
+			{
+				if(order.bCanCanceled)
+				{
+					btnCancelReservation.enabled = true;
+					return;
+				}
+			}
+		}
+
+		private function cancelReservation():void
+		{
+			var popupRsrvCncl:CancelReservationView = PopUpManagerExt.createPopUp(this, CancelReservationView, true) as CancelReservationView;
+			popupRsrvCncl.reservationId = model.reservationModule.reservationForEdit.iId;
+			popupRsrvCncl.callBack = doAfterCanceledReservation;
+			PopUpManagerExt.centerPopUp(popupRsrvCncl);
+		}
+
+		private function doAfterCanceledReservation():void
+		{
+
+		}
+
+		/*		CALLER INFO		*/
+
+		/*		ORDERS LIST		*/
+
+		private function ordersLabelFunction(item:OrderVO):String
+		{
+			return item.sStartDateUIFormat + "-" + item.sEndDateUIFormat;
+		}
+
+		private var isSettingOrder:Boolean;
+
+		private function getOrder():void
+		{
+			if(lstOrdersDate.selectedItem)
+			{
+				isSettingOrder = true;				
+
+				btnCancelOrder.enabled = (lstOrdersDate.selectedItem as OrderVO).bCanCanceled;
+				var roomPersonsView:OrderPersonsPerRoomsView;
+				dfArrivalDate.selectedDate = DateField.stringToDate((lstOrdersDate.selectedItem as OrderVO).sStartDate, GlobalSettings.DATE_SERVER_FORMAT);
+				dfDepartureDate.selectedDate = DateField.stringToDate((lstOrdersDate.selectedItem as OrderVO).sEndDate, GlobalSettings.DATE_SERVER_FORMAT);
+
+				cmbRoomType.setItemByField("id",(lstOrdersDate.selectedItem as OrderVO).iRoomTypeId);
+
+				//lblDates.text = (lstOrdersDate.selectedItem as OrderVO).sStartDateUIFormat + ' - ' + (lstOrdersDate.selectedItem as OrderVO).sEndDateUIFormat;
+				tnRooms.removeAllChildren();
+				var order:OrderVO = lstOrdersDate.selectedItem as OrderVO;
+				var i:int = 0;
+				for each(var room:RoomPersonsVO in order.aClientsPerRoom)
+				{
+					i++;
+					roomPersonsView = new OrderPersonsPerRoomsView();
+					if(cmbRoomType.selectedItem != null)
+					{
+						roomPersonsView.capacity = (cmbRoomType.selectedItem.item as HotelRoomTypeObjectVO).iRoomCapacity;
+					}
+					roomPersonsView.persons = room.aProfiles;
+					roomPersonsView.caller = model.reservationModule.reservationForEdit.oCaller;
+					roomPersonsView.order = order;
+					roomPersonsView.percentHeight = 100;
+					roomPersonsView.percentWidth = 100;
+					roomPersonsView.label = " " + i.toString();
+
+					tnRooms.addChild(roomPersonsView);
+				}
+
+				btnCancelOrder.enabled = (lstOrdersDate.selectedItem as OrderVO).bCanCanceled;
+				cmbRoomType.enabled = (lstOrdersDate.selectedItem as OrderVO).bCanCanceled;
+				var rateType:int = (lstOrdersDate.selectedItem as OrderVO).iRateType;
+				
+				var useOrder:OrderVO = lstOrdersDate.selectedItem as OrderVO;				
+				if(useOrder.oMapCompanyRate != null)
+				{
+					lblRateName.label = model.reservationModule.rateTypeLabel.getItemAt(1) + ":";
+					lblRateTypeName.text = useOrder.oMapCompanyRate.sName;
+				}	
+				else if(useOrder.oMapPackage != null)
+				{
+					lblRateName.label = model.reservationModule.rateTypeLabel.getItemAt(2) + ":";
+					lblRateTypeName.text = useOrder.oMapPackage.sPackageName;
+				}				
+				else if(useOrder.oMapBarPrice != null)
+				{
+					lblRateName.label = model.reservationModule.rateTypeLabel.getItemAt(0) + ":";
+					lblRateTypeName.text = model.reservationModule.rateTypeLabel.getItemAt(0) + "";
+				}
+							 
+				//lblRateTypeName.text = model.reservationCreateModule.rateTypeLabel.getItemAt(rateType) + "";
+				
+				getOrderFutureInfo();
+
+				getBAR(doAfterGetBar);
+			}
+		}
+		
+		
+		private function getOrderFutureInfo():void
+		{
+			var order:OrderVO = lstOrdersDate.selectedItem as OrderVO;
+			var getOrderFutureInfoEvent:GetOrderFutureInfoEvent = new GetOrderFutureInfoEvent();
+			getOrderFutureInfoEvent.hotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+			getOrderFutureInfoEvent.orderId = order.iOrderId;
+			getOrderFutureInfoEvent.sDateStart = DateField.dateToString(model.businessDate, GlobalSettings.DATE_SERVER_FORMAT);//order.sStartDate;
+			getOrderFutureInfoEvent.sDateEnd = order.sEndDate;
+			getOrderFutureInfoEvent.callBack = setDepartureDateRestriction;
+			getOrderFutureInfoEvent.dispatch();
+		}
+
+		private function setDepartureDateRestriction():void
+		{
+			
+			if(model.reservationModule.orderFutureInfo.sDateOutOfService != null)
+			{
+				dfDepartureDate.disabledRanges = [{rangeStart:DateField.stringToDate(model.reservationModule.orderFutureInfo.sDateOutOfService, DateUtils.DATE_SERVER_FORMAT )}];
+			}
+			else
+			{
+				departureWarningDays = new Array();
+				if(model.reservationModule.orderFutureInfo.aPersonAssign != null)
+				{
+					for each(var item:PersonAssignVO in model.reservationModule.orderFutureInfo.aPersonAssign)
+					{
+						var d1:Date = DateField.stringToDate(item.sDateStart, DateUtils.DATE_SERVER_FORMAT);
+						var d2:Date = DateField.stringToDate(item.sDateEnd, DateUtils.DATE_SERVER_FORMAT);
+						
+						var datediff:int = DateUtils.dateDiff(DateUtils.DAY_OF_MONTH,d1,d2);
+						
+						if(datediff == 0)
+						{
+							departureWarningDays.push(d1);
+						}
+						
+						for(var i:int = 0; i< datediff; i++)
+						{
+							departureWarningDays.push(DateUtils.dateAdd(DateUtils.DAY_OF_MONTH, i, d1));							
+						}
+					}
+				}
+			}			
+		}
+		
+
+	
+		private function setArrivalDate():void
+		{
+			if(lstOrdersDate.selectedItem && !isSettingOrder)
+			{
+				(lstOrdersDate.selectedItem as OrderVO).sStartDate = DateField.dateToString(dfArrivalDate.selectedDate, GlobalSettings.DATE_SERVER_FORMAT);
+			}
+
+			setDepartureDate();
+		}
+
+
+			
+
+		private function setDepartureDate():void
+		{
+			var sMSG:String = "";
+			var sGuestName:String = "";
+			var sDateStart:String = "";
+			var sDateEnd:String = "";
+			var isWarningDate:Boolean = false;
+			if(model.reservationModule.orderFutureInfo.aPersonAssign != null)
+			{
+				for each(var item:PersonAssignVO in model.reservationModule.orderFutureInfo.aPersonAssign)
+				{
+					var d1:Date = DateField.stringToDate(item.sDateStart, DateUtils.DATE_SERVER_FORMAT);
+					var d2:Date = DateField.stringToDate(item.sDateEnd, DateUtils.DATE_SERVER_FORMAT);
+					
+					sDateStart = DateField.dateToString(d1, DateUtils.DATE_CLIENT_FORMAT);
+					sDateEnd = DateField.dateToString(d2, DateUtils.DATE_CLIENT_FORMAT);
+					sGuestName = item.label;
+					
+					var datediff1:int = DateUtils.dateDiff(DateUtils.DAY_OF_MONTH,dfDepartureDate.selectedDate,d1);
+					var datediff2:int = DateUtils.dateDiff(DateUtils.DAY_OF_MONTH,dfDepartureDate.selectedDate,d2);
+					
+					if((datediff1 == 0 || datediff1 < 0) && (datediff2 == 0 || datediff2 > 0))
+					{
+						isWarningDate = true;
+						break;
+					}
+				}
+			}
+			
+			
+			if(isWarningDate)
+			{
+				var changeDDPopup:ConfirmationPopupView = PopUpManagerExt.createPopUp(this, ConfirmationPopupView, true) as ConfirmationPopupView;
+				changeDDPopup.title = "Warning";
+				changeDDPopup.description = ' There is preassigned guest "' + sGuestName + '" from "' + sDateStart + '" to "' + sDateEnd + '" for that room';
+				changeDDPopup.subDescription = "Are you sure to change departure date?";
+				changeDDPopup.addEventListener(PopupEvent.DECLINE, onNotConfirmChangeDD);
+				changeDDPopup.callBack = setDepartureDate2;
+				return;
+			}
+			else
+			{
+				setDepartureDate2();
+			}			
+		}
+		
+		private function onNotConfirmChangeDD(event:PopupEvent):void
+		{
+			dfDepartureDate.selectedDate = DateField.stringToDate((lstOrdersDate.selectedItem as OrderVO).sEndDate, GlobalSettings.DATE_SERVER_FORMAT);
+		}
+		
+		
+		private function setDepartureDate2():void
+		{
+			
+			var res:int = ObjectUtil.dateCompare(dfArrivalDate.selectedDate, dfDepartureDate.selectedDate);
+
+			if (res != -1)
+			{
+				dfDepartureDate.selectedDate = DateUtils.dateAdd(DateUtils.DAY_OF_MONTH, 1, dfArrivalDate.selectedDate);
+			}
+
+			if(lstOrdersDate.selectedItem && !isSettingOrder)
+			{
+				(lstOrdersDate.selectedItem as OrderVO).sEndDate = DateField.dateToString(dfDepartureDate.selectedDate, GlobalSettings.DATE_SERVER_FORMAT);
+			}
+		}
+
+		private function setRoomType():void
+		{
+			if(lstOrdersDate.selectedItem && !isSettingOrder)
+			{
+				for each(var room:RoomPersonsVO in (lstOrdersDate.selectedItem as OrderVO).aClientsPerRoom)
+				{
+					if(int(cmbRoomType.selectedItem.capacity) < room.iAdults)
+					{
+						var capacityWarningPopup:ConfirmationPopupView = PopUpManagerExt.createPopUp(this, ConfirmationPopupView, true) as ConfirmationPopupView;
+						capacityWarningPopup.description = "Capacity doesn't match.";
+						capacityWarningPopup.subDescription = "Do you wish to proceed?";
+						capacityWarningPopup.callBack = changeRoomType;
+						return;
+					}
+				}
+
+				changeRoomType();
+			}
+		}
+
+		private function changeRoomType():void
+		{
+			(lstOrdersDate.selectedItem as OrderVO).iRoomTypeId = cmbRoomType.selectedItem.id;
+			getBAR(doAfterGetBar);
+		}
+
+		private var msgEvent:MsgEvent;
+		private function saveReservation():void
+		{
+			var event:SaveReservationEvent = new SaveReservationEvent(AppController.SAVE_RESERVATION_EVENT);
+			event.callBack = doAfterReservation;
+
+			event.reservation = model.reservationModule.reservationForEdit;
+			event.reservation.oCaller = callerInfoView.caller;
+			
+			if(event.reservation.oCaller.iMarketCodeId == 0)
+			{
+					msgEvent = new MsgEvent(MessageKind.WARNING,
+											"Warning",
+											"Please select Market Code!",
+											MessageShowType.UNKNOWN);
+					CairngormEventDispatcher.getInstance().dispatchEvent(msgEvent);
+					return;				
+			}
+			if(event.reservation.oCaller.iSourceCodeId == 0)
+			{
+						msgEvent = new MsgEvent(MessageKind.WARNING,
+												"Warning",
+												"Please select Source Code!",
+												MessageShowType.UNKNOWN);
+					CairngormEventDispatcher.getInstance().dispatchEvent(msgEvent);
+					return;					
+			}
+			
+			//Fill Guarantee information
+			if(guaranteeView.rbGuarantee.selected)
+			{
+				if(event.reservation.oGuarantee == null)
+				{
+					event.reservation.oGuarantee = new GuaratneeVO();
+				}
+				if(guaranteeView.cmbGuaranteeType.selectedIndex == 0)
+				{
+					event.reservation.oGuarantee = null;
+
+				}
+				else if(guaranteeView.cmbGuaranteeType.selectedIndex == 1)
+				{
+					if(guaranteeView.cmbCompanyPaidBy.selectedIndex == 0)
+					{
+						if(event.reservation.oCaller.iCompanyId == 0)
+						{
+							new MsgEvent(MessageKind.WARNING,
+										"Warning",
+										"Please add Company for this guest!",
+										MessageShowType.UNKNOWN).dispatch();
+							return;
+						}
+						else
+						{
+							event.reservation.oGuarantee.iGuaranteeType = GuaratneeVO.GUARANTEE_COMPANY;
+							event.reservation.oGuarantee.iCompanyId = event.reservation.oCaller.iCompanyId;
+							event.reservation.oGuarantee.bPayedByUser = false;
+
+							event.reservation.oGuarantee.oCreditCard = null;
+							event.reservation.oGuarantee.oDeposit = null;
+						}
+					}
+
+					if(guaranteeView.cmbCompanyPaidBy.selectedIndex == 1)
+					{
+						if(event.reservation.oCaller.iCompanyId == 0)
+						{
+							new MsgEvent(MessageKind.WARNING,
+										"Warning",
+										"Please add Company for this guest!",
+										MessageShowType.UNKNOWN).dispatch();
+							return;
+						}
+						else
+						{
+							event.reservation.oGuarantee.iGuaranteeType = GuaratneeVO.GUARANTEE_COMPANY;
+							event.reservation.oGuarantee.iCompanyId = event.reservation.oCaller.iCompanyId;
+							event.reservation.oGuarantee.bPayedByUser = false;
+
+							event.reservation.oGuarantee.oCreditCard = null;
+							event.reservation.oGuarantee.oDeposit = null;
+						}
+					}
+					if(guaranteeView.cmbCompanyPaidBy.selectedIndex == 2)
+					{
+						if(event.reservation.oCaller.iCompanyId == 0)
+						{
+							new MsgEvent(MessageKind.WARNING,
+										"Warning",
+										"Please add Company for this guest!",
+										MessageShowType.UNKNOWN).dispatch();
+							return;
+						}
+						else
+						{
+							event.reservation.oGuarantee.iGuaranteeType = GuaratneeVO.GUARANTEE_COMPANY;
+							event.reservation.oGuarantee.iCompanyId = event.reservation.oCaller.iCompanyId;
+							event.reservation.oGuarantee.bPayedByUser = true;
+							event.reservation.oGuarantee.oCreditCard = null;
+							event.reservation.oGuarantee.oDeposit = null;
+						}
+					}
+
+				}
+				else if(guaranteeView.cmbGuaranteeType.selectedIndex == 2)
+				{
+					if(guaranteeView.cmbTAPaidBy.selectedIndex == 0)
+					{
+						if(event.reservation.oCaller.iTravelAgencyId == 0)
+						{
+							new MsgEvent(MessageKind.WARNING,
+										"Warning",
+										"Please add TA for this guest!",
+										MessageShowType.UNKNOWN).dispatch();
+							return;
+						}
+						else
+						{
+							event.reservation.oGuarantee.iGuaranteeType = GuaratneeVO.GUARANTEE_TRAVEL_AGENCY;
+							event.reservation.oGuarantee.iAgencyId = event.reservation.oCaller.iTravelAgencyId;
+							event.reservation.oGuarantee.bPayedByUser = false;
+
+							event.reservation.oGuarantee.oCreditCard = null;
+							event.reservation.oGuarantee.oDeposit = null;
+						}
+					}
+
+					if(guaranteeView.cmbTAPaidBy.selectedIndex == 1)
+					{
+						if(event.reservation.oCaller.iTravelAgencyId == 0)
+						{
+							new MsgEvent(MessageKind.WARNING,
+										"Warning",
+										"Please add TA for this guest!",
+										MessageShowType.UNKNOWN).dispatch();
+							return;
+						}
+						else
+						{
+							event.reservation.oGuarantee.iGuaranteeType = GuaratneeVO.GUARANTEE_TRAVEL_AGENCY;
+							event.reservation.oGuarantee.iAgencyId = event.reservation.oCaller.iTravelAgencyId;
+							event.reservation.oGuarantee.bPayedByUser = true;
+							event.reservation.oGuarantee.oCreditCard = null;
+							event.reservation.oGuarantee.oDeposit = null;
+						}
+					}
+
+				}
+				else
+				{
+
+					if(guaranteeView.cmbGuestGuaranteeType.selectedIndex == 0)
+					{
+						event.reservation.oGuarantee.iGuaranteeType = GuaratneeVO.GUARANTEE_DEPOSIT;
+						event.reservation.oGuarantee.oDeposit = new DepositVO();
+						event.reservation.oGuarantee.oDeposit.rValue = Number(guaranteeView.txtAmount.text);
+						event.reservation.oGuarantee.oDeposit.iPresentage = int(guaranteeView.txtPersentage.text);
+						event.reservation.oGuarantee.oDeposit.sDue = guaranteeView.cmbDepositExpYear.selectedLabel + "-" + guaranteeView.cmbDepositExpMonth.selectedLabel + "-01";
+						event.reservation.oGuarantee.oCreditCard = null;
+					}
+					else
+					{
+						event.reservation.oGuarantee.iGuaranteeType = GuaratneeVO.GUARANTEE_CREDIT_CARD;
+						event.reservation.oGuarantee.oCreditCard = new CreditCardVO();
+						event.reservation.oGuarantee.oCreditCard.iType = (guaranteeView.cmbCreditType.selectedItem as CreditCardTypeVO).lId;
+						event.reservation.oGuarantee.oCreditCard.sCardNumber = guaranteeView.txtCreditCardNumber.text;
+						event.reservation.oGuarantee.oCreditCard.sExpDate = guaranteeView.cmbCardExpYear.selectedLabel + "-" + guaranteeView.cmbCardExpMonth.selectedLabel + "-01";
+						event.reservation.oGuarantee.oCreditCard.sOwnerName = guaranteeView.txtCreditCardOf.text;
+						event.reservation.oGuarantee.oDeposit = null;
+					}
+				}
+
+			}
+			else
+			{
+				event.reservation.oGuarantee = null;
+			}
+
+
+			//Fill Confirm information
+			if(confirmationView.cmbConfirmTo.selectedIndex > 0)
+			{
+				event.reservation.oConfirmation = new ConfirmationVO();
+				switch(confirmationView.cmbConfirmTo.selectedItem.data)
+				{
+					case ContactVO.CONTACT_WORK_FAX:
+						event.reservation.oConfirmation.sFax = confirmationView.getPersonalData();
+					break;
+					case ContactVO.CONTACT_WORK_EMAIL:
+						event.reservation.oConfirmation.sEmail = confirmationView.getPersonalData();
+					break;
+					case ContactVO.CONTACT_WHITE_MAIL:
+						event.reservation.oConfirmation.sWhiteMail = confirmationView.getPersonalData();
+					break;
+					case ContactVO.CONTACT_WORK_PHONE:
+						event.reservation.oConfirmation.sPhone = confirmationView.getPersonalData();
+					break;
+				}
+			}
+
+			CairngormEventDispatcher.getInstance().dispatchEvent(event);
+		}
+
+		private function doAfterReservation():void
+		{
+			if(callBack != null)
+			{
+				callBack();
+			}
+			close();
+		}
+
+		/*		ORDER INFO		*/
+
+		private function btnAltRateClick(event:MenuEvent):void
+		{
+
+			switch (event.item.index)
+			{
+				case 0:
+					model.reservationModule.typeOfRate == ReservationModule.BAR;
+					pubAlternativeRate.label = altRateMNU.dataProvider[altRateMNU.selectedIndex].label;
+					setBAR();
+				break;
+				default:
+					selectRateReservationPopupView = PopUpManagerExt.createPopUp(this, SelectRateReservationPopupView,true) as SelectRateReservationPopupView;
+					selectRateReservationPopupView.dateFrom = (lstOrdersDate.selectedItem as OrderVO).sStartDate;
+					selectRateReservationPopupView.dateTo = (lstOrdersDate.selectedItem as OrderVO).sEndDate;
+					selectRateReservationPopupView.roomQualityId = (lstOrdersDate.selectedItem as OrderVO).iRoomTypeId;
+					selectRateReservationPopupView.ratePage = event.item.index;
+					selectRateReservationPopupView.isForReservationEdit = true;
+
+					selectRateReservationPopupView.callBack = selectRateComplete;
+					PopUpManagerExt.centerPopUp(selectRateReservationPopupView);
+				break;
+			}
+		}
+
+		private function selectRateComplete():void
+		{
+			model.reservationModule.typeOfRate = selectRateReservationPopupView.rateType;
+			if(model.reservationModule.typeOfRate == ReservationModule.COMPANY_RATE)
+			{
+				if(selectRateReservationPopupView.selectedCompanyRates.length > 0)
+				{
+					(lstOrdersDate.selectedItem as OrderVO).iBarId = 0;
+					(lstOrdersDate.selectedItem as OrderVO).iPackageRateId = 0;
+					(lstOrdersDate.selectedItem as OrderVO).iRateType = ReservationModule.COMPANY_RATE;
+					(lstOrdersDate.selectedItem as OrderVO).iCompanyRateId = (selectRateReservationPopupView.selectedCompanyRates.getItemAt(0) as CompanyRateObjectVO).iRateId;
+					(lstOrdersDate.selectedItem as OrderVO).iRateId = (selectRateReservationPopupView.selectedCompanyRates.getItemAt(0) as CompanyRateObjectVO).iRateId;
+				}
+			}
+
+			if(model.reservationModule.typeOfRate == ReservationModule.PACKAGE_RATE)
+			{
+				if(selectRateReservationPopupView.selectedPackageRates.length > 0)
+				{
+					(lstOrdersDate.selectedItem as OrderVO).iBarId = 0;
+					(lstOrdersDate.selectedItem as OrderVO).iCompanyRateId = 0;
+					(lstOrdersDate.selectedItem as OrderVO).iRateType = ReservationModule.PACKAGE_RATE;
+					(lstOrdersDate.selectedItem as OrderVO).iPackageRateId = (selectRateReservationPopupView.selectedPackageRates.getItemAt(0) as PackageVO).iPackageId;
+					(lstOrdersDate.selectedItem as OrderVO).iRateId = (selectRateReservationPopupView.selectedPackageRates.getItemAt(0) as PackageVO).iPackageId;
+				}
+			}
+		}
+
+		private function getBAR(callBack:Function):void
+		{
+			//Get BAR
+			var getBARsByDateEvent:GetBARsByDateEvent = new GetBARsByDateEvent(AppController.GET_BARS_BY_DATE);
+			getBARsByDateEvent.iHotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+			getBARsByDateEvent.sStartDate = (lstOrdersDate.selectedItem as OrderVO).sStartDate;
+
+			for each(var rt:Object in roomTypes)
+			{
+				if(rt.id == (lstOrdersDate.selectedItem as OrderVO).iRoomTypeId)
+				{
+					iRoomQualityId = (rt.item as HotelRoomTypeObjectVO).oRoomType.iRoomQuality;
+					break;
+				}
+
+			}
+
+
+			getBARsByDateEvent.callBack = callBack;
+			CairngormEventDispatcher.getInstance().dispatchEvent(getBARsByDateEvent);
+		}
+
+		private function doAfterGetBar():void
+		{
+			iBarId = model.ratesModule.barModule.pricesOfStartDate.oBarHotel.iBarId;
+			for each(var barPrice:BarPriceVO in model.ratesModule.barModule.pricesOfStartDate.aBarPrices)
+			{
+				if(barPrice.iRQualityId == iRoomQualityId)
+				{
+					iRateId = barPrice.iRateId;
+					break;
+				}
+			}
+			if(!isSettingOrder)
+			{
+				setBAR();
+			}
+			isSettingOrder = false;
+		}
+
+		private function setBAR():void
+		{
+			(lstOrdersDate.selectedItem as OrderVO).iBarId = iBarId;
+			(lstOrdersDate.selectedItem as OrderVO).iCompanyRateId = 0;
+			(lstOrdersDate.selectedItem as OrderVO).iRateType = ReservationModule.BAR;
+			(lstOrdersDate.selectedItem as OrderVO).iPackageRateId = 0;
+			(lstOrdersDate.selectedItem as OrderVO).iRateId = iRateId;
+
+		}
+
+		/*		ROOMS			*/
+
+		]]>
+	</mx:Script>
+
+	<control:Frame
+		label="Caller Information"
+		width="100%">
+		<subviewResEdit:CallerInfoView id="callerInfoView"
+			caller="{model.reservationModule.reservationForEdit.oCaller}"
+			width="100%" height="100%"/>
+	</control:Frame>
+
+	<mx:TabNavigator id="tnMain"
+		width="100%"
+		height="100%">
+		<mx:VBox label="Order Information"
+			width="100%"
+			height="100%"
+			paddingBottom="10"
+			paddingLeft="10"
+			paddingRight="10">
+		<mx:HBox width="100%"
+				height="100%"
+				horizontalGap="10">
+				<mx:VBox width="15%"
+					height="100%"
+					verticalGap="0">
+					<mx:HBox width="100%"
+						height="25"
+						backgroundColor="0xCCCCCC"
+						paddingTop="6"
+						paddingLeft="10">
+						<mx:Label text="Orders Dates" fontSize="10" fontWeight="bold"/>
+					</mx:HBox>
+					<mx:List id="lstOrdersDate"
+						width="170"
+						height="100%"
+						dataProvider="{model.reservationModule.reservationForEdit.aOrders}"
+						labelFunction="ordersLabelFunction"						
+						change="{getOrder()}"/>
+				</mx:VBox>
+				<mx:VBox width="100%"
+					height="100%"
+					borderStyle="solid"
+					borderThickness="1">
+					<mx:HBox width="100%"
+						height="25"
+						backgroundColor="0xCCCCCC"
+						paddingTop="6"
+						paddingLeft="10">
+						<mx:Label text="Order Details" fontSize="10" fontWeight="bold"/>
+					</mx:HBox>
+					<mx:VBox
+						width="100%"
+						height="100%"
+						paddingBottom="5"
+						paddingLeft="5"
+						paddingRight="5">
+						<mx:HBox width="100%"
+							borderStyle="solid"
+							borderThickness="1">
+							<mx:Form>
+								<mx:FormItem label="Arrival Date:">
+									<mx:DateField id="dfArrivalDate"
+										enabled="{UtilsMXML.and(lstOrdersDate.selectedItem,
+											!lockArrivalDate)}"
+										change="{setArrivalDate()}"
+										width="{GlobalSettings.WIDTH_DATE_FIELD}"
+										disabledRanges="{[ {rangeEnd: DateUtils.dateAdd(DateUtils.DAY_OF_MONTH,-1, model.businessDate)} ]}"
+										formatString="{GlobalSettings.DATE_FORMAT}"/>
+								</mx:FormItem>
+								<mx:FormItem label="Departure Date:">
+				
+									<control:DateFieldEx id="dfDepartureDate"
+										enabled="{lstOrdersDate.selectedItem}"
+										change="{setDepartureDate()}"
+										width="{GlobalSettings.WIDTH_DATE_FIELD}"
+										warningDays="{departureWarningDays}"
+										warningColor="#FFA500"
+										disabledRanges="{[ {rangeEnd: DateUtils.getMaxDate(dfArrivalDate.selectedDate,DateUtils.dateAdd(DateUtils.DAY_OF_MONTH,-1, model.businessDate))} ]}"
+										formatString="{GlobalSettings.DATE_FORMAT}"/>
+								</mx:FormItem>
+								<mx:FormItem label="Rooms:">
+									<mx:Label text="{(lstOrdersDate.selectedItem as OrderVO).iRoomCount}"/>
+								</mx:FormItem>
+								<mx:FormItem label="Room Type:">
+									<control:ComboBoxEx id="cmbRoomType"
+										dataProvider="{roomTypes}"
+										change="{setRoomType()}"/>
+								</mx:FormItem>
+							</mx:Form>
+							<mx:Form >
+								<mx:FormItem id="lblRateName" label="Rate" >
+									<!--mx:Label text="{model.reservationModule.rateTypeLabel.getItemAt(model.reservationModule.typeOfRate)}"/>
+									<mx:Label id="lblRateTypeName" text="{model.reservationModule.rateTypeLabel.getItemAt((lstOrdersDate.selectedItem as OrderVO).iRateType)}"/-->
+									<mx:Label id="lblRateTypeName"/>
+								</mx:FormItem>
+								<mx:FormItem label="Adults">
+									<mx:Label id="lblTotalAdults"
+										text="{(lstOrdersDate.selectedItem as OrderVO).iTotalAdults}"/>
+								</mx:FormItem>
+							</mx:Form>
+							<mx:Form>
+								<mx:FormItem label="{'Children &lt; ' + model.hotelsModule.hotelTotalInfo.iChildAge1}">
+									<mx:Label id="lblTotalChildAbove"
+										text="{(lstOrdersDate.selectedItem as OrderVO).iTotalChildAbove}"/>
+								</mx:FormItem>
+								<mx:FormItem label="{'Children &lt; ' + model.hotelsModule.hotelTotalInfo.iChildAge2}">
+									<mx:Label id="lblTotalChildMiddle"
+										text="{(lstOrdersDate.selectedItem as OrderVO).iTotalChildMiddle}"/>
+								</mx:FormItem>
+								<mx:FormItem label="{'Children &lt; ' + model.hotelsModule.hotelTotalInfo.iChildAge3}">
+									<mx:Label id="lblTotalChildBefore"
+										text="{(lstOrdersDate.selectedItem as OrderVO).iTotalChildBefore}"/>
+								</mx:FormItem>
+							</mx:Form>
+							<mx:VBox paddingTop="10">
+								<mx:HBox>
+									<!--mx:Label text="{'Rate Description: ' + (
+									(lstOrdersDate.selectedItem as OrderVO).iRateType == ReservationModule.BAR ? 'BAR' :
+									(lstOrdersDate.selectedItem as OrderVO).iRateType == ReservationModule.COMPANY_RATE ? 'Company Rate' : 'Package')} "/-->
+
+									<mx:PopUpButton id="pubAlternativeRate"
+										visible="false"
+										enabled="{false/*lstOrdersDate.selectedItem*/}"/>
+
+									<!--mx:Button id="btnAltRate"
+										label="Alternative Rate"
+										enabled="{lstOrdersDate.selectedItem}"
+										click="{btnAltRateClick()}"
+										/-->
+								</mx:HBox>
+							</mx:VBox>
+						</mx:HBox>
+
+						<mx:ApplicationControlBar width="100%">
+							<mx:Button id="btnCancelOrder"
+								label="Cancel Order"
+								click="{cancelOrder()}"
+								enabled="{lstOrdersDate.selectedItem}"/>
+
+						</mx:ApplicationControlBar>
+						<mx:TabNavigator id="tnRooms"
+							width="100%" height="100%"/>
+					</mx:VBox>
+				</mx:VBox>
+			</mx:HBox>
+		</mx:VBox>
+		<mx:HBox width="100%"
+				height="100%"
+				label="Guarantee &amp; Confirm"
+				paddingBottom="10"
+				paddingLeft="10"
+				paddingRight="10"
+				paddingTop="10">
+				<mx:Box
+					label="Guarantee"
+					width="40%"
+					height="100%"
+					borderStyle="solid"
+					borderThickness="1"
+					paddingTop="10"
+					paddingLeft="10"
+					horizontalAlign="center">
+					<subviewResCreate:GuaranteeView
+						id="guaranteeView"
+						width="100%"
+						height="100%"/>
+				</mx:Box>
+				<mx:Box
+					label="Confirm"
+					width="60%"
+					height="100%"
+					borderStyle="solid"
+					borderThickness="1"
+					paddingTop="10"
+					paddingLeft="10"
+					horizontalAlign="center">
+					<subviewResCreate:ConfirmationView
+						id="confirmationView"
+						width="100%"
+						height="100%"/>
+				</mx:Box>
+			</mx:HBox>
+	</mx:TabNavigator>
+
+	<mx:ApplicationControlBar width="100%">
+		<mx:Button id="btnCancelReservation"
+			label="Cancel Reservation"
+			click="{cancelReservation()}"/>
+		<mx:Spacer width="100%"/>
+		<mx:Button id="btnSave"
+			label="Save"
+			enabled="{UtilsMXML.and(callerInfoView.txtLastName.text!='',
+						(
+							guaranteeView.rbGuarantee.selected == false ||
+							UtilsMXML.and(guaranteeView.cmbGuaranteeType.selectedIndex == 1, guaranteeView.cmbCompanyPaidBy.selectedIndex > 0) ||
+							UtilsMXML.and(guaranteeView.cmbGuaranteeType.selectedIndex == 2, guaranteeView.cmbTAPaidBy.selectedIndex > 0) ||
+							UtilsMXML.and(guaranteeView.rbGuarantee.selected, (guaranteeView.cmbGuaranteeType.selectedIndex == 0 || guaranteeView.cmbGuaranteeType.selectedIndex == 3))
+						))
+					 }"
+			click="{saveReservation();}"/>
+		<mx:Button id="btnClose"
+			label="Close"
+			click="{close();}"/>
+	</mx:ApplicationControlBar>
+</BasePopupView>

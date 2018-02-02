@@ -1,0 +1,779 @@
+<?xml version="1.0" encoding="utf-8"?>
+<BaseWindow
+	xmlns="framework.core.view.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:treeGrid="h2olib.control.treeGrid.*" 
+	xmlns:controls="framework.view.components.controls.*"
+	xmlns:pager="h2olib.control.pager.*"
+	xmlns:control="h2olib.control.*"
+	xmlns:dataGrid="h2olib.control.itemRenderer.dataGrid.*" 
+	xmlns:subview="framework.view.pages.reservationCreate.subview.*"
+	
+	
+	creationComplete="onCreationComplete()" 
+	styleName="PageBigWithTopPadding" 
+	>
+	
+<mx:Script>
+	<![CDATA[
+		import mx.collections.HierarchicalData;
+		import framework.view.pages.reservationEdit.popups.CancelReservationView;
+		import services.events.search.CancelReservationEvent;
+		import services.command.search.CancelReservationCommand;
+		import mx.controls.Alert;
+		import framework.view.pages.reservationCreate.subview.GroupPersonalInformationView;
+		import services.events.common.PageEvent;
+		import services.events.reservation.GetGroupReservationEvent;
+		import services.vo.GlobalImageAssets;
+		import mx.controls.advancedDataGridClasses.AdvancedDataGridColumn;
+		import services.vo.search.GroupReservationViewVO;
+		import mx.utils.StringUtil;
+		import mx.utils.ObjectUtil;
+		import framework.view.pages.reservationEdit.popups.ReservationEditView;
+		import h2olib.control.pager.event.PagerEvent;
+		import h2olib.utils.DateUtils;
+		import services.events.frontend.GetCardOfEvent;
+		import services.controller.AppController;
+		import services.events.frontend.GetCreditTypeEvent;
+		import mx.controls.dataGridClasses.DataGridColumn;
+		import services.vo.GlobalFunctions;
+		import mx.managers.PopUpManagerChildList;
+		import mx.core.Application;
+		import framework.managers.PopUpManagerExt;
+		import mx.managers.PopUpManager;
+		import services.vo.search.ReservationViewVO;
+		import services.events.search.GetReservationByIdEvent;
+		import services.vo.GlobalStorage;
+		import services.vo.GlobalSettings;
+		import services.vo.search.RsvSearchRequestVO;
+		import com.adobe.cairngorm.control.CairngormEventDispatcher;
+		import services.events.search.ExecuteSearchEvent;
+
+		[Bindable]
+		public var addIcon:Class = GlobalImageAssets.getInstance().addIcon;	
+		[Bindable]
+		public var anchorIcon:Class = GlobalImageAssets.getInstance().anchorIcon;				
+		[Bindable]
+		public var deleteIcon:Class = GlobalImageAssets.getInstance().removeIcon;	
+		[Bindable]
+		public var tickIcon:Class = GlobalImageAssets.getInstance().tickIcon;	
+		[Bindable]
+		public var doorOutIcon:Class = GlobalImageAssets.getInstance().doorOutIcon;	
+		
+		
+		[Bindable]
+		private var searchStateLabel:String;
+		[Bindable]
+		private var searchTypeLabel:String;		
+		
+		[Bindable]
+		private var aSSParametersForIndividual:Array = ["Caller Name",
+														"Guest Name",
+														"Company",
+														"Travel Agency",
+														"Room Number",
+														"City"];
+		[Bindable]
+		private var aSSParametersForGroup:Array = 	  ["Caller Name",
+														"Guest Name",
+														"Company",
+														"Travel Agency",
+														"Room Number",
+														"City",
+														"Group Code",
+														"Keyword"];
+
+
+		private function onCreationComplete():void
+		{
+			if(GlobalStorage.creditType.length == 0)
+		    {
+		    	var crediteTypeEvt:GetCreditTypeEvent = new GetCreditTypeEvent( AppController.GET_CREDIT_TYPE_EVENT );
+		    	CairngormEventDispatcher.getInstance().dispatchEvent( crediteTypeEvt );
+		    }
+
+		    if(GlobalStorage.cardOf.length == 0)
+		    {
+		    	var cardOfEvt:GetCardOfEvent = new GetCardOfEvent( AppController.GET_CARD_OF_EVENT );
+		    	CairngormEventDispatcher.getInstance().dispatchEvent( cardOfEvt );
+		    }
+
+		    if(GlobalStorage.sourceCodes.length == 0)
+			{
+				GlobalStorage.getSourceCodes();
+			}
+
+			if(GlobalStorage.marketCodes.length == 0)
+			{
+				GlobalStorage.getMarketCodes();
+			}
+
+			searchStateLabel = model.locale.ReservationEdit_Search_AdvancedSearch;
+			searchTypeLabel = model.locale.ReservationEdit_Search_SimpleSearch;
+
+			changeSearchType();
+			claerForm();
+		}
+
+		override public function show():void
+		{
+			vsSearch.selectedIndex = 0;
+		}
+		//--------------------------------------------------------//
+		//						SEARCH							  //
+		//--------------------------------------------------------//
+		
+		private var isSimpleSearch:Boolean;
+
+		private function changeSearchType():void
+		{
+			if(isSimpleSearch)
+			{
+				currentState = "";
+				searchStateLabel = model.locale.ReservationEdit_Search_AdvancedSearch;
+				searchTypeLabel = model.locale.ReservationEdit_Search_SimpleSearch;
+				isSimpleSearch = false;
+			}
+			else
+			{
+				currentState = "SimpleSearch";
+				searchStateLabel = model.locale.ReservationEdit_Search_SimpleSearch;
+				searchTypeLabel = model.locale.ReservationEdit_Search_AdvancedSearch;
+				isSimpleSearch = true;
+			}
+			claerForm();
+		}
+		
+		private function claerForm():void
+		{
+			if(currentState == "SimpleSearch")
+			{
+				// Simple Search
+				cmbSimpleSearchParameter.selectedIndex = 0;
+				txtSSPattern.text = "";
+			}
+			else
+			{
+				// Advanced Search
+				txtConfirmationCode.text = "";
+				txtCallerName.text = "";
+				txtCompany.text = "";
+				txtTravelAgency.text = "";
+				txtGuestName.text = "";
+				txtCity.text = "";
+				txtZip.text = "";
+				txtStreet.text = "";
+			}			
+		}
+						
+		private function search():void
+		{
+			var executeSearchEvent:ExecuteSearchEvent = new ExecuteSearchEvent();
+			var rsvSearchReqest:RsvSearchRequestVO = new RsvSearchRequestVO();
+			if(currentState == "SimpleSearch")
+			{
+				rsvSearchReqest.iHotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+				rsvSearchReqest.sStartDate = DateField.dateToString( dfSSStartDate.selectedDate,GlobalSettings.DATE_SERVER_FORMAT);
+				rsvSearchReqest.sEndDate = DateField.dateToString( dfSSEndDate.selectedDate,GlobalSettings.DATE_SERVER_FORMAT);
+
+				switch(cmbSimpleSearchParameter.selectedIndex)
+				{
+					case 0:
+						rsvSearchReqest.sCallerName = txtSSPattern.text;
+					break;
+					case 1:
+						rsvSearchReqest.sGuestName = txtSSPattern.text;
+					break;
+					case 2:
+						rsvSearchReqest.sCompanyName = txtSSPattern.text;
+					break;
+					case 3:
+						rsvSearchReqest.sTravelAgencyName = txtSSPattern.text;
+					break;
+					case 4:
+						rsvSearchReqest.sRoomName = txtSSPattern.text;
+					break;
+					case 5:
+						rsvSearchReqest.sCity = txtSSPattern.text;
+					break;
+					case 6:
+						rsvSearchReqest.sGroupCode = txtSSPattern.text;
+					break;
+					case 7:
+						rsvSearchReqest.sKeyword = txtSSPattern.text;
+					break;					
+				}
+				
+				
+				
+			} else {
+
+				rsvSearchReqest.sStartDate = DateField.dateToString( dfASStartDate.selectedDate,GlobalSettings.DATE_SERVER_FORMAT);
+				rsvSearchReqest.sEndDate = DateField.dateToString( dfASEndDate.selectedDate,GlobalSettings.DATE_SERVER_FORMAT);
+
+				rsvSearchReqest.iHotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+				rsvSearchReqest.sConfirmationCode = txtConfirmationCode.text;
+				rsvSearchReqest.sCallerName = txtCallerName.text;
+				rsvSearchReqest.sCompanyName = txtCompany.text;
+				rsvSearchReqest.sTravelAgencyName = txtTravelAgency.text;
+				rsvSearchReqest.sGuestName = txtGuestName.text;
+				rsvSearchReqest.sCity = txtCity.text;
+				rsvSearchReqest.sZip = txtZip.text;
+				rsvSearchReqest.sStreet = txtStreet.text;
+			}
+			model.searchModule.reservationSearchMode = tnSearch.selectedIndex;
+			if(model.searchModule.reservationSearchMode == 0)
+			{
+				rsvSearchReqest.iCurrentPage = pagerIndividualRsv.selectedPage + 1;
+				rsvSearchReqest.iResultsPerPage = pagerIndividualRsv.itemPerPageCount;		
+				rsvSearchReqest.iReservationType = RsvSearchRequestVO.SEARCH_TYPE_INDIVIDUAL;	
+			}
+			else
+			{
+				rsvSearchReqest.iCurrentPage = pagerGroupRsv.selectedPage + 1;
+				rsvSearchReqest.iResultsPerPage = pagerGroupRsv.itemPerPageCount;		
+				rsvSearchReqest.iReservationType = RsvSearchRequestVO.SEARCH_TYPE_GROUP;	
+			}			
+			if(tnSearch.selectedIndex == 1)
+			{
+				executeSearchEvent.callBack = onSearchGroupRsvComplete;
+			}				
+			executeSearchEvent.rsvSearchReqest = rsvSearchReqest;
+			CairngormEventDispatcher.getInstance().dispatchEvent(executeSearchEvent);
+		}
+		
+				
+		//--------------------------------------------------------//
+		//						INDIVIDUAL						  //
+		//--------------------------------------------------------//
+		[Bindable]
+		private var visibleIndividualRowCount:int;
+
+		private function calcVisibleIndividualRow():void
+		{
+			visibleIndividualRowCount = Math.round((dgIndividualRsvResult.height - dgIndividualRsvResult.headerHeight - 16) / dgIndividualRsvResult.rowHeight);
+		}
+
+		private function onSelectIndividualPage(event:PagerEvent):void {
+			search();
+		}
+		
+		/**------------------------------------------------------
+		*						Grids functions					 
+		**/
+
+	   	private function guaranteeLabelFunction(item:ReservationViewVO,column:DataGridColumn):String
+	   	{
+   			return item.bIsGuarantee ? "yes" : "no";
+	   	}
+
+	   	private function addressLabelFunction(item:ReservationViewVO,column:DataGridColumn):String
+	   	{
+   			var result:String = "";
+   			result += item.sCity != null ? (item.sCity + " ") : "";
+   			result += item.sZip != null ? (item.sZip + " ") : "";
+   			result += item.sStreet != null ? (item.sStreet + " ") : "";
+   			result += item.sPhoneNumber != null ? (item.sPhoneNumber + " ") : "";
+   			return result;
+	   	}
+
+        private function orderStatusIconFunction(item:ReservationViewVO, column:DataGridColumn):String
+        {
+        	// Opened | Inhouse | Canceled | Close
+        	var result:String;
+        	switch(item.sOrderStatus)
+        	{
+        		case "Opened":
+        			result = "addIcon";
+        		break;
+        		case "Assigned":
+        			result = "anchorIcon";
+        		break;          		
+        		case "Canceled":
+        			result = "deleteIcon";
+        		break;        		
+        		case "In house":
+        			result = "tickIcon";
+        		break;        		
+        		default:	// Close
+        			result = "doorOutIcon";
+        		break;
+        	}           
+            return result;
+        }
+        
+		private function compareByDateArrival(value1:ReservationViewVO, value2:ReservationViewVO):int		
+		{
+			var date1:Date = DateField.stringToDate(StringUtil.trim(value1.sStartDate), DateUtils.DATE_CLIENT_FORMAT);
+			var date2:Date = DateField.stringToDate(StringUtil.trim(value2.sStartDate), DateUtils.DATE_CLIENT_FORMAT);
+	        return ObjectUtil.dateCompare(date1, date2);
+		}
+		
+		private function compareByDateDeparture(value1:ReservationViewVO, value2:ReservationViewVO):int		
+		{
+			var date1:Date = DateField.stringToDate(StringUtil.trim(value1.sEndDate), DateUtils.DATE_CLIENT_FORMAT);
+			var date2:Date = DateField.stringToDate(StringUtil.trim(value2.sEndDate), DateUtils.DATE_CLIENT_FORMAT);
+	        return ObjectUtil.dateCompare(date1, date2);
+		}
+		
+		//--------------------------------------------------------//
+		//						GROUP					  		  //
+		//--------------------------------------------------------//
+		
+		private function onSearchGroupRsvComplete():void
+		{
+			dgGroupRsvResult.dataProvider = new HierarchicalData(model.searchModule.groupReservationList);
+		}
+		
+		[Bindable]
+		private var visibleGroupRowCount:int;
+
+		private function calcVisibleGroupRow():void
+		{
+			visibleGroupRowCount = Math.round((dgGroupRsvResult.height - dgGroupRsvResult.headerHeight - 16) / dgGroupRsvResult.rowHeight);
+		}
+
+		private function onSelectGroupPage(event:PagerEvent):void {
+			search();
+		}
+		
+		/**------------------------------------------------------
+		*						Grid functions					 
+		**/
+	   	private function guaranteeGRLabelFunction(item:Object,column:AdvancedDataGridColumn):String
+	   	{
+	   			if(item is GroupReservationViewVO)
+	   			{
+	   				
+	   			}
+	   			//return item.bIsGuarantee ? "yes" : "no";
+	   			return "";
+	   	}
+	   		  
+	   	private function addressGRLabelFunction(item:Object,column:AdvancedDataGridColumn):String
+	   	{
+	   		if(item is GroupReservationViewVO)
+	   		{
+	   			
+	   		}
+   			var result:String = "";
+   			//result += item.sCity != null ? (item.sCity + " ") : "";
+   			//result += item.sZip != null ? (item.sZip + " ") : "";
+   			//result += item.sStreet != null ? (item.sStreet + " ") : "";
+   			//result += item.sPhoneNumber != null ? (item.sPhoneNumber + " ") : "";
+   			return result;
+	   	}
+ 
+        private function grStatusIconFunction(item:Object, column:AdvancedDataGridColumn):String
+        {
+        	var result:String;
+        	if(item is GroupReservationViewVO)
+        	{
+	        	// Opened | Assigned | Inhouse | Canceled | Close
+	        	switch(item.sOrderStatus)
+	        	{
+	        		case "Opened":
+	        			result = "addIcon";
+	        		break;
+	        		case "Assigned":
+	        			result = "anchorIcon";
+	        		break;        		
+	        		case "Canceled":
+	        			result = "deleteIcon";
+	        		break;        		
+	        		case "In house":
+	        			result = "tickIcon";
+	        		break;        		
+	        		default:	// Close
+	        			result = "doorOutIcon";
+	        		break;
+	        	}
+	        }           
+            return result;
+        }
+        
+              
+		private function compareByGroupStartDate(value1:Object, value2:Object):int		
+		{
+			var date1:Date = DateField.stringToDate(StringUtil.trim(value1.sStartDate), DateUtils.DATE_CLIENT_FORMAT);
+			var date2:Date = DateField.stringToDate(StringUtil.trim(value2.sStartDate), DateUtils.DATE_CLIENT_FORMAT);
+	        return ObjectUtil.dateCompare(date1, date2);
+		}
+		
+		private function compareByGroupEndDate(value1:Object, value2:Object):int		
+		{
+			var date1:Date = DateField.stringToDate(StringUtil.trim(value1.sEndDate), DateUtils.DATE_CLIENT_FORMAT);
+			var date2:Date = DateField.stringToDate(StringUtil.trim(value2.sEndDate), DateUtils.DATE_CLIENT_FORMAT);
+	        return ObjectUtil.dateCompare(date1, date2);
+		}	   			
+		
+
+		//--------------------------------------------------------//
+		//						RESERVATION EDIT				  //
+		//--------------------------------------------------------//
+		
+		/**------------------------------------------------------
+		*						Individual			 
+		**/	
+	   			
+	  	private function calcRowColorIndividual(item:Object, rowIndex:int, dataIndex:int, color:uint):uint
+	   	{
+   			//trace((item as UserVO).oUser.sUserLogin + " " + (item as UserVO).oUser.bIsDisabled);
+    		return (item as ReservationViewVO).sOrderStatus == "Canceled" ? 0x999999 : (item as ReservationViewVO).sOrderStatus == "Closed" ? 0xffc0cb :color;
+	   	}		
+			
+		private function openReservation():void
+		{
+			if(dgIndividualRsvResult.selectedItem != null)
+			{
+				var getReservationByIdEvent:GetReservationByIdEvent = new GetReservationByIdEvent();
+				getReservationByIdEvent.reservationId = (dgIndividualRsvResult.selectedItem as ReservationViewVO).iRsvId;
+				getReservationByIdEvent.callBack = showReservationEdit;
+				CairngormEventDispatcher.getInstance().dispatchEvent(getReservationByIdEvent);
+			}
+		}
+
+		private function showReservationEdit():void
+		{
+			var pop:ReservationEditView = PopUpManagerExt.createPopUp(this, ReservationEditView) as ReservationEditView;
+			pop.callBack = search;
+			PopUpManagerExt.centerPopUp( pop );
+		}
+
+		/**------------------------------------------------------
+		*						Group			 
+		**/	
+	  	private function calcRowColorGroup(item:Object, rowIndex:int, dataIndex:int, color:uint):uint
+	   	{
+   			if(item is GroupReservationViewVO)
+   			{	//trace((item as UserVO).oUser.sUserLogin + " " + (item as UserVO).oUser.bIsDisabled);
+    			return (item as GroupReservationViewVO).sOrderStatus == "Canceled" ? 0x999999 : (item as GroupReservationViewVO).sOrderStatus == "Closed" ? 0xffc0cb :color;
+    		}
+    		else
+    		{
+    			return color;
+    		}
+	   	}		
+		
+		private function openGroupReservation():void
+		{
+			if(dgGroupRsvResult.selectedItem != null)
+			{
+				var iRsvID:int;
+				if(dgGroupRsvResult.selectedItem is GroupReservationViewVO)
+				{
+					iRsvID = (dgGroupRsvResult.selectedItem as GroupReservationViewVO).iRsvId;
+				}
+				else
+				{
+					iRsvID = (dgGroupRsvResult.selectedItem as ReservationViewVO).iRsvId;
+				}
+				var getGroupReservationEvent:GetGroupReservationEvent = new GetGroupReservationEvent();
+				getGroupReservationEvent.iId = iRsvID;
+				getGroupReservationEvent.callBack = showGroupReservationEdit;
+				CairngormEventDispatcher.getInstance().dispatchEvent(getGroupReservationEvent);
+			}
+		}
+		
+		
+		private function showGroupReservationEdit():void
+		{
+			/*model.reservationModule.openGRFromSearch = true;
+			model.reservationModule.currPage = 1;
+			model.reservationModule.reservationMode = 1;
+			
+			
+			var pageEvent:PageEvent = new PageEvent();
+			pageEvent.index = 8; // 8 - Reservation
+			pageEvent.dispatch();*/
+			
+			vsSearch.selectedIndex = 1;
+			
+		}
+
+
+		private function groupPersonalInfoBackFunction():void
+		{
+			vsSearch.selectedIndex = 0;
+		}
+		
+		/*private function onCancelGroupReservation():void
+		{
+			var e:CancelReservationEvent = new CancelReservationEvent();
+			e.reservationId = (dgGroupRsvResult.selectedItem as GroupReservationViewVO).iGroupId;
+			e.dispatch();
+		}*/
+
+		private function onCancelGroupReservation():void
+		{
+			var popupRsrvCncl:CancelReservationView = PopUpManagerExt.createPopUp(this, CancelReservationView, true) as CancelReservationView;
+			popupRsrvCncl.reservationId = (dgGroupRsvResult.selectedItem as GroupReservationViewVO).iRsvId;
+			popupRsrvCncl.callBack = search;
+			PopUpManagerExt.centerPopUp(popupRsrvCncl);
+		}				
+		
+	]]>
+</mx:Script>
+
+	<states>
+		<mx:State name="SimpleSearch">
+			<mx:RemoveChild target="{advSF1}"/>
+			<mx:RemoveChild target="{advSF2}"/>
+			<mx:AddChild relativeTo="{searchFormsBox}" position="firstChild">
+				<mx:Form id="simpSF1">
+					<mx:HBox width="100%">
+						<mx:HBox styleName="formChildrenGroup1">
+							<mx:FormItem label="From:">
+								<mx:DateField id="dfSSStartDate"
+									formatString="{GlobalSettings.DATE_FORMAT}"
+									selectedDate="{model.businessDate}"
+									width="{GlobalSettings.WIDTH_DATE_FIELD}"/>
+							</mx:FormItem>
+							<mx:FormItem label="To:">
+								<mx:DateField id="dfSSEndDate"
+									formatString="{GlobalSettings.DATE_FORMAT}"
+									selectedDate="{DateUtils.dateAdd(DateUtils.DAY_OF_MONTH, 1, model.businessDate)}"
+									width="{GlobalSettings.WIDTH_DATE_FIELD}"/>
+							</mx:FormItem>
+							<mx:ComboBox id="cmbSimpleSearchParameter" height="24"
+								dataProvider="{tnSearch.selectedIndex == 1 ? aSSParametersForGroup: aSSParametersForIndividual}"/>
+							<mx:TextInput id="txtSSPattern"/>
+						</mx:HBox>
+					</mx:HBox>
+				</mx:Form>
+			</mx:AddChild>
+			<mx:AddChild relativeTo="{lastSearchFormsBox}" position="firstChild">
+				<mx:Spacer height="10"/>
+			</mx:AddChild>
+			<mx:RemoveChild target="{advSF3}"/>
+		</mx:State>
+	</states>
+
+	<mx:ViewStack id="vsSearch"
+		width="100%" height="100%" >
+		<mx:VBox width="100%" height="100%" >
+			<mx:Panel id="collapsiblePanel"
+				title="{searchStateLabel}"
+				width="100%">
+				<mx:HBox id="searchFormsBox"
+					width="100%">
+					<mx:Form id="advSF1">
+						<mx:FormItem label="{model.locale.ReservationEdit_Search_Filter_ConfirmationCode}">
+							<mx:TextInput id="txtConfirmationCode"/>
+						</mx:FormItem>
+						<mx:FormItem label="{model.locale.ReservationEdit_Search_Filter_CallerName}">
+							<mx:TextInput id="txtCallerName"/>
+						</mx:FormItem>
+						<mx:FormItem label="{model.locale.ReservationEdit_Search_Filter_Company}">
+							<mx:TextInput id="txtCompany"/>
+						</mx:FormItem>
+						<mx:FormItem label="{model.locale.ReservationEdit_Search_Filter_TravelAgency}">
+							<mx:TextInput id="txtTravelAgency"/>
+						</mx:FormItem>
+					</mx:Form>
+					<mx:Form id="advSF2">
+						<mx:FormItem label="{model.locale.ReservationEdit_Search_Filter_GuestName}">
+							<mx:TextInput id="txtGuestName"/>
+						</mx:FormItem>
+						<mx:FormItem label="{model.locale.ReservationEdit_Search_Filter_City}">
+							<mx:TextInput id="txtCity"/>
+						</mx:FormItem>
+						<mx:FormItem label="{model.locale.ReservationEdit_Search_Filter_Zip}">
+							<mx:TextInput id="txtZip"/>
+						</mx:FormItem>
+						<mx:FormItem label="{model.locale.ReservationEdit_Search_Filter_Street}">
+							<mx:TextInput id="txtStreet"/>
+						</mx:FormItem>
+					</mx:Form>
+			
+					<mx:VBox id="lastSearchFormsBox" width="100%">
+						<mx:Form id="advSF3">
+							<mx:HBox styleName="formChildrenGroup1">
+								<mx:FormItem label="From:">
+									<mx:DateField id="dfASStartDate"
+										formatString="{GlobalSettings.DATE_FORMAT}"
+										selectedDate="{model.businessDate}"
+										width="{GlobalSettings.WIDTH_DATE_FIELD}"/>
+								</mx:FormItem>
+								<mx:FormItem label="To:">
+									<mx:DateField id="dfASEndDate"
+										formatString="{GlobalSettings.DATE_FORMAT}"
+										selectedDate="{DateUtils.dateAdd(DateUtils.DAY_OF_MONTH, 1, model.businessDate)}"
+										width="{GlobalSettings.WIDTH_DATE_FIELD}"/>
+								</mx:FormItem>
+							</mx:HBox>
+						</mx:Form>
+						<mx:HBox styleName="formChildrenGroup1">
+							<mx:Button id="lbChangeSearchType"
+								label="{searchTypeLabel}"
+								click="{changeSearchType()}"/>
+							<mx:Button id="btnSearch"
+								label="{model.locale.ReservationEdit_Search_Filter_Search}"
+								click="{search();}"/>
+						</mx:HBox>			
+					</mx:VBox>			
+				</mx:HBox>			
+			</mx:Panel>
+			
+			<mx:TabNavigator id="tnSearch" width="100%" height="100%"
+				selectedIndex="{model.searchModule.reservationSearchMode}">		
+				
+				<!--	INDIVIDUAL	-->
+				
+				<mx:VBox label="Individual" width="100%" height="100%">				
+					<controls:ColoredDataGrid id="dgIndividualRsvResult"
+						width="100%" height="100%"
+						rowColorFunction="calcRowColorIndividual"
+						doubleClickEnabled="true"
+						doubleClick="{openReservation()}"
+						creationComplete="calcVisibleIndividualRow()"
+						dataProvider="{model.searchModule.individualReservationList}" 
+						rowHeight="33" headerHeight="22" styleName="grid">
+						<controls:columns>
+							<mx:DataGridColumn
+								headerText="Confirmation Code"
+								dataField="sConfirmationCode"/>
+							<mx:DataGridColumn
+								headerText="Arrival Date"
+								sortCompareFunction="compareByDateArrival"
+								dataField="sStartDate"/>
+							<mx:DataGridColumn
+								headerText="Departure Date"
+								sortCompareFunction="compareByDateDeparture"
+								dataField="sEndDate"/>
+							<mx:DataGridColumn
+								headerText="Caller Name"
+								dataField="sCallerName"/>
+							<mx:DataGridColumn
+								headerText="Guest Name"
+								dataField="sGuestName"/>
+							<mx:DataGridColumn
+								headerText="Company"
+								dataField="sCompanyName"/>
+							<mx:DataGridColumn
+								headerText="Travel Agency"
+								dataField="sTravelAgencyName"/>
+							<mx:DataGridColumn
+								headerText="Address"
+								labelFunction="addressLabelFunction"
+								width="300"/>		
+				            <mx:DataGridColumn minWidth="50" width="50"
+				            	headerText="State"
+				                labelFunction="orderStatusIconFunction"
+				                >
+				                <mx:itemRenderer>
+				                    <mx:Component>
+				                        <dataGrid:EmbedImageRenderer
+				                        	toolTip="{data.sOrderStatus}"/>
+				                    </mx:Component>
+				                </mx:itemRenderer>
+				            </mx:DataGridColumn>
+							<mx:DataGridColumn
+								headerText="Reason"
+								dataField="sCancelationName"/>
+							<mx:DataGridColumn
+								headerText="Guarantee"
+								labelFunction="guaranteeLabelFunction"/>
+						</controls:columns>
+					</controls:ColoredDataGrid>
+					<mx:HBox width="100%" horizontalAlign="right">	
+						<pager:Pager id="pagerIndividualRsv"
+							pageChange="{onSelectIndividualPage(event)}"
+							count="{model.searchModule.individualReservationsCount}"
+							fit="{visibleIndividualRowCount}"
+							/>
+					</mx:HBox>
+				</mx:VBox>		
+				
+				<!--	GROUP	-->		
+				
+				<mx:VBox label="Group" width="100%" height="100%">	
+					<controls:ColoredAdvancedDataGrid id="dgGroupRsvResult"
+						width="100%" height="100%"
+						doubleClickEnabled="true"
+						doubleClick="{openGroupReservation()}"
+						rowColorFunction="calcRowColorGroup"						
+						creationComplete="calcVisibleGroupRow()"
+						sortExpertMode="true"
+						rowHeight="33" headerHeight="22" styleName="grid">
+
+						<controls:columns>
+							<mx:AdvancedDataGridColumn
+								headerText="Guest Name"
+								dataField="sGuestName"
+								width="250"/>		
+							<mx:AdvancedDataGridColumn
+								headerText="Confirmation Code"
+								dataField="sConfirmationCode"
+								width="150"/>
+							<mx:AdvancedDataGridColumn
+								headerText="Arrival Date"
+								sortCompareFunction="compareByGroupStartDate"
+								dataField="sStartDateUIFormat"
+								width="120"/>
+							<mx:AdvancedDataGridColumn
+								headerText="Departure Date"
+								sortCompareFunction="compareByGroupEndDate"
+								dataField="sEndDateUIFormat"
+								width="120"/>
+							<mx:AdvancedDataGridColumn
+								headerText="Caller Name"
+								dataField="sCallerName"
+								width="150"/>	
+							<mx:AdvancedDataGridColumn
+								headerText="Company"
+								dataField="sCompanyName"
+								width="150"/>
+							<mx:AdvancedDataGridColumn
+								headerText="Travel Agency"
+								dataField="sTravelAgencyName"
+								width="150"/>						
+							<mx:AdvancedDataGridColumn
+								headerText="Address"
+								labelFunction="addressGRLabelFunction"
+								width="300"/>	
+				            <mx:AdvancedDataGridColumn minWidth="50" width="50"
+				            	headerText="State"
+				                labelFunction="grStatusIconFunction"
+				                >
+				                <mx:itemRenderer>
+				                    <mx:Component>
+				                        <dataGrid:EmbedImageRenderer
+				                        	toolTip="{data.sOrderStatus}"/>
+				                    </mx:Component>
+				                </mx:itemRenderer>
+				            </mx:AdvancedDataGridColumn>															
+							<mx:AdvancedDataGridColumn
+								headerText="Reason"
+								dataField="sCancelationName"/>								
+							<mx:AdvancedDataGridColumn
+								headerText="Guarantee"
+								labelFunction="guaranteeGRLabelFunction"
+								width="100"/>
+						</controls:columns>
+					</controls:ColoredAdvancedDataGrid>
+					
+					<mx:HBox width="100%" horizontalAlign="right">	
+						<mx:Button id="btnCancelReservation"
+							label="Cancel Reservation"
+							enabled="{dgGroupRsvResult.selectedItem}"
+							click="{onCancelGroupReservation()}"
+							/>
+						<mx:Spacer width="100%"/>
+						<pager:Pager id="pagerGroupRsv"
+							pageChange="{onSelectGroupPage(event)}"
+							count="{model.searchModule.groupReservationsCount}"
+							fit="{visibleGroupRowCount}"
+							/>
+					</mx:HBox>		
+				</mx:VBox>		
+			</mx:TabNavigator>		
+		</mx:VBox>
+		
+		<subview:GroupPersonalInformationView id="groupInformation"
+			width="100%" height="100%"
+			backFunction="{groupPersonalInfoBackFunction}"/>	
+	</mx:ViewStack>
+	
+		
+</BaseWindow>

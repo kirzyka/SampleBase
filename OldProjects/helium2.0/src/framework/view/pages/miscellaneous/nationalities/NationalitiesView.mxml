@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="utf-8"?>
+<VSubWindow xmlns="framework.core.view.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:searchBox="h2olib.control.searchBox.*"
+	width="100%" height="100%">
+	<mx:Script>
+		<![CDATA[
+			import framework.view.pages.miscellaneous.nationalities.subview.SaveNationalityPopupView;
+			import services.events.miscellaneous.nationalities.GetNationalityEvent;
+			import services.events.miscellaneous.nationalities.DeleteNationalityEvent;
+			import framework.view.components.popups.DeletePopupView;
+			import framework.view.components.popups.events.PopupEvent;
+			import mx.managers.PopUpManagerChildList;
+			import services.vo.common.NationalityVO;
+			import services.vo.GlobalSettings;
+			import mx.controls.CheckBox;
+			import services.vo.GlobalStorage;
+
+			import mx.events.CollectionEvent;
+			import services.vo.GlobalFunctions;
+			import mx.collections.ArrayCollection;
+			import services.vo.backend.RoomSettingObjectVO;
+			import framework.managers.PopUpManagerExt;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.controller.AppController;
+			import framework.model.AppModelLocator;
+			
+						
+			public override function update():void
+			{
+				var languageEvt:GetNationalityEvent = new GetNationalityEvent(AppController.GET_NATIONALITY_EVENT);
+				CairngormEventDispatcher.getInstance().dispatchEvent(languageEvt);
+			}
+			
+			private function handleAdd():void
+			{
+				var pop:SaveNationalityPopupView = PopUpManagerExt.createPopUp(this, SaveNationalityPopupView) as SaveNationalityPopupView;
+				pop.callBack = update;
+				PopUpManagerExt.centerPopUp(pop); 
+			}
+			
+			private function handleEdit():void
+			{
+				var pop:SaveNationalityPopupView = PopUpManagerExt.createPopUp(this, SaveNationalityPopupView) as SaveNationalityPopupView;
+				pop.data = nationalityList.selectedItem as NationalityVO;
+				pop.callBack = update;
+				PopUpManagerExt.centerPopUp(pop);	 			
+			}
+			
+			private function handleDelete():void
+			{
+				var pop:DeletePopupView = PopUpManagerExt.createPopUp(this, DeletePopupView) as DeletePopupView;
+				pop.title = "Delete";
+				pop.description = "Are you sure to delete selected Nationality?";
+				pop.addEventListener(PopupEvent.DELETE_HANDLER, delNationality);
+
+			}
+			
+			private function delNationality(e:PopupEvent):void
+			{
+				(e.target as DeletePopupView).removeEventListener(PopupEvent.DELETE_HANDLER, delNationality);			
+				var evt:DeleteNationalityEvent = new DeleteNationalityEvent(AppController.DELETE_NATIONALITY_EVENT);
+				evt.index = nationalityList.selectedIndex;
+				evt.nationality = nationalityList.selectedItem as NationalityVO;
+				evt.listNationalities = nationalityList.dataProvider as ArrayCollection;
+				CairngormEventDispatcher.getInstance().dispatchEvent( evt ); 
+				(e.target as DeletePopupView).completeCall();
+
+			}
+			
+			private function handleSearch():void
+			{	
+				 if(search.text == "")
+				{
+					nationalityList.dataProvider = GlobalStorage.nationality;
+					return;
+				}
+				nationalityList.dataProvider = GlobalFunctions.search(GlobalStorage.nationality, search.text, [["sName"]]);	
+			}
+			
+			private function handleSearchChange():void
+			{
+				var char:String = search.text.charAt(search.text.length-1);
+				
+				if(char == "^" || char == "[" || char == "]" || char == "\\")
+				{
+					if(search.text.length == 0) search.text = ''; 
+					else search.text = search.text.substr(0,search.text.length-1);
+				}
+				
+				handleSearch();
+			}
+			
+		
+		]]>
+	</mx:Script>
+	<mx:HBox>
+		<mx:FormItem direction="horizontal">
+			<searchBox:SearchBox id="search" width="180" label="Nationality" changeByFocus="handleSearchChange()" enter="handleSearchChange()"/>
+		</mx:FormItem>		
+	</mx:HBox>
+	<mx:HBox width="100%" height="100%">
+		<mx:VBox width="100%" height="100%" borderStyle="solid">
+			<mx:Label text="Nationalities" fontSize="14" fontWeight="bold" width="100%"/>
+			<mx:List id="nationalityList" width="100%" height="100%"  labelField="sName"
+				dataProvider="{GlobalStorage.nationality}" enabled="{GlobalStorage.nationality.length != 0}"
+				/>	
+		</mx:VBox>
+	</mx:HBox>
+	<mx:HBox width="50%" height="40">
+		<mx:Button label="Add" width="{GlobalSettings.BUTTON_WIDTH}" click="handleAdd()"  id="addNationality"/>
+		<mx:Button label="Edit" width="{GlobalSettings.BUTTON_WIDTH}" click="handleEdit()" enabled="{nationalityList.selectedIndex > -1 }" id="editNationality"/>
+		<mx:Button label="Delete" width="{GlobalSettings.BUTTON_WIDTH}" click="handleDelete()" enabled="{nationalityList.selectedIndex > -1 }" id="deleteNationality"/>
+	</mx:HBox>
+	
+</VSubWindow>
+

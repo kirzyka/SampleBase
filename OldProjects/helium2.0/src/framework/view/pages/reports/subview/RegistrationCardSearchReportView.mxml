@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<sub:VSubWindow xmlns:sub="framework.core.view.*" xmlns:mx="http://www.adobe.com/2006/mxml" width="100%">
+
+	<mx:Script>
+		<![CDATA[
+			import services.vo.reports.RegistrationCardSearchReportVO;
+			import services.vo.reports.NoShowsReportVO;
+			import services.vo.reports.InHouseReportVO;
+			import services.vo.common.loyaltyPrograms.LoyaltyProgramsVO;
+			import framework.model.AppModelLocator;
+			import services.vo.GlobalFunctions;
+			import services.events.reports.GetReportEvent;
+			import services.vo.backend.ReportVO;
+			import services.vo.common.SourceCodesVO;
+			import services.vo.backend.RoomSettingObjectVO;
+			import services.vo.common.MarketCodesVO;
+			import services.vo.hotels.HotelRoomWithBedTypesObjectVO;
+			import services.vo.GlobalSettings;
+			import services.vo.GlobalStorage;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.events.miscellaneous.loyaltyPrograms.GetLoyaltyProgramsEvent;
+			import services.controller.AppController;
+			import services.events.roomSettings.GetRoomSettingsDataEvent;
+			import mx.collections.ArrayCollection;
+			import services.vo.reports.ArrivalReportVO;
+
+			//config
+  			[Bindable]
+  			public var indicatorGapFormItem:int = 14;
+
+  			/**
+			 *	Get reports. This function we have in parent.
+			*/
+  			public var getReports:Function = new Function();
+
+  			/**
+			 *	Get selected All for all list. This function we have in parent.
+			*/
+  			public var allClick:Function = new Function();
+
+			public var reportType:int;
+			
+			public function init():void
+			{
+			}
+
+			private function handlePrintRegistrationCardSearch():void
+			{
+				var rcsReport:RegistrationCardSearchReportVO = new RegistrationCardSearchReportVO();
+				getReports( rcsReport, reportType,  DateField.dateToString(currentDate.selectedDate, GlobalSettings.DATE_SERVER_FORMAT));
+			}
+		]]>
+	</mx:Script>
+
+
+		<mx:Panel label="Registration card" width="100%" layout="vertical" styleName="reportPanel">
+			<mx:HBox>
+				<mx:Form>
+					<mx:FormItem label="Date of report:" labelWidth="120">
+						<mx:DateField id="currentDate" width="{GlobalSettings.WIDTH_DATE_FIELD}"
+							selectedDate="{model.businessDate}" formatString="{GlobalSettings.DATE_FORMAT}"/>
+					</mx:FormItem>
+			</mx:Form>
+			</mx:HBox>
+			<mx:HBox width="100%" horizontalAlign="right" paddingRight="15">
+				<mx:Button label="Print Report" click="handlePrintRegistrationCardSearch()"/>
+			</mx:HBox>
+		</mx:Panel>
+</sub:VSubWindow>

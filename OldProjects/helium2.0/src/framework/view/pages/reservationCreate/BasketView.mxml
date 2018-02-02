@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="utf-8"?>
+<SubWindow xmlns="framework.core.view.*" 
+	xmlns:mx="http://www.adobe.com/2006/mxml" 
+	xmlns:dataGrid="h2olib.control.itemRenderer.dataGrid.*"
+	xmlns:renderer="framework.view.pages.reservationCreate.renderer.*"
+	xmlns:data="framework.view.pages.reservationCreate.data.*"
+	
+	paddingTop="1" paddingLeft="1" paddingRight="1" paddingBottom="1"
+	width="100%" height="100%"
+	creationComplete="handleInit()"
+	verticalGap="0" >
+	<mx:Script>
+		<![CDATA[
+			import mx.controls.advancedDataGridClasses.AdvancedDataGridColumn;
+			import services.vo.GlobalImageAssets;
+			import h2olib.utils.DateUtils;
+			import mx.charts.DateTimeAxis;
+			import mx.controls.DateField;
+			import framework.core.utils.UtilsGolobal;
+			import framework.view.pages.reservationCreate.personslist.OrderPersonsListView;
+			import services.vo.reservation.RoomPersonsVO;
+			import services.vo.profiles.ProfilePersonalVO;
+			import services.vo.items.ArrangementCodeVO;
+			import services.vo.reservation.OrderVO;
+			import framework.model.AppModelLocator;
+			import services.vo.frontend.ReservationOrderVO;
+			import framework.view.pages.reservationCreate.events.RemoveBasketItemEvent;
+			import mx.collections.ArrayCollection;
+
+			[Bindable]
+			public var deleteIcon:Class = GlobalImageAssets.getInstance().binClosedIcon;
+			
+			private function handleInit():void
+			{
+				
+			}
+
+			public function addToBasket(item:OrderVO):void
+			{
+				model.reservationModule.orders.addItem( item );
+				model.reservationModule.basketTotalPrice += item.nPrice;
+			}
+			
+			public function removeOrder():void//evt:RemoveBasketItemEvent
+			{
+				var item:OrderVO = dgOrders.selectedItem as OrderVO;
+
+				model.reservationModule.basketTotalPrice -= item.nPrice;
+				for (var i:int = 0; i < item.aRoomPersonsView.length; i++) {
+					var persons:ArrayCollection = (item.aRoomPersonsView[i] as OrderPersonsListView).persons;
+					for (var j:int = 0; j < persons.length; j++) {
+						var profile:ProfilePersonalVO = persons.getItemAt(j) as ProfilePersonalVO;
+						var indexPerson:int = model.reservationModule.reservationProfiles.getItemIndex(profile);
+						if(indexPerson != -1) {
+							model.reservationModule.reservationProfiles.removeItemAt(indexPerson);
+						}
+					}
+				}
+				model.reservationModule.orders.removeItemAt(model.reservationModule.orders.getItemIndex(dgOrders.selectedItem));
+			}
+
+
+			public function clear():void
+			{
+				model.reservationModule.orders.removeAll();
+				model.reservationModule.basketTotalPrice = 0;
+			}	
+	
+			/**		LABEL FUNCTION		**/
+			private function arrivalLabelFunction(item:OrderVO, column:AdvancedDataGridColumn):String
+			{
+				return item.sStartDateUIFormat;
+			}
+			private function departureLabelFunction(item:OrderVO, column:AdvancedDataGridColumn):String
+			{
+				return item.sEndDateUIFormat;
+			}			
+	
+			private function rateLabelFunction(item:OrderVO, column:AdvancedDataGridColumn):String
+			{
+				var result:String;
+				switch(item.iRateType)
+				{
+					case 2:
+						result = "PAC";
+					break
+					case 1:
+						result = "CMP";
+					break
+					default:
+						result = "BAR";
+					break;					
+				}
+				return result;
+			}			
+			
+	        private function deleteIconFunction(item:Object, column:AdvancedDataGridColumn):String
+	        {
+	            return "deleteIcon";
+	        }	
+	        
+	    
+	        		
+		]]>
+	</mx:Script>
+	<mx:AdvancedDataGrid id="dgOrders" 
+		width="100%" height="100%"
+		sortableColumns="false" resizableColumns="false" 
+		sortExpertMode="true"
+		dataProvider="{model.reservationModule.orders}">
+		<mx:groupedColumns>
+			<mx:AdvancedDataGridColumn headerText="Arrival"
+				labelFunction="arrivalLabelFunction"
+				dataField="sStartDate"
+				width="90"/>
+			<mx:AdvancedDataGridColumn headerText="Departure"
+				labelFunction="departureLabelFunction"
+				dataField="sEndDate"
+				width="90"/>	
+			<mx:AdvancedDataGridColumn headerText="Room Type"
+				dataField="sRoomTypeFullName"/>					
+								
+			<mx:AdvancedDataGridColumn headerText="Adult"
+				dataField="iTotalAdults"
+				width="45"/>	
+			<mx:AdvancedDataGridColumnGroup headerText="Children">
+				<mx:AdvancedDataGridColumn headerText="{'&lt; ' + model.hotelsModule.hotelTotalInfo.iChildAge1}"				
+					textAlign="center"
+					dataField="iTotalChildBefore"
+					width="30"/>
+				<mx:AdvancedDataGridColumn headerText="{'&lt; ' + model.hotelsModule.hotelTotalInfo.iChildAge2}"				
+					textAlign="center"
+					dataField="iTotalChildMiddle"
+					width="30"/>		
+				<mx:AdvancedDataGridColumn headerText="{'&lt; ' + model.hotelsModule.hotelTotalInfo.iChildAge3}"				
+					textAlign="center"
+					dataField="iTotalChildAbove"
+					width="30"/>				
+			</mx:AdvancedDataGridColumnGroup>					
+			<mx:AdvancedDataGridColumn headerText="Rate"
+				width="60" textAlign="center"
+				labelFunction="rateLabelFunction"
+				dataField="iRateType"/>	
+			<mx:AdvancedDataGridColumn headerText="Price"
+				width="80" textAlign="right"
+				dataField="nPrice"/>	
+            <mx:AdvancedDataGridColumn minWidth="8" width="22"
+                labelFunction="deleteIconFunction">
+                <mx:itemRenderer>
+                    <mx:Component>
+                        <dataGrid:EmbedImageRenderer
+                            toolTip="Remove Order"
+                            click="{outerDocument.removeOrder()}"/>
+                    </mx:Component>
+                </mx:itemRenderer>
+            </mx:AdvancedDataGridColumn>
+		</mx:groupedColumns>
+	</mx:AdvancedDataGrid>
+
+</SubWindow>

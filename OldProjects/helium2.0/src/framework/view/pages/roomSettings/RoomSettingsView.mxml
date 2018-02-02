@@ -1,0 +1,203 @@
+<?xml version="1.0" encoding="utf-8"?>
+<BaseWindow
+	xmlns="framework.core.view.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:searchBox="h2olib.control.searchBox.*"
+	layout="vertical"
+	hide="handleHide()"
+	styleName="PageBigWithTopPadding">
+
+	<mx:Script>
+		<![CDATA[
+			import h2olib.control.enum.MessageShowType;
+			import h2olib.control.enum.MessageKind;
+			import services.events.MsgEvent;
+			import framework.view.pages.roomSettings.popups.SaveRoomSettingPopupView;
+			import framework.view.pages.roomSettings.renderer.RoomSettingSpecialWishItemRenderer;
+			import framework.core.utils.UtilsSecurity;
+			import framework.core.utils.UtilsMXML;
+			import framework.view.components.popups.events.PopupEvent;
+			import mx.managers.PopUpManagerChildList;
+			import framework.view.components.popups.DeletePopupView;
+			import services.events.roomSettings.GetRoomSettingsDataEvent;
+			import services.events.roomSettings.DeleteRoomSettingEvent;
+			import services.vo.GlobalSettings;
+			import mx.controls.Alert;
+			import mx.controls.CheckBox;
+			import services.vo.GlobalStorage;
+
+			import mx.events.CollectionEvent;
+			import services.vo.GlobalFunctions;
+			import mx.collections.ArrayCollection;
+			import services.vo.backend.RoomSettingObjectVO;
+			import framework.managers.PopUpManagerExt;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.controller.AppController;
+			import framework.model.AppModelLocator;
+
+			
+			override public function show():void				
+			{
+				var evt:GetRoomSettingsDataEvent = new GetRoomSettingsDataEvent( AppController.GET_ROOM_SETTINGS_DATA_EVENT );
+				evt.callBack = refreshSettingsData;
+				CairngormEventDispatcher.getInstance().dispatchEvent( evt );
+				model.roomSettingsModule.roomSettingsDP.addEventListener(CollectionEvent.COLLECTION_CHANGE, handleGetRoomSettings);
+			}
+
+			private function handleGetRoomSettings(evt:CollectionEvent):void
+			{
+				refreshSettingsData();
+			}
+
+			private function handleHide():void
+			{
+				clearSearchField();
+				refreshSettingsData();
+			}
+
+			private function clearSearchField():void
+			{
+				search.text = "";
+			}
+
+			private function refreshSettingsData():void
+			{
+				if (searchField.selectedIndex==0)// select all fields
+					 rsData.dataProvider = GlobalFunctions.search(model.roomSettingsModule.roomSettingsDP, search.text, [["sRsettingCode"], ["sRsettingDesctiptionLocale"]]);
+				if (searchField.selectedIndex == 1) rsData.dataProvider = GlobalFunctions.search(model.roomSettingsModule.roomSettingsDP, search.text, ["sRsettingCode"]);
+				if (searchField.selectedIndex == 2) rsData.dataProvider = GlobalFunctions.search(model.roomSettingsModule.roomSettingsDP, search.text, ["sRsettingDesctiptionLocale"]);
+			}
+
+			private function handleAdd():void
+			{
+				var pop:SaveRoomSettingPopupView = PopUpManagerExt.createPopUp(this, SaveRoomSettingPopupView) as SaveRoomSettingPopupView;
+				PopUpManagerExt.centerPopUp(pop);
+
+				pop.callBack = clearSearchField;
+			}
+
+			private function handleEdit():void
+			{
+				var pop:SaveRoomSettingPopupView = PopUpManagerExt.createPopUp(this, SaveRoomSettingPopupView) as SaveRoomSettingPopupView;
+
+				pop.data = (rsData.selectedItem as RoomSettingObjectVO);
+				pop.index = rsData.selectedIndex;
+
+				PopUpManagerExt.centerPopUp(pop);
+
+			}
+
+			private function handleDelete():void
+			{
+				 var pop:DeletePopupView = PopUpManagerExt.createPopUp(this, DeletePopupView) as DeletePopupView;
+
+				pop.title = model.locale.RoomSettings_RemovePopup_Title;
+				pop.description = model.locale.RoomSettings_RemovePopup_Description;
+				pop.addEventListener(PopupEvent.DELETE_HANDLER, del);
+			}
+
+			private function del(e:PopupEvent):void
+			{
+				(e.target as DeletePopupView).removeEventListener(PopupEvent.DELETE_HANDLER, del);
+				var evt:DeleteRoomSettingEvent = new DeleteRoomSettingEvent( AppController.DELETE_ROOM_SETTING_EVENT );
+
+				evt.index = rsData.selectedIndex;
+				evt.roomSetting = rsData.selectedItem as RoomSettingObjectVO;
+				evt.targetArray = rsData.dataProvider as ArrayCollection;
+				CairngormEventDispatcher.getInstance().dispatchEvent( evt );
+				(e.target as DeletePopupView).completeCall();
+			}
+
+			private function handleSearch():void
+			{
+				if(search.text == "")
+				{
+					//handleInit();
+					rsData.dataProvider = model.roomSettingsModule.roomSettingsDP;
+
+					return;
+				}
+				if (searchField.selectedIndex == 0)// select all fields
+					 rsData.dataProvider = GlobalFunctions.search(model.roomSettingsModule.roomSettingsDP, search.text, [["sRsettingCode"], ["sRsettingDesctiptionLocale"]]);
+				if (searchField.selectedIndex == 1) rsData.dataProvider = GlobalFunctions.search(model.roomSettingsModule.roomSettingsDP, search.text, ["sRsettingCode"]);
+				if (searchField.selectedIndex == 2) rsData.dataProvider = GlobalFunctions.search(model.roomSettingsModule.roomSettingsDP, search.text, ["sRsettingDesctiptionLocale"]);
+				
+				if (rsData.dataProvider.length == 0)
+				{
+					new MsgEvent(MessageKind.WARNING,
+								"Notification",
+								"No results found by your request.",
+								MessageShowType.UNKNOWN).dispatch();
+				}
+			}
+			
+			private function handleSearchChange():void
+			{
+				var char:String = search.text.charAt(search.text.length-1);
+
+				if(char == "^" || char == "[" || char == "]" || char == "\\")
+				{
+					if(search.text.length == 0) search.text = '';
+					else search.text = search.text.substr(0,search.text.length-1);
+				}
+
+				handleSearch();
+			}
+		]]>
+	</mx:Script>
+
+	<mx:HBox styleName="panel">
+		<mx:HBox styleName="formChildrenGroup1">
+			<mx:FormItem label="{model.locale.RoomSettings_SearchBox_Codes}:" direction="horizontal">
+				<mx:ComboBox id="searchField"
+					dataProvider="{GlobalStorage.searchFieldRoomSetting}"
+					change="handleSearch()"
+					height="24"/>
+			</mx:FormItem>				
+			<searchBox:SearchBox id="search"
+				label="{model.locale.RoomSettings_SearchBox_Label}"
+				width="180"
+				enter="handleSearchChange()"
+				changeByFocus="handleSearchChange()"
+				height="24"/>		
+		</mx:HBox>
+	</mx:HBox>
+	<mx:DataGrid id="rsData" 
+		width="100%" height="100%" headerHeight="22" rowHeight="33" styleName="grid">
+		<mx:columns>
+			<mx:DataGridColumn
+				headerStyleName="HeaderDataGrid"
+				headerText="{model.locale.RoomSettings_Columns_Code}"
+				dataField="sRsettingCode"
+				width="180"/>
+			<mx:DataGridColumn
+				headerStyleName="HeaderDataGrid"
+				headerText="{model.locale.RoomSettings_Columns_Description}"
+				dataField="sRsettingDesctiptionLocale"/>
+			<mx:DataGridColumn
+				headerStyleName="HeaderDataGrid"
+				headerText="{model.locale.RoomSettings_Columns_SW}"
+				dataField="sRsettingDesctiptionLocale"
+				width="100"
+				itemRenderer="{new ClassFactory(RoomSettingSpecialWishItemRenderer)}"/>
+		</mx:columns>
+	</mx:DataGrid>
+	<mx:HBox width="100%" horizontalAlign="right">
+		<mx:Button id="add_From_RoomSettingsView" 
+			label="{model.locale.Global_Button_Add}" 
+			click="handleAdd()" 
+			enabled="{UtilsSecurity.isHasPermission(UtilsSecurity.EDIT_ROOM_SETTINGS)}"
+			width="100"/>
+		<mx:Button id="edit_From_RoomSettingsView" 
+			label="{model.locale.Global_Button_Edit}"
+			click="handleEdit()" 
+			enabled="{UtilsMXML.and(rsData.selectedIndex > -1, UtilsSecurity.isHasPermission(UtilsSecurity.EDIT_ROOM_SETTINGS))}" 
+			width="100"/>
+		<mx:Button id="delete_From_RoomSettingsView" 
+			label="{model.locale.Global_Button_Delete}" 
+			click="handleDelete()"
+			enabled="{rsData.selectedIndex > -1}" 
+			width="100" />
+	</mx:HBox>
+
+</BaseWindow>

@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:HBox xmlns:mx="http://www.adobe.com/2006/mxml" width="100%" horizontalScrollPolicy="off" creationComplete="handleInit()">
+	
+	<mx:Script>
+		<![CDATA[
+			import services.vo.backend.RoomTypeHierarchicalVO;
+			import mx.collections.ArrayCollection;
+			import services.vo.backend.RoomTypesObjectVO;
+			import services.vo.backend.RoomWithBedTypesObjectVO;
+			import framework.model.AppModelLocator;
+			import services.vo.backend.RoomTypeRowVO;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+		
+			private var model:AppModelLocator = AppModelLocator.getInstance();
+			
+			private var currValue:String;
+			
+			private function handleInit():void
+			{
+				model.roomTypesModule.currentCapacityIR = this;
+			}
+			
+			override public function set data(value:Object):void
+			{
+				super.data = value;
+				
+				if(data != null)
+				{
+					capTxt.text = "";
+					capTxt.enabled = false;
+					capTxt.setStyle("backgroundAlpha","0");
+					
+					if(!(data as RoomTypeHierarchicalVO))
+					{ 
+						capTxt.text = data.capacity;
+						currValue = data.capacity;
+						
+						capTxt.enabled = true;
+					}
+				}
+			}
+			
+			private function handleFocusIn():void
+			{
+				capTxt.setStyle("backgroundAlpha","1");				
+				model.roomTypesModule.currentCapacityIR = this;
+			}		
+			
+		]]>
+	</mx:Script>
+	
+	<mx:TextInput id="capTxt" width="100%" borderStyle="none"
+		focusIn="handleFocusIn()"/>
+</mx:HBox>

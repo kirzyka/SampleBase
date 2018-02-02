@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="utf-8"?>
+<tab:VSubWindow
+	xmlns:tab="framework.core.view.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:control="h2olib.control.*"
+	xmlns:controls="framework.view.components.controls.*"
+	xmlns:address="framework.view.components.address.*"
+
+	label="Agency Information"
+	creationComplete="init()"
+	width="100%" height="100%">
+	
+	<mx:Script>
+		<![CDATA[
+			import services.vo.common.MarketCodesVO;
+			import mx.utils.ObjectUtil;
+			import mx.collections.ArrayCollection;
+			import services.vo.common.SourceCodesVO;
+			import framework.view.components.address.data.ContactData;
+			import framework.view.components.address.data.LocationData;
+			import services.vo.profiles.CompanyAddressVO;
+			import services.vo.profiles.CompanyProfileVO;
+			import services.vo.common.RegionVO;
+			import services.vo.common.CountryVO;
+			import services.events.frontend.GetCityEvent;
+			import services.controller.AppController;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.vo.GlobalStorage;
+			import framework.model.AppModelLocator;
+			
+			// ===================================================================== //
+			//                         VARIABLES AND CONSTANTS                       //
+			// ===================================================================== //
+			
+			[Bindable]
+			private var sourceCodes:ArrayCollection = new ArrayCollection();
+			[Bindable]
+			private var marketCodes:ArrayCollection = new ArrayCollection();
+			
+			/**
+			 *  This proeprty is company profile.
+			 *  
+			 *  @default new CompanyProfileVO()
+			 *  
+			 *  @see services.vo.profiles.CompanyProfileVO
+			 */
+			private var _company:CompanyProfileVO = new CompanyProfileVO();
+			
+			override public function set data(value:Object):void
+			{
+				super.data = value;
+				
+				if (!value) return;
+				
+				company = data as CompanyProfileVO;
+				cmbSourceCodes.setItemByField("iId", company.lSourceCodeId);
+				cmbMarketCodes.setItemByField("iId", company.lMarketCodeId);
+				
+				cmbLanguage.setItemByField("lId", company.lLanguageId);
+				
+				var cmpAddress:CompanyAddressVO = company.aAddresses[0] as CompanyAddressVO;
+				if (cmpAddress)
+				{
+					lcLocation.location = LocationData.convert(cmpAddress);
+					lcLocation.contacts = ContactData.toContact(cmpAddress.aContacts);
+				}
+				else
+				{
+					lcLocation.show();
+				}
+			}
+			
+			private function init():void
+			{
+				// create and add none item for SOURCE CODES
+				var noneSourceCodeItem:SourceCodesVO = new SourceCodesVO();
+				noneSourceCodeItem.iId = 0;
+				noneSourceCodeItem.sName = "none";
+				noneSourceCodeItem.sDescription = "none";
+				sourceCodes = ObjectUtil.copy(GlobalStorage.sourceCodes) as ArrayCollection;
+				sourceCodes.addItemAt(noneSourceCodeItem, 0);
+				cmbSourceCodes.setItemByField("iId", company.lSourceCodeId);
+				
+				// create and add none item for MARKET CODES
+				var noneMarketCodeItem:MarketCodesVO = new MarketCodesVO();
+				noneMarketCodeItem.iId = 0;
+				noneMarketCodeItem.sName = "none";
+				noneMarketCodeItem.sDescription = "none";
+				marketCodes = ObjectUtil.copy(GlobalStorage.marketCodes) as ArrayCollection;
+				marketCodes.addItemAt(noneMarketCodeItem, 0);
+				cmbMarketCodes.setItemByField("iId", company.lMarketCodeId);
+			}
+			
+			[Bindable(event="companyChanged")]
+			/**
+			 *  The company profile.
+			 */
+			public function get company():CompanyProfileVO
+			{
+				return _company;
+			}
+			/**
+			 *  @private
+			 */
+			public function set company(value:CompanyProfileVO):void
+			{
+				_company = value;
+				
+				dispatchEvent(new Event("companyChanged"));
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:Form width="100%">
+		<mx:FormItem
+			required="true"
+			label="Agency Name:">
+			<mx:TextInput
+				id="companyName"
+				text="{(data as CompanyProfileVO).sName}"/>
+		</mx:FormItem>
+		<mx:FormItem
+			label="Language:">
+			<control:ComboBoxEx
+				id="cmbLanguage"
+				enabled="{cmbLanguage.selectedItem}"
+				dataProvider="{GlobalStorage.language}"
+				labelField="sCode"/>
+		</mx:FormItem>
+		<mx:FormItem
+			label="Corporate ID:">
+			<mx:TextInput
+				id="corporateId"
+				text="{(data as CompanyProfileVO).sCorporateId}"/>
+		</mx:FormItem>
+		<mx:FormItem label="Booking Code:">
+			<mx:TextInput
+				id="bookingCode"
+				text="{(data as CompanyProfileVO).sBookingCode}"/>
+		</mx:FormItem>
+		<mx:FormItem
+			label="Source Code:">
+			<control:ComboBoxEx
+				id="cmbSourceCodes"
+				dataProvider="{sourceCodes}"
+				labelField="sDescription"/>
+		</mx:FormItem>
+		<mx:FormItem label="Industry Code:">
+			<control:ComboBoxEx
+				id="cmbMarketCodes"
+				dataProvider="{marketCodes}"
+				labelField="sDescription"/>
+		</mx:FormItem>
+	</mx:Form>
+	
+	<control:Frame
+		verticalScrollPolicy="off"
+		horizontalScrollPolicy="off"
+		label="Primary Address"
+		width="100%" height="100%">
+		<mx:Form width="100%" height="95%">
+			<address:LocationChooser
+				id="lcLocation"
+				countries="{storage.countries}"
+				phoneRequired="true"/>
+		</mx:Form>
+	</control:Frame>
+</tab:VSubWindow>

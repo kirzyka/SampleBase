@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="utf-8"?>
+<popup:DataPopupView
+	xmlns:popup="framework.view.components.popups.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:tabs="framework.view.pages.profiles.popups.travelAgency.tabs.*"
+	xmlns:common="framework.view.pages.profiles.popups.common.*"
+	title="Add Travel Agency"
+	width="775">
+	
+	<mx:Script>
+		<![CDATA[
+			import framework.view.components.address.data.ContactData;
+			import services.vo.profiles.CompanyAddressVO;
+			import framework.view.components.address.LocationChooser;
+			import services.vo.common.MarketCodesVO;
+			import services.vo.common.SourceCodesVO;
+			import services.vo.common.MarketCodesGroupVO;
+			import services.vo.common.SourceCodesGroupVO;
+			import services.business.profiles.ProfileDelegate;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.controller.AppController;
+			import services.events.profiles.company.SaveCompanyProfileEvent;
+			import mx.collections.ArrayCollection;
+			import services.vo.common.LanguageVO;
+			import services.vo.profiles.CompanyProfileVO;
+			import services.vo.GlobalSettings;
+			import framework.core.utils.UtilsMXML;
+			
+			public var selectedIndex:int = -1;
+			
+			// ================================================================= //
+			//                        OVERRIDE METHODS                           //
+			// ================================================================= //
+			/**
+			 *  @override
+			 *  
+			 *  @see framework.view.components.popups.BasePopupView#data
+			 */
+			override public function set data(value:Object):void
+			{
+				super.data = value;
+				// update view for edit mode.
+				companyInfo.data = data;
+				if (data)
+				{
+					callerInfo.callers = new ArrayCollection((data as CompanyProfileVO).aCallers);
+					addressInfo.additionalAddress = new ArrayCollection((data as CompanyProfileVO).aAddresses);
+				}
+			}
+			
+			public function show():void
+			{
+				companyInfo.lcLocation.show();
+			}
+			
+			private function handleAddProfile():void
+			{
+				var profile:CompanyProfileVO = (isEdit) ? data as CompanyProfileVO : new CompanyProfileVO();
+				
+				profile.sName = companyInfo.companyName.text;
+				if (companyInfo.cmbLanguage.selectedItem)
+				{
+					profile.lLanguageId = (companyInfo.cmbLanguage.selectedItem as LanguageVO).lId;
+				}
+				
+				profile.sCorporateId = companyInfo.corporateId.text;
+				profile.sBookingCode = companyInfo.bookingCode.text;
+				
+				profile.lSourceCodeId = (companyInfo.cmbSourceCodes.selectedItem as SourceCodesVO).iId;
+				profile.lMarketCodeId = (companyInfo.cmbMarketCodes.selectedItem as MarketCodesVO).iId;
+				
+				// home address
+				var lc:LocationChooser = companyInfo.lcLocation;
+				var address:CompanyAddressVO = lc.location.toCompanyAddress(true);
+				address.aContacts = ContactData.toCompanyContact(lc.contacts, true);
+				profile.aAddresses[0] = address;
+				
+				profile.aCallers = callerInfo.callers.toArray();
+				
+				var addresses:ArrayCollection = addressInfo.additionalAddress;
+				for(var i:int = 0; i < addresses.length; i++)
+				{
+					profile.aAddresses.push(addresses.getItemAt(i));
+				}
+				
+				profile.bIsTravelAgency = true;
+				
+				var event:SaveCompanyProfileEvent = new SaveCompanyProfileEvent(ProfileDelegate.SAVE_TRAVEL_AGENCY);
+				event.profile = profile;
+				event.index = (isEdit) ? selectedIndex : model.profilesModule.companyProfileList.length;
+				event.callBack = close;
+				CairngormEventDispatcher.getInstance().dispatchEvent(event);
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:TabNavigator width="100%" height="100%"
+		paddingBottom="5" paddingLeft="5" paddingRight="5" paddingTop="5">
+		<tabs:TravelAgencyInfoTabView id="companyInfo"/>
+		<common:CallerTabView id="callerInfo"/>
+		<common:SecondaryBillingAddressTabView id="addressInfo"/>
+		<mx:HBox enabled="false" label="Log"/>
+	</mx:TabNavigator>
+	
+	<mx:HBox horizontalAlign="right" width="100%">
+		<mx:Button
+			label="Save"
+			click="handleAddProfile()"
+			enabled="{UtilsMXML.and(companyInfo.companyName.text.length != 0,
+						companyInfo.lcLocation.isFillFields)}"
+			width="{GlobalSettings.BUTTON_WIDTH_APPLY}"/>
+		<mx:Button
+			label="Cancel"
+			click="close()"
+			width="{GlobalSettings.BUTTON_WIDTH}"/>
+	</mx:HBox>
+</popup:DataPopupView>

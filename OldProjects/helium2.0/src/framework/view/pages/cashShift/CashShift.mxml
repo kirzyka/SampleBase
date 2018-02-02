@@ -1,0 +1,401 @@
+<?xml version="1.0" encoding="utf-8"?>
+<BaseWindow
+	xmlns="framework.core.view.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml" styleName="PageBigWithTopPadding">
+<mx:Script>
+	<![CDATA[
+		import framework.view.pages.cashShift.popups.PrintReportPopupView;
+		import framework.view.pages.cashShift.data.CashShiftConstants;
+		import framework.core.utils.UtilsMXML;
+		import services.vo.backend.ReportVO;
+		import services.events.reports.GetReportEvent;
+		import mx.controls.List;
+		import services.events.cashShift.ReopenShiftEvent;
+		import services.command.cashShift.ReopenShiftCommand;
+		import flash.utils.setTimeout;
+		import services.vo.GlobalFunctions;
+		import services.events.common.GetSystemDateEvent;
+		import services.vo.GlobalStorage;
+		import mx.managers.PopUpManagerChildList;
+		import framework.managers.PopUpManagerExt;
+		import services.events.cashShift.StartNewBusinessDayEvent;
+		import services.command.cashShift.StartNewBusinessDayCommand;
+		import framework.core.utils.UtilsMXML;
+		import services.events.cashShift.CloseShiftEvent;
+		import services.events.cashShift.OpenNextShiftEvent;
+		import services.vo.cashShift.CashierVO;
+		import services.vo.cashShift.CashierPaymentVO;
+		import services.events.cashShift.GetShiftPaymentListEvent;
+		import services.events.cashShift.GetDayShiftListEvent;
+		import services.vo.GlobalSettings;
+		import com.adobe.cairngorm.control.CairngormEventDispatcher;
+		import services.controller.AppController;
+		import services.events.cashShift.GetLastOpenShiftEvent;
+
+		[Bindable]
+		private var totalCredit:Number = 0;
+		
+		[Bindable]
+		private var enabledReopen:Boolean = false;
+				
+		override public function show():void
+		{	
+			model.cashShiftModule.cashShiftPaymantList = [];
+			
+			var evt:GetLastOpenShiftEvent = new GetLastOpenShiftEvent();			
+			evt.hotelId = model.hotelsModule.hotelTotalInfo.iHotelId;			
+			evt.callBack = getFirstShift;
+			CairngormEventDispatcher.getInstance().dispatchEvent( evt );		
+		} 
+		
+		private function selectCash():void
+		{
+			model.cashShiftModule.selectedShift = (cmbShift.selectedItem as CashierVO);
+			enabledReopen = true;
+			for (var i:int = 0; i < model.cashShiftModule.cashShiftList.length; i++)
+			{
+				if ((model.cashShiftModule.cashShiftList[i] as CashierVO).sCashierStatusCode == CashShiftConstants.STATUS_REOPEN)
+				{
+					enabledReopen = false;
+				}
+			}
+			if (model.cashShiftModule.selectedShift.sCashierStatusCode == CashShiftConstants.STATUS_OPEN)
+			{
+				enabledReopen = false;
+			}
+		}
+		
+		private function getFirstShift():void
+		{
+			if (model.cashShiftModule.currOpenShift.sDate != null)
+			{
+				dfBusinessDay.selectedDate = DateField.stringToDate(model.cashShiftModule.currOpenShift.sDate, GlobalSettings.DATE_SERVER_FORMAT);
+				var evt:GetDayShiftListEvent = new GetDayShiftListEvent();			
+				evt.hotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+				evt.sDate = model.cashShiftModule.currOpenShift.sDate;
+				evt.callBack = setNumberLastOpenShift;
+				CairngormEventDispatcher.getInstance().dispatchEvent( evt );
+			}
+		}
+		
+		private function changeDate():void
+		{
+			var evt:GetDayShiftListEvent = new GetDayShiftListEvent();			
+			evt.hotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+			evt.sDate = DateField.dateToString(dfBusinessDay.selectedDate, GlobalSettings.DATE_SERVER_FORMAT);
+			evt.callBack = setShift;
+			CairngormEventDispatcher.getInstance().dispatchEvent( evt );
+		}
+		 
+		private function setNumberLastOpenShift():void
+		{
+			cmbShift.selectedIndex = model.cashShiftModule.currOpenShift.iCashierNum - 1;
+			selectCash();
+			showPaymentsDetails();
+		} 
+		
+		private function setShift():void
+		{
+			if (model.cashShiftModule.cashShiftList.length >0)
+			{
+				cmbShift.selectedIndex = 0;
+				showPaymentsDetails();
+			}
+			else
+			{
+				model.cashShiftModule.cashShiftPaymantList = [];
+			}
+		} 
+		
+		/**
+		* Request to server for open shift
+		*/
+		private function openShift():void
+		{
+			var evt:OpenNextShiftEvent = new OpenNextShiftEvent();			
+			evt.hotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+			evt.callBack = show;			
+			CairngormEventDispatcher.getInstance().dispatchEvent( evt );
+		}
+		
+		/**
+		* Request to server for reopen shift
+		*/
+		private function handleReopenShift():void
+		{
+			var evt:ReopenShiftEvent = new ReopenShiftEvent();			
+			evt.hotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+			evt.shiftNumber = cmbShift.selectedIndex +1;			
+			CairngormEventDispatcher.getInstance().dispatchEvent( evt );
+			show();
+		}
+		
+		/**
+		* Request to server for open business day
+		*/ 
+		private function openBusinessDay():void
+		{
+			var evtTemp:StartNewBusinessDayEvent = new StartNewBusinessDayEvent();
+			evtTemp.hotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+			
+			CairngormEventDispatcher.getInstance().dispatchEvent( evtTemp );
+		}
+
+		private function showPaymentsDetails():void
+		{
+			totalCredit = 0;
+			var evt:GetShiftPaymentListEvent = new GetShiftPaymentListEvent();			
+			evt.hotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+			evt.iShiftNumber = cmbShift.selectedIndex + 1;
+			evt.sDate = DateField.dateToString(dfBusinessDay.selectedDate, GlobalSettings.DATE_SERVER_FORMAT);
+			evt.callBack = countTotalCredit;
+			CairngormEventDispatcher.getInstance().dispatchEvent( evt );
+		}
+		
+		/**
+		 * calculate of total credit
+		 */ 
+		private function countTotalCredit():void
+		{
+			for (var i:int = 0; i < model.cashShiftModule.cashShiftPaymantList.length; i++)
+			{
+				totalCredit = totalCredit + int((model.cashShiftModule.cashShiftPaymantList[i] as CashierPaymentVO).fCredit*100);
+			}
+			totalCredit = totalCredit/100;
+		}		
+
+		/**
+		 * print report
+		 */ 
+		private function printReport():void
+		{
+			var pop:PrintReportPopupView = PopUpManagerExt.createPopUp(this, PrintReportPopupView) as PrintReportPopupView;
+			pop.cashId = (cmbShift.selectedItem as CashierVO).iCashierId;
+			PopUpManagerExt.centerPopUp(pop);
+		}
+
+		/**
+		 * request to server for close shift
+		 */ 
+		private function closeShift():void
+		{			
+			var evt:CloseShiftEvent = new CloseShiftEvent();			
+			evt.hotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+			evt.iShiftNumber = cmbShift.selectedIndex + 1;
+			evt.callBack = callBackAfterCloseShift;
+			CairngormEventDispatcher.getInstance().dispatchEvent( evt );					
+		}
+		
+		/**
+		 * to do after close shift
+		 */ 
+		private function callBackAfterCloseShift():void
+		{
+			show();	
+			
+			createMapListOfReports();
+			getAllReports();
+		}
+		
+			
+			/**
+			 *	Create list of report map and save in model.reports
+			*/
+			private function createMapListOfReports():void
+			{
+				var strOfDate:String =  DateField.dateToString(model.businessDate, GlobalSettings.DATE_SERVER_FORMAT);
+				var hotelId:int = model.hotelsModule.hotelTotalInfo.iHotelId;
+				var cashierId:int = (cmbShift.selectedItem as CashierVO).iCashierId;
+								
+				var report:ReportVO = new ReportVO();
+				report.iHotelId = hotelId;
+				report.sDateReport = strOfDate;
+				report.iReportType = CashShiftConstants.CASH_SHIFT_CLOSURE;
+				report.oReportParameters = cashierId;				
+				model.reportsList.push(report);	
+				
+				report = new ReportVO();
+				report.iHotelId = hotelId
+				report.sDateReport = strOfDate;
+				report.iReportType = CashShiftConstants.CASH_SHIFT_PAYMENT_DETAIL;
+				report.oReportParameters = cashierId;				
+				model.reportsList.push(report);	
+				
+				report = new ReportVO();
+				report.iHotelId = hotelId;
+				report.sDateReport = strOfDate;
+				report.iReportType = CashShiftConstants.CASH_SHIFT_CREDIT_CARD;
+				report.oReportParameters = cashierId;				
+				model.reportsList.push(report);	
+			}
+			
+			/**
+			 *	Get reports
+			*/
+			private function getAllReports():void
+			{	
+				var evt:GetReportEvent = new GetReportEvent( AppController.GET_ARRIVAL_REPORT_EVENT );
+				evt.report = model.reportsList.shift();
+				if (model.reportsList.length != 0)
+				evt.callBack = getAllReports;
+				
+				CairngormEventDispatcher.getInstance().dispatchEvent( evt );
+
+			}
+		
+		///////////label functions////////////////////////////////////////////////////////
+		/**
+		 * Create label of last open shift
+		 * @param item:CashierVO
+		 */ 
+		private function createLabelLastOpenShift(item:CashierVO):String
+	   {
+	   	 var res:String;
+	   	 res = String(item.iCashierNum);
+	   	 if (res == '1')
+	   	 {
+	   	 	res = CashShiftConstants.MORNING;
+	   	 }
+	   	 if (res == '2')
+	   	 {
+	   	 	res = CashShiftConstants.EVENING;
+	   	 }
+	   	 if (res == '3')
+	   	 {
+	   	 	res = CashShiftConstants.NIGHT;
+	   	 }
+	   	 
+	   	 if (item.sCashierStatusCode == CashShiftConstants.STATUS_NEW)
+	   	 {
+	   	 	res = res + CashShiftConstants.NEW_PR;
+	   	 }
+	   	 if (item.sCashierStatusCode == CashShiftConstants.STATUS_OPEN)
+	   	 {
+	   	 	res = res + CashShiftConstants.OPEN_PR;
+	   	 }
+	   	 if (item.sCashierStatusCode == CashShiftConstants.STATUS_REOPEN)
+	   	 {
+	   	 	res = res + CashShiftConstants.REOPEN_PR;
+	   	 }
+	   	 if (item.sCashierStatusCode == CashShiftConstants.STATUS_CLOSED)
+	   	 {
+	   	 	res = res + CashShiftConstants.CLOSED_PR;
+	   	 }
+	   	 return res;
+	   } 
+		
+		/**
+		 * Create full name
+		 */ 
+		private function createFullName(item:CashierPaymentVO, column:DataGridColumn):String
+	   {
+	   		var tempString:String;
+	   		if (item.sGuestName)
+	   		{
+	   			tempString = item.sGuestName + " " + item.sGuestSurname;
+	   		}
+	   		else
+	   		{
+	   			tempString = item.sGuestSurname;
+	   		}
+	   		return tempString;
+	   } 
+	   
+	   private function createShiftStatus(item:CashierVO):String
+	   {
+	   	 var res:String;
+	   	 res = String(item.iCashierNum);
+	   	 if (res == '1')
+	   	 {
+	   	 	res = item.iCashierId + CashShiftConstants.MORNING;
+	   	 }
+	   	 if (res == '2')
+	   	 {
+	   	 	res = item.iCashierId + CashShiftConstants.EVENING;
+	   	 }
+	   	 if (res == '3')
+	   	 {
+	   	 	res = item.iCashierId + CashShiftConstants.NIGHT;
+	   	 }
+	   	 
+	   	 if (item.sCashierStatusCode == CashShiftConstants.STATUS_NEW)
+	   	 {
+	   	 	res = res + CashShiftConstants.NEW_PR;
+	   	 }
+	   	 if (item.sCashierStatusCode == CashShiftConstants.STATUS_OPEN)
+	   	 {
+	   	 	res = res + CashShiftConstants.OPEN_PR;
+	   	 }
+	   	 if (item.sCashierStatusCode == CashShiftConstants.STATUS_REOPEN)
+	   	 {
+	   	 	res = res + CashShiftConstants.REOPEN_PR;
+	   	 }
+	   	 if (item.sCashierStatusCode == CashShiftConstants.STATUS_CLOSED)
+	   	 {
+	   	 	res = res + CashShiftConstants.CLOSED_PR;
+	   	 }
+	   	 return res;
+	   } 
+
+	]]>
+</mx:Script>
+	<mx:HBox styleName="panel">
+		<mx:HBox styleName="formChildrenGroup1">
+			<mx:FormItem label="{model.locale.CashShift_List_ButtonBar_BusinessDay}">
+				<mx:DateField id="dfBusinessDay" width="{GlobalSettings.WIDTH_DATE_FIELD}" formatString="{GlobalSettings.DATE_FORMAT}" change="{changeDate()}"/>				
+			</mx:FormItem>
+			<mx:FormItem label="{model.locale.CashShift_List_ButtonBar_Shift}">
+				<mx:ComboBox id="cmbShift" change="{selectCash()}" dataProvider="{model.cashShiftModule.cashShiftList}" labelFunction="createShiftStatus" height="24"/>				
+			</mx:FormItem>
+			<mx:Button id="btnPaymentDetails"
+				label="{model.locale.CashShift_List_ButtonBar_ShowPaymentsDetails}"
+				click="{showPaymentsDetails()}"/>
+			<mx:Button id="btnPrintReport"
+				label="{model.locale.CashShift_List_ButtonBar_PrintReport}"
+				click="{printReport()}"/>
+			<mx:Button id="btnCloseShift"
+				label="{model.locale.CashShift_List_ButtonBar_CloseShift}"
+				click="{closeShift()}"
+				enabled="{!enabledReopen}"/>
+			<mx:Button id="reopenShift"
+				label="{model.locale.CashShift_List_ButtonBar_ReopenShift}"
+				click="{handleReopenShift()}"
+				enabled="{enabledReopen}"/>
+		</mx:HBox>
+	</mx:HBox>
+
+<mx:DataGrid id="dgShifts"
+	dataProvider="{model.cashShiftModule.cashShiftPaymantList}"
+	width="100%" height="100%"  headerHeight="22" rowHeight="33" styleName="grid">
+	<mx:columns>
+		<mx:DataGridColumn
+			headerText="{model.locale.CashShift_List_Columns_Time}"
+			dataField="sTime"
+			width="60"/>
+		<mx:DataGridColumn
+			headerText="{model.locale.CashShift_List_Columns_PaymentType}"
+			dataField="sPaymentName"/>
+		<mx:DataGridColumn
+			headerText="{model.locale.CashShift_List_Columns_GuestName}"
+			labelFunction="createFullName"/>
+		<mx:DataGridColumn
+			headerText="{model.locale.CashShift_List_Columns_RoomNumber}"
+			dataField="sRoomNumber"/>
+		<mx:DataGridColumn
+			headerText="{model.locale.CashShift_List_Columns_User}"
+			dataField="sUser"/>
+		<mx:DataGridColumn
+			headerText="{model.locale.CashShift_List_Columns_Credit}"
+			dataField="fCredit"/>
+	</mx:columns>
+</mx:DataGrid>
+<mx:HBox width="100%">
+	<mx:Button id="btnOpenShift"
+		label="{model.locale.CashShift_List_Buttons_OpenShift_Label}"
+		toolTip="{model.locale.CashShift_List_Buttons_OpenShift_Tooltip}"
+		click="{openShift()}"
+		/>
+	<mx:Spacer width="100%" />
+	<mx:Label width="100%" textAlign="right" text="{model.locale.CashShift_List_Label_TotalCredit +  String(totalCredit)}"/>
+</mx:HBox>
+</BaseWindow>

@@ -1,0 +1,657 @@
+<?xml version="1.0" encoding="utf-8"?>
+<popup:DataPopupView
+	xmlns:popup="framework.view.components.popups.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:control="h2olib.control.*"
+	addTitle="{model.locale.Items_Managment_Popups_Save_Add}"
+	editTitle="{model.locale.Items_Managment_Popups_Save_Edit}"
+	creationComplete="init()"
+	width="600">
+	
+	<mx:Script>
+		<![CDATA[
+			import mx.utils.ObjectUtil;
+			import services.events.items.management.GetSystemTransactionsEvent;
+			import services.events.items.management.SaveHotelArticleEvent;
+			import mx.events.CloseEvent;
+			import services.cairngorm.BaseEvent;
+			import services.events.items.management.SaveHotelTransactionEvent;
+			import com.adobe.cairngorm.control.CairngormEvent;
+			import services.events.IBaseEvent;
+			import services.events.miscellaneous.vat.GetVATDataEvent;
+			import services.business.items.ItemsDelegate;
+			import services.vo.GlobalSettings;
+			import framework.core.utils.UtilsMXML;
+			import framework.view.pages.items.render.ArrangementsRenderer;
+			import services.events.items.management.SaveSystemArticleEvent;
+			import services.vo.backend.VatObjectVO;
+			import services.vo.items.ArrangementCodeVO;
+			import services.vo.items.HotelItemVO;
+			import mx.events.ValidationResultEvent;
+			import services.events.items.management.SaveSystemTransactionEvent;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.controller.AppController;
+			import services.events.items.arrangementCodes.GetArrangementsEvent;
+			import framework.view.pages.items.data.GroupData;
+			import mx.collections.ArrayCollection;
+			import services.vo.items.ItemsGroupVO; 
+			import services.events.common.GetDataListByTypeCodeEvent;
+			import services.vo.common.DataListVO;
+			import services.vo.items.HotelItemVO;
+			
+			// ================================================================= //
+			//                           VARIABLES                               //
+			// ================================================================= //
+			[Bindable]
+			/**
+			 *  Validation state of price input.
+			 *  
+			 *  @default false
+			 */
+			private var priceValid:Boolean = false;
+			
+			private var selectedIndex:int;
+			/**
+			 *  This property is id of transaction or article.
+			 */
+			private var _transactionId:Number;
+			
+			[Bindable]
+			private var _visibleVAT:Boolean;
+			/**
+			 *  This property is instance of transaction or article.
+			 *  
+			 *  @default new HotelItemVO()
+			 *  
+			 *  @see framework.vo.backend.HotelItemVO
+			 */
+			private var _transaction:HotelItemVO = new HotelItemVO();
+			
+			[Bindable]
+			public var hotelId:Number = -1;
+			/**
+			 *  This property is list of groups by hotel id (system or hotel).
+			 *  
+			 *  @default new ArrayCollection()
+			 *  
+			 *  @see framework.vo.backend.ItemsGroupVO
+			 */
+			private var _groupProvider:/* ItemsGroupVO */ArrayCollection = new ArrayCollection();
+			/**
+			 *  This proeprty is data provider for transactions.
+			 *  
+			 *  @default new ArrayCollection()
+			 *  
+			 *  @see framework.vo.backend.HotelItemVO
+			 */
+			private var _transactionProvider:/* HotelItemVO */ArrayCollection = new ArrayCollection();
+			
+			
+			// ================================================================= //
+			//                        OVERRIDE METHODS                           //
+			// ================================================================= //
+			/**
+			 *  @override
+			 *  
+			 *  @see framework.view.components.popups.BasePopupView#data
+			 */
+			override public function set data(value:Object):void
+			{
+				super.data = value;
+				// Check group and sub group by transaction
+				var item:HotelItemVO = data as HotelItemVO;
+				
+				//selectGroups(checkSelectedGroups(item));
+				transaction = selectTransaction(transactionId);
+				
+				cmbVAT.setItemByField("iVatId", item.lVatId);
+				cmbType.setItemByField("iId", item.iLSTTypeId);
+				// selecting arrangement codes by transaction
+				checkArrangements(item);
+				// price is valid in edit mode
+				priceValid = true;
+				// set type of transaction - transaction or article
+				rbArticle.selected = item.bIsArticle;
+				rbTransaction.selected = !item.bIsArticle;
+				// lock changing type of transaction (from transaction
+				// to article and otherwice) in edit mode
+				rbArticle.enabled = rbTransaction.enabled = false;
+				// lock choosing group ang subgroup for transaction
+				cmbMainGroups.enabled = false;
+				cmbSubGroups.enabled = false;
+				cmbTranactions.enabled = false;
+			}
+			
+			override protected function close(event:CloseEvent=null):void
+			{
+				// clear selection of arrangement codes
+				clearArrangements();
+				
+				super.close(event);
+			}
+			
+			private function selectTransaction(id:Number):HotelItemVO
+			{
+				// find article by id
+				var trans:ArrayCollection = model.transactionModule.transactionList;
+				for each(var item:HotelItemVO in trans)
+				{
+					for each(var subitem:HotelItemVO in item.aSubItems)
+					{
+						if (subitem.lId == id)
+						{
+							cmbTranactions.setItemByField("lId", item.lId);
+							return cmbTranactions.selectedItem as HotelItemVO;
+						} 
+					}
+				}
+				// param is id of transaction
+				cmbTranactions.setItemByField("lId", id);
+				return cmbTranactions.selectedItem as HotelItemVO;;
+			}
+			/**
+			 *  Definition id of main group and his subgroups in the selection
+			 *  of any of the groups (subgroups) in the list of possible system
+			 *  or hotel.
+			 * 
+			 *  @param item:HotelItemVO - transaction or article.
+			 *  	
+			 *  @return data with id of main and sub groups.
+			 *  
+			 *  @see framework.vo.backend.HotelItemVO
+			 *  @see framework.view.pages.items.data.GroupData
+			 */
+			private function checkSelectedGroups(item:HotelItemVO):GroupData
+			{
+				if (!item) return new GroupData();
+				
+				var groups:ArrayCollection = groupProvider;
+				for each(var group:ItemsGroupVO in groups)
+				{
+					for each(var subgroup:ItemsGroupVO in group.aSubGroups)
+					{
+						if (subgroup.lId == item.lGroupId)
+						{
+							return new GroupData(group.lId, subgroup.lId);
+							break;
+						}
+					}
+				}
+				
+				return new GroupData();
+			}
+			/**
+			 * 
+			 */
+			public function selectGroups(groups:GroupData):void
+			{
+				cmbMainGroups.setItemByField("lId", groups.mainGroupId);
+				cmbSubGroups.setItemByField("lId", groups.subGroupId);
+			}
+			/**
+			 *  Clear selection of arrangement codes.
+			 */
+			private function clearArrangements():void
+			{
+				var list:ArrayCollection = model.transactionModule.arrangementCodesList;
+				for each(var code:ArrangementCodeVO in list)
+				{
+					code.bIsSelected = false;
+				}
+			}
+			
+			/**
+			 *  Check selection for arrangement codes for current edited
+			 *  transaction.
+			 *  
+			 *  @param item:HotelItemVO - item with arrangement codes for
+			 *         selection
+			 */
+			private function checkArrangements(item:HotelItemVO):void
+			{
+				// clear selection for arrangement codes
+				clearArrangements();
+				if (!item) return;
+				// update selection for arrangement codes
+				var list:ArrayCollection = lstArrangements.dataProvider as ArrayCollection;
+				for each(var codeId:Number in item.aArrgCodes)
+				{
+					for each(var code:ArrangementCodeVO in list)
+					{
+						if (code.lId == codeId)
+						{
+							code.bIsSelected = true;
+							break;
+						}
+					}
+				}
+				
+				list.refresh();
+			}
+			
+			private function init():void
+			{
+				
+				if(model.transactionModule.itemTypes.length == 0)
+				{
+					var e:GetDataListByTypeCodeEvent = new GetDataListByTypeCodeEvent(AppController.GET_ITEM_TYPE_DATA_EVENT);
+					e.sListTypeCode = "ITEMS_TYPES";
+					CairngormEventDispatcher.getInstance().dispatchEvent(e);
+				}
+				// clear selected state for arrangement codes
+				checkArrangements(data as HotelItemVO);
+				// Check possible to get list of arrangement codes from "cache".
+				// If list of these codes are empty - have to get this list from
+				// server.
+				if (model.transactionModule.arrangementCodesList.length == 0)
+				{
+					var event:GetArrangementsEvent = new GetArrangementsEvent(ItemsDelegate.GET_ARRANGEMENTS_LIST);
+					CairngormEventDispatcher.getInstance().dispatchEvent(event);
+				}
+				// save local transaction list
+				_transactionProvider = ObjectUtil.copy(model.transactionModule.transactionList) as ArrayCollection;
+			}
+			
+			
+			private function handleSaveTransaction():void
+			{
+				var i:int = 0;
+				var list:ArrayCollection;
+				// TODO : add check changes and send to server if some filed's 
+				//        values are changed
+				
+				var item:HotelItemVO = (isEdit) ? data as HotelItemVO : new HotelItemVO();
+				item.sName = tiName.text;
+				item.lGroupId = (cmbSubGroups.selectedItem as ItemsGroupVO).lId;
+				item.sTransactionCode = tiCode.text;
+				
+				item.fPrice = Number(tiPrice.text);
+				if (!isEdit)
+				{
+					item.lVatId = (cmbVAT.selectedItem as VatObjectVO).iVatId;
+					item.iVat = (cmbVAT.selectedItem as VatObjectVO).iVatValue;
+				}
+				if(cmbType.visible)
+				{
+					item.iLSTTypeId = (cmbType.selectedItem as DataListVO).iId;
+					//item.iLSTType = (cmbType.selectedItem as ItemTypeVO).typeName;			
+				}
+				item.sDescription = taDescription.text;
+				item.bIsArticle = rbArticle.selected;
+				
+				item.aArrgCodes = [];
+				list = model.transactionModule.arrangementCodesList;
+				for(i = 0; i < list.length; i++)
+				{
+					var code:ArrangementCodeVO = list.getItemAt(i) as ArrangementCodeVO;
+					if (code.bIsSelected)
+					{
+						item.aArrgCodes.push(code.lId);
+					}
+				}
+				// Set <code>ADD</code> mode as default for transaction
+				// <b>Note:</b> it have to know what index pof transaction in the
+				// list for article. If article will be saved - index change to 
+				// article selected index.
+				selectedIndex = model.transactionModule.transactionList.length;
+				list = model.transactionModule.transactionList;
+				// Check <code>EDIT</code>
+				if (isEdit)
+				{
+					// Search index of transaction into the list of transactions
+					for(i = 0; i < list.length; i++)
+					{
+						var trans:HotelItemVO = list.getItemAt(i) as HotelItemVO;
+						if (trans.lId == (data as HotelItemVO).lId)
+						{
+							selectedIndex = i;
+							break;
+						}
+					}
+				}
+				var event:IBaseEvent;
+				// If type of new or editing tranasction is <code>TRANSACTION</code>
+				if (rbTransaction.selected)
+				{
+					if (!isDirty)
+					{
+						completeCall();
+						return;
+					}
+					// save new adding or edited transaction (or article)
+					if (hotelId == -1)
+					{
+						event = new SaveSystemTransactionEvent(ItemsDelegate.SAVE_SYSTEM_TRANSACTIONS);
+						
+						(event as SaveSystemTransactionEvent).sysGroupId = item.lGroupId;
+						(event as SaveSystemTransactionEvent).item = item;
+						(event as SaveSystemTransactionEvent).index = selectedIndex;
+					}
+					else
+					{
+						event = new SaveHotelTransactionEvent(ItemsDelegate.SAVE_HOTEL_TRANSACTION);
+						
+						(event as SaveHotelTransactionEvent).hotelId = hotelId;
+						(event as SaveHotelTransactionEvent).groupId = item.lGroupId;
+						(event as SaveHotelTransactionEvent).item = item;
+						(event as SaveHotelTransactionEvent).index = selectedIndex;
+					}
+					
+					(event as BaseEvent).callBack = completeCall;
+					CairngormEventDispatcher.getInstance().dispatchEvent(event as CairngormEvent);
+				}
+				// If type of new or editing tranasction is <code>ARTICLE</code>
+				if (rbArticle.selected)
+				{
+					if (!isDirty)
+					{
+						completeCall();
+						return;
+					}
+					
+					item.bIsArticle = true;
+					
+					var transactionIndex:int = selectedIndex - 1;
+					// Set <code>ADD</code> mode as default
+					var articles:Array = (list.getItemAt(selectedIndex - 1) as HotelItemVO).aSubItems;
+					selectedIndex = articles.length;
+					// Check <code>EDIT</code>
+					if (isEdit)
+					{
+						// Search index of transaction into the list of transactions
+						for(i = 0; i < articles.length; i++)
+						{
+							var article:HotelItemVO = articles[i] as HotelItemVO;
+							if (article.lId == (data as HotelItemVO).lId)
+							{
+								selectedIndex = i;
+								break;
+							}
+						}
+					}
+					
+					if (hotelId == -1)
+					{
+						event = new SaveSystemArticleEvent(ItemsDelegate.SAVE_SYSTEM_ARTICLE);
+						(event as SaveSystemArticleEvent).transactionIndex = transactionIndex;
+						(event as SaveSystemArticleEvent).sysGroupId = item.lGroupId;
+						(event as SaveSystemArticleEvent).sysTransactionId = (cmbTranactions.selectedItem as HotelItemVO).lId;
+						(event as SaveSystemArticleEvent).articleIndex = selectedIndex;
+						(event as SaveSystemArticleEvent).item = item;
+					}
+					else
+					{
+						event = new SaveHotelArticleEvent(ItemsDelegate.SAVE_HOTEL_ARTICLE);
+						(event as SaveHotelArticleEvent).hotelId = hotelId;
+						(event as SaveHotelArticleEvent).hotelSubGroupId = item.lGroupId;
+						(event as SaveHotelArticleEvent).hotelTransactionId = (cmbTranactions.selectedItem as HotelItemVO).lId;
+						(event as SaveHotelArticleEvent).hotelItem = item;
+						(event as SaveHotelArticleEvent).index = selectedIndex;
+					}
+					
+					model.transactionModule.transactionList = _transactionProvider;
+					
+					event.callBack = completeCall;
+					CairngormEventDispatcher.getInstance().dispatchEvent(event as CairngormEvent);
+				}
+			}
+			
+			// Event listener for the valid and invalid events.
+			private function handlePriceValid(event:ValidationResultEvent):void
+			{
+				priceValid = (event.type == ValidationResultEvent.VALID)
+			}
+			
+			private function handleUpdateTransaction():void
+			{
+				if ((!isEdit) && (cmbSubGroups.selectedItem))
+				{
+					var event:GetSystemTransactionsEvent = new GetSystemTransactionsEvent(ItemsDelegate.GET_SYSTEM_TRANSACTIONS);
+					event.sysGroupId = (cmbSubGroups.selectedItem as ItemsGroupVO).lId;
+					event.page = 1;
+					event.count = 1000; /// TODO :: make remote call for all system transactions
+					event.callBack = validateTransaction;
+					CairngormEventDispatcher.getInstance().dispatchEvent(event);
+				}
+				else
+				{
+					validateTransaction();
+				}
+			}
+			
+			private function validateTransaction():void
+			{
+				selectTransaction(_transactionId);
+			}
+			
+			/**
+			 *  Id of transaction or article.
+			 */
+			public function get transactionId():Number
+			{
+				return _transactionId;
+			}
+			/**
+			 *  @private
+			 */
+			public function set transactionId(value:Number):void
+			{
+				_transactionId = value;
+				
+				transaction = selectTransaction(_transactionId);
+			}
+			
+			
+			/**
+			 *  The instance of transaction or article.
+			 */
+			public function get visibleVAT():Boolean
+			{
+				return _visibleVAT;
+			}
+			/**
+			 *  @private
+			 */
+			public function set visibleVAT(value:Boolean):void
+			{
+				_visibleVAT = value;
+								
+			}
+			
+			[Bindable(event="groupProviderChanged")]
+			/**
+			 *  The list of groups by hotel id (system or hotel).
+			 */
+			public function get groupProvider():ArrayCollection
+			{
+				return _groupProvider;
+			}
+			/**
+			 *  @private
+			 */
+			public function set groupProvider(value:ArrayCollection):void
+			{
+				_groupProvider = value;
+				
+				dispatchEvent(new Event("groupProviderChanged"));
+			}
+			
+			/**
+			 *  The instance of transaction or article.
+			 */
+			protected function get transaction():HotelItemVO
+			{
+				return _transaction;
+			}
+			/**
+			 *  @private
+			 */
+			protected function set transaction(value:HotelItemVO):void
+			{
+				_transaction = value;
+				
+				selectGroups(checkSelectedGroups(transaction));
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:HBox width="100%" height="100%" horizontalGap="0">
+		<mx:VBox width="100%" height="100%">
+			<mx:Form width="100%" height="100%">
+				<mx:FormItem
+					label="{model.locale.Items_Managment_Popups_Save_Group}:"
+					required="true"
+					width="100%">
+					<control:ComboBoxEx id="cmbMainGroups"
+						dataProvider="{groupProvider}"
+						labelField="sName"
+						enabled="{!isEdit}"
+						change="callLater(handleUpdateTransaction)"
+						width="250"/>
+				</mx:FormItem>
+				
+				<mx:FormItem
+					label="{model.locale.Items_Managment_Popups_Save_Subgroup}:"
+					required="true"
+					width="100%">
+					<control:ComboBoxEx id="cmbSubGroups"
+						dataProvider="{(cmbMainGroups.selectedItem as ItemsGroupVO).aSubGroups}"
+						labelField="sName"
+						enabled="{UtilsMXML.and(cmbSubGroups.selectedItem, !isEdit)}"
+						change="handleUpdateTransaction()"
+						width="250"/>
+				</mx:FormItem>
+				
+				<mx:FormItem
+					required="true"
+					enabled="{cmbSubGroups.selectedItem}"
+					direction="horizontal"
+					width="100%">
+					<mx:RadioButton id="rbTransaction"
+						label="{model.locale.Items_Managment_Popups_Save_RbTransaction}"
+						groupName="type"/>
+					<mx:RadioButton id="rbArticle"
+						label="{model.locale.Items_Managment_Popups_Save_RbArticle}"
+						groupName="type"/>
+				</mx:FormItem>
+				
+				<mx:FormItem
+					label="{model.locale.Items_Managment_Popups_Save_RbTransaction}:"
+					required="true"
+					enabled="{cmbSubGroups.selectedItem}"
+					width="100%">
+					<control:ComboBoxEx id="cmbTranactions"
+						dataProvider="{model.transactionModule.transactionList}"
+						labelField="sName"
+						enabled="{UtilsMXML.and(cmbTranactions.selectedItem, !isEdit, rbArticle.selected)}"
+						width="250"/>
+				</mx:FormItem>
+				
+				<mx:FormItem
+					label="{model.locale.Items_Managment_Popups_Save_Name}:"
+					enabled="{cmbSubGroups.selectedItem}"
+					required="true">
+					<mx:TextInput id="tiName"
+						maxChars="50"
+						restrict="\-A-Z a-zβÄäÖöÜü0-9"
+						text="{(data as HotelItemVO).sName}"
+						width="200"/>
+				</mx:FormItem>
+				
+				<mx:FormItem
+					label="{model.locale.Items_Managment_Popups_Save_Code}:"
+					required="true"
+					enabled="{cmbSubGroups.selectedItem}"
+					width="100%">
+					<mx:TextInput id="tiCode"
+						maxChars="10"
+						restrict="0-9"
+						text="{(data as HotelItemVO).sTransactionCode}"/>
+				</mx:FormItem>
+				
+				<mx:FormItem
+					label="{model.locale.Items_Managment_Popups_Save_Price}:"
+					enabled="{cmbSubGroups.selectedItem}"
+					width="100%" required="true">
+					<mx:HBox verticalAlign="middle">
+						<mx:TextInput id="tiPrice"
+							restrict="0-9."
+							maxChars="5"
+							text="{(data as HotelItemVO).fPrice}"/>
+						<mx:Label
+							text="euro" />
+					</mx:HBox>
+				</mx:FormItem>
+				
+				<mx:FormItem visible="{_visibleVAT}"
+					label="{model.locale.Items_Managment_Popups_Save_Vat}:"
+					enabled="{cmbSubGroups.selectedItem}" required="true">
+					<control:ComboBoxEx id="cmbVAT"
+						labelField="iVatValue"
+						dataProvider="{model.vatModule.vatDP}"
+						enabled="{cmbVAT.selectedItem}"/>
+				</mx:FormItem>
+				<mx:FormItem  visible="true"
+					label="{model.locale.Items_Managment_Popups_Save_Type}:"
+					enabled="{cmbSubGroups.selectedItem}" required="true">
+					<control:ComboBoxEx  id="cmbType"
+						labelField="sName"	
+						enabled="{hotelId == -1}"					
+						dataProvider="{model.transactionModule.itemTypes}"
+						
+						width="250"/>
+				</mx:FormItem>
+			</mx:Form>
+		</mx:VBox>
+		
+		<mx:VBox
+			enabled="{cmbSubGroups.selectedItem}"
+			width="100%" height="100%">
+			<mx:Label
+				text="{model.locale.Items_Managment_Popups_Save_ArrangementCodes}:" />
+			<mx:List id="lstArrangements"
+				itemRenderer="{new ClassFactory(ArrangementsRenderer)}"
+				dataProvider="{model.transactionModule.arrangementCodesList}"
+				width="100%" height="100%"/>
+		</mx:VBox>
+	</mx:HBox>
+	
+	<mx:FormItem
+		label="Description:"
+		enabled="{cmbSubGroups.selectedItem}"
+		width="100%" height="85">
+		<mx:TextArea id="taDescription"
+			maxChars="50"
+			text="{(data as HotelItemVO).sDescription}"
+			width="100%" height="100%"/>
+	</mx:FormItem>
+	
+	<mx:HBox width="100%" horizontalAlign="right">
+		<mx:Button id="btSaveTransaction"
+			label="Save"
+			enabled="{UtilsMXML.and(cmbSubGroups.selectedItem,
+						(rbTransaction.selected || rbArticle.selected),
+						(rbArticle.selected) ? cmbTranactions.selectedItem : true,
+						tiName.text.length > 0,
+						tiCode.text.length > 0,
+						tiPrice.text.length > 0,
+						priceValid,
+						cmbVAT.selectedItem)}"
+			click="handleSaveTransaction()"
+			width="{GlobalSettings.BUTTON_WIDTH_APPLY}"/>
+		<mx:Button id="btCancelTransaction"
+			label="Cancel"
+			click="close()"
+			width="{GlobalSettings.BUTTON_WIDTH}"/>
+	</mx:HBox>
+	
+	<mx:NumberValidator id="priceValidator"
+		source="{tiPrice}"
+		property="text"
+		domain="real"
+		precision="2"
+		trigger="{tiPrice}"
+		triggerEvent="change"
+		invalid="callLater(handlePriceValid, [event])"
+		valid="callLater(handlePriceValid, [event])"/>
+</popup:DataPopupView>

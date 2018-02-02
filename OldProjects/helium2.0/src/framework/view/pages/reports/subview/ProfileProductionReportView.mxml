@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="utf-8"?>
+<sub:VSubWindow xmlns:sub="framework.core.view.*" xmlns:mx="http://www.adobe.com/2006/mxml"
+	width="100%" height="100%">
+
+	<mx:Script>
+		<![CDATA[
+			import h2olib.utils.DateUtils;
+			import services.vo.reports.ProfileProductionReportVO;
+			import services.vo.reports.PaymentOfTheDayVO;
+			import services.vo.reports.NoShowsReportVO;
+			import framework.core.utils.UtilsSecurity;
+			import services.vo.reports.InHouseReportVO;
+			import services.vo.common.loyaltyPrograms.LoyaltyProgramsVO;
+			import framework.model.AppModelLocator;
+			import services.vo.GlobalFunctions;
+			import services.events.reports.GetReportEvent;
+			import services.vo.backend.ReportVO;
+			import framework.core.utils.UtilsGolobal;
+			import services.vo.common.SourceCodesVO;
+			import services.vo.backend.RoomSettingObjectVO;
+			import services.vo.common.MarketCodesVO;
+			import services.vo.hotels.HotelRoomWithBedTypesObjectVO;
+			import services.vo.GlobalSettings;
+			import services.vo.GlobalStorage;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.events.miscellaneous.loyaltyPrograms.GetLoyaltyProgramsEvent;
+			import services.controller.AppController;
+			import services.events.roomSettings.GetRoomSettingsDataEvent;
+			import mx.collections.ArrayCollection;
+			import services.vo.reports.ArrivalReportVO;
+
+  			/**
+			 *	Get reports. This function we have in parent.
+			*/
+  			public var getReports:Function = new Function();
+
+  			/**
+			 *	Get selected All for all list. This function we have in parent.
+			*/
+  			public var allClick:Function = new Function();
+			public var reportType:int;
+			
+  			[Bindable]
+			private var cashier:ArrayCollection = new ArrayCollection();
+
+			public function init():void
+			{
+				
+			}
+
+			private function handlePrintProfileProduction():void
+			{
+				var profileProductionReport:ProfileProductionReportVO = new ProfileProductionReportVO();
+				
+				profileProductionReport.sArrivalFrom = DateField.dateToString(profileProductionDateFrom.selectedDate, GlobalSettings.DATE_SERVER_FORMAT);
+				profileProductionReport.sArrivalTo = DateField.dateToString(profileProductionDateTo.selectedDate, GlobalSettings.DATE_SERVER_FORMAT);
+				profileProductionReport.bIsShowDetail = profileProductionFilterShowDetail.selected;
+				profileProductionReport.bIsShowCompany = company.selected;
+				profileProductionReport.sCompanyName = companyName.text;
+				profileProductionReport.sGuestName = guestName.text;
+				profileProductionReport.sGuestSurName = guestSurName.text;
+				
+				getReports( profileProductionReport, reportType, DateField.dateToString(profileProductionDateFrom.selectedDate, GlobalSettings.DATE_SERVER_FORMAT) );
+			}
+
+			/**
+			 *	Get selected cash shifts for Payments of the day.
+			*/
+			public function updateSelectionDebitorCashier(index:int,selected:Boolean):void
+			{
+				var tempSelect:Boolean = cashier.getItemAt(index).bSelected;
+
+				if (tempSelect) tempSelect = false
+				else tempSelect = true;
+				cashier.getItemAt(index).bIsSelected = tempSelect;
+			}
+			
+			/**
+			 * If we select company or individual radiobutton, enabled and disabled appropriate components
+			 */ 
+			private function selectFilter():void
+			{
+				if (individual.selected)
+				{
+					//guestNameForm.enabled = true;
+					//guestSurNameForm.enabled = true;
+					companyNameForm.enabled = false;
+				}
+				else
+				{
+					//guestNameForm.enabled = false;
+					//guestSurNameForm.enabled = false;
+					companyNameForm.enabled = true;
+				}
+			}
+		]]>
+	</mx:Script>
+
+
+		<mx:Panel  width="100%" label="Profile production" layout="vertical" styleName="reportPanel">
+			<mx:HBox>
+				<mx:Form>
+					<mx:FormItem label="Date from:" labelWidth="120">
+						<mx:DateField id="profileProductionDateFrom" width="{GlobalSettings.WIDTH_DATE_FIELD}"
+							disabledRanges="{[ {rangeStart: DateUtils.dateAdd(DateUtils.DAY_OF_MONTH, 1, profileProductionDateTo.selectedDate)} ]}"
+							selectedDate="{GlobalFunctions.getDate()}" formatString="{GlobalSettings.DATE_FORMAT}"/>
+					</mx:FormItem>
+					<mx:FormItem label="Date to:" labelWidth="120">
+						<mx:DateField id="profileProductionDateTo" width="{GlobalSettings.WIDTH_DATE_FIELD}"
+							selectedDate="{GlobalFunctions.getDate()}" 
+							disabledRanges="{[ {rangeEnd: DateUtils.dateSub(DateUtils.DAY_OF_MONTH, 1, profileProductionDateFrom.selectedDate)} ]}"
+							formatString="{GlobalSettings.DATE_FORMAT}"/>
+					</mx:FormItem>
+					<mx:FormItem label="Show detail:" labelWidth="120">
+							<mx:CheckBox id="profileProductionFilterShowDetail" selected="false"/>
+					</mx:FormItem>
+					<mx:FormItem label="Filter:" labelWidth="120">
+							<mx:RadioButton id = "individual" 
+								label = "Individual" 
+								groupName = "filter" 
+								selected = "true"
+								click = "{selectFilter()}"/>
+							<mx:RadioButton id="company" 
+								label="Company" 
+								groupName="filter"
+								click="{selectFilter()}"/>
+					</mx:FormItem>
+				</mx:Form>
+				<mx:Form>
+					<mx:FormItem id="guestSurNameForm" label="Guest Name:" labelWidth="120">
+						<mx:TextInput id="guestSurName"/>
+					</mx:FormItem>
+					<mx:FormItem id="guestNameForm" label="Guest FirstName:" labelWidth="120">
+						<mx:TextInput id="guestName"/>
+					</mx:FormItem>
+					<mx:FormItem id="companyNameForm" label="Company:" labelWidth="120" enabled="false">
+						<mx:TextInput id="companyName"/>
+					</mx:FormItem>
+				</mx:Form>
+			</mx:HBox>
+			<mx:HBox width="100%" horizontalAlign="right">
+				<mx:Button label="Print Report" click="handlePrintProfileProduction()"/>
+			</mx:HBox>
+		</mx:Panel>
+</sub:VSubWindow>

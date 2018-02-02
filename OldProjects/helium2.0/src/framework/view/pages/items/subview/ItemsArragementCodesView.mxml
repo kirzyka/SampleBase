@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+<view:VSubWindow
+	xmlns:view="framework.core.view.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:searchBox="h2olib.control.searchBox.*">
+	
+	<mx:Script>
+		<![CDATA[
+			import services.vo.GlobalSettings;
+			import framework.view.components.popups.events.PopupEvent;
+			import services.business.items.ItemsDelegate;
+			import mx.controls.Alert;
+			import services.events.items.arrangementCodes.DeleteArrangementEvent;
+			import services.vo.GlobalImageAssets;
+			import framework.view.components.popups.DeletePopupView;
+			import mx.core.IFlexDisplayObject;
+			import framework.view.pages.items.popups.arrangemets.SaveArrangementCodePopupView;
+			import mx.binding.utils.ChangeWatcher;
+			import mx.collections.ArrayCollection;
+			import services.events.items.arrangementCodes.GetArrangementsEvent;
+			import services.vo.items.ArrangementCodeVO;
+			import mx.managers.PopUpManagerChildList;
+			import framework.managers.PopUpManagerExt;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.controller.AppController;
+			import framework.model.AppModelLocator;
+			
+			// ==================================================================== //
+			//                     COMMON FUNCTIONS FOR MODULE                      //
+			// ==================================================================== //
+			/**
+			 *  Function filter for search all codes satisfying a condition.
+			 */
+			private function filter():void
+			{
+				(dgCodes.dataProvider as ArrayCollection).filterFunction = searchCodes;
+				(dgCodes.dataProvider as ArrayCollection).refresh();
+			}
+			
+			override public function update():void
+			{
+				var event:GetArrangementsEvent = new GetArrangementsEvent(ItemsDelegate.GET_ARRANGEMENTS_LIST);
+				CairngormEventDispatcher.getInstance().dispatchEvent(event);
+			}
+			
+			public function searchCodes(data:Object):Boolean
+			{
+				var key:String = sbCodeFilter.text;
+				var item:ArrangementCodeVO = data as ArrangementCodeVO;
+				return (item.sCode.indexOf(key) != -1) || (item.sName.indexOf(key) != -1);
+			}
+			
+			private function handleAddArragementCode():void
+			{
+				var pop:SaveArrangementCodePopupView = PopUpManagerExt.createPopUp(this, SaveArrangementCodePopupView) as SaveArrangementCodePopupView;
+				PopUpManagerExt.centerPopUp(pop);
+			}
+			
+			private function openDeletePopup():void
+			{
+				var pop:IFlexDisplayObject = PopUpManagerExt.createPopUp(model.owner, DeletePopupView);
+				
+				(pop as DeletePopupView).title = model.locale.Items_Arrangements_Popups_Delete_Title;
+				(pop as DeletePopupView).description = model.locale.Items_Arrangements_Popups_Delete_Description;
+				(pop as DeletePopupView).addEventListener(PopupEvent.DELETE_HANDLER, handleDelete);
+			}
+			
+			private function handleDelete(e:PopupEvent):void
+			{
+				(e.target as DeletePopupView).removeEventListener(PopupEvent.DELETE_HANDLER, handleDelete);
+				
+				var event:DeleteArrangementEvent = new DeleteArrangementEvent(ItemsDelegate.DELETE_ARRANGEMENT);
+				event.codeId = (dgCodes.selectedItem as ArrangementCodeVO).lId;
+				event.codeIndex = dgCodes.selectedIndex;
+				event.callBack = (e.target as DeletePopupView).completeCall;
+				CairngormEventDispatcher.getInstance().dispatchEvent(event);
+			}
+			
+			private function handleEditArragementCode():void
+			{
+				var pop:SaveArrangementCodePopupView = PopUpManagerExt.createPopUp(this, SaveArrangementCodePopupView) as SaveArrangementCodePopupView;
+				pop.data = dgCodes.selectedItem;
+				pop.selectedIndex = dgCodes.selectedIndex;
+			}
+		]]>
+	</mx:Script>
+	
+	<searchBox:SearchBox id="sbCodeFilter"
+		label="{model.locale.Items_Arrangements_SearchBox_Codes}"
+		maxChars="30"
+		focusOut="filter()"
+		enter="filter()"
+		width="350"
+		height="24"/>
+	<mx:DataGrid id="dgCodes"
+		dataProvider="{model.transactionModule.arrangementCodesList}"
+		width="100%" height="100%" headerHeight="22" rowHeight="33" styleName="grid">
+		<mx:columns>
+			<mx:DataGridColumn
+				headerText="{model.locale.Items_Arrangements_Columns_Code}"
+				dataField="sCode"
+				width="180"/>
+			<mx:DataGridColumn
+				headerText="{model.locale.Items_Arrangements_Columns_Description}"
+				dataField="sName"/>
+		</mx:columns>
+	</mx:DataGrid>
+	
+	<mx:HBox>
+		<mx:Button
+			label="{model.locale.Global_Button_Add}"
+			click="handleAddArragementCode()"
+			width="{GlobalSettings.BUTTON_WIDTH}"/>
+		<mx:Button
+			label="{model.locale.Global_Button_Edit}"
+			enabled="{dgCodes.selectedItem}"
+			click="handleEditArragementCode()"
+			width="{GlobalSettings.BUTTON_WIDTH}"/>
+		<mx:Button
+			label="{model.locale.Global_Button_Delete}"
+			enabled="{dgCodes.selectedItem}"
+			click="openDeletePopup()"
+			width="{GlobalSettings.BUTTON_WIDTH}"/>
+	</mx:HBox>
+</view:VSubWindow>

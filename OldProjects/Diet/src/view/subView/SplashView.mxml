@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<view:BaseView 
+	xmlns:fx="http://ns.adobe.com/mxml/2009" 
+	xmlns:s="library://ns.adobe.com/flex/spark" 
+	xmlns:mx="library://ns.adobe.com/flex/mx" 
+	xmlns:view="view.*" 
+	
+	width="100%" height="100%"
+	>
+	
+	<fx:Script>
+		<![CDATA[
+			import com.serialization.json.JSON;
+			
+			import constants.AllImages;
+			import constants.CommonConstants;
+			
+			import model.AppModel;
+			
+			import mx.controls.Alert;
+			
+			import vk.vo.WallPostVO;
+	
+			private function onVersionClick():void
+			{
+				
+			}
+			
+			
+
+			
+			
+		]]>
+	</fx:Script>
+	
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	
+	<s:Label left="10" top="5" 
+		fontSize="18" fontWeight="bold" 
+		text="Кремлёвская диета"/>
+	<s:Label left="10" top="25" 
+		color="#999999" fontSize="11"
+		text="программа для ведения учёта потребляемых калорий"/>
+	<s:Label right="10" top="5" 
+		text="{CommonConstants.VERSION}"
+		fontSize="8" fontWeight="bold" color="#999999"
+		click="onVersionClick()"/>	
+	
+	
+	<mx:Image
+		horizontalCenter="0" verticalCenter="0"
+		source="{AllImages.SPLASH}"/>
+	
+	<mx:Image bottom="5" left="10" 
+		source="{AllImages.LOGO_AUTHOR}"
+		toolTip="автор: Антон Кирзык (CyberLogic)"/>
+	<s:Button bottom="5" right="10" 
+		label="ДАЛЬШЕ"
+		useHandCursor="true" buttonMode="true"
+		click="{appModel.currentView = AppModel.MAIN_SCREEN}"/>
+	
+<!--	<mx:Image bottom="5" right="10" 
+		toolTip="дальше"
+		buttonMode="true" useHandCursor="true"
+		source="{AllImages.NEXT}"
+		click="{appModel.currentView = AppModel.MAIN_SCREEN}"/>-->
+
+
+</view:BaseView>

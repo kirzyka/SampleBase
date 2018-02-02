@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:HBox xmlns:mx="http://www.adobe.com/2006/mxml" width="100%" horizontalScrollPolicy="off" creationComplete="handleInit()">
+	
+	
+	<mx:Script>
+		<![CDATA[
+			import services.vo.backend.RoomWithBedTypesObjectVO;
+			import framework.model.AppModelLocator;
+			import services.vo.backend.RoomTypeHierarchicalVO;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.vo.backend.RoomTypeRowVO;
+			import services.controller.AppController;
+				
+			private var currValue:String;
+			
+			private var model:AppModelLocator = AppModelLocator.getInstance();
+			
+			private function handleInit():void
+			{
+				model.roomTypesModule.currentDescriptionIR = this;
+			}
+			
+			override public function set data(value:Object):void
+			{
+				super.data = value;
+				
+				if(data != null)
+				{
+					descTxt.text = "";
+					descTxt.enabled = false;
+					descTxt.setStyle("backgroundAlpha","0");
+					
+					if(!(data as RoomTypeHierarchicalVO))
+					{ 
+						descTxt.text = data.description;
+						currValue = data.description;
+						
+						descTxt.enabled = true;
+					}
+				}
+			}
+			
+			private function handleFocusIn():void
+			{
+				descTxt.setStyle("backgroundAlpha","1");
+				
+				model.roomTypesModule.currentDescriptionIR = this;
+			}
+			
+			
+		]]>
+	</mx:Script>
+	
+	
+	<mx:TextInput id="descTxt" width="100%" borderStyle="none" 	focusIn="handleFocusIn()"/>
+	
+</mx:HBox>

@@ -1,0 +1,252 @@
+<?xml version="1.0" encoding="utf-8"?>
+<sub:VSubWindow xmlns:sub="framework.core.view.*" xmlns:mx="http://www.adobe.com/2006/mxml" width="100%"  xmlns:components="framework.view.components.*">
+
+	<mx:Script>
+		<![CDATA[
+			import services.vo.reports.TreeItemVO;
+			import services.vo.reports.CorrectionsOfTheDayReportVO;
+			import framework.core.utils.UtilsGolobal;
+			import services.vo.reports.NoShowsReportVO;
+			import services.vo.reports.InHouseReportVO;
+			import services.vo.common.loyaltyPrograms.LoyaltyProgramsVO;
+			import framework.model.AppModelLocator;
+			import services.vo.GlobalFunctions;
+			import services.events.reports.GetReportEvent;
+			import services.vo.backend.ReportVO;
+			import services.vo.common.SourceCodesVO;
+			import services.vo.backend.RoomSettingObjectVO;
+			import services.vo.common.MarketCodesVO;
+			import services.vo.hotels.HotelRoomWithBedTypesObjectVO;
+			import services.vo.GlobalSettings;
+			import services.vo.GlobalStorage;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.events.miscellaneous.loyaltyPrograms.GetLoyaltyProgramsEvent;
+			import services.controller.AppController;
+			import services.events.roomSettings.GetRoomSettingsDataEvent;
+			import mx.collections.ArrayCollection;
+			import services.vo.reports.ArrivalReportVO;
+			
+
+			[Bindable]
+			public var cashier:ArrayCollection = new ArrayCollection();
+
+			[Bindable]
+			private var correctionOfTheDayRoomTypesDP:ArrayCollection = new ArrayCollection();
+
+			[Bindable]
+			private var correctionOfTheDayTree:Array = [];
+
+			//config
+  			[Bindable]
+  			public var indicatorGapFormItem:int = 14;
+
+  			/**
+			 *	Get reports. This function we have in parent.
+			*/
+  			public var getReports:Function = new Function();
+
+  			/**
+			 *	Get selected All for all list. This function we have in parent.
+			*/
+  			public var allClick:Function = new Function();
+
+			public var reportType:int;
+
+
+  			[Bindable]
+  			private var houseRoomTypes:ArrayCollection = new ArrayCollection();
+
+
+			public function init():void
+			{
+				cashier.removeAll();
+				// fill cash shift list
+				var temp:Object;
+				for (var i:int = 1; i <= 3; i++)
+				{
+					temp = new Object();
+					if (i == 1)
+						temp.label = "Morning";
+					if (i == 2)
+						temp.label = "Evening";
+					if (i == 3)
+						temp.label = "Night";
+					temp.num = i;
+					temp.bIsSelected = false;
+					cashier.addItem(temp);
+				}
+				correctionOfTheDayRoomTypesDP = UtilsGolobal.clone(model.hotelsModule.hotelRoomTypes) as ArrayCollection;
+				correctionOfTheDayTree = UtilsGolobal.clone(model.reportsModule.itemTree) as Array;
+			}
+
+			private function handlePrintNoShowsReport():void
+			{
+				var noShowsReport:NoShowsReportVO = new NoShowsReportVO();
+
+				noShowsReport.iDateFrom = 0;
+				noShowsReport.iDateTo = 0;
+				noShowsReport.sArrivalFrom = DateField.dateToString(correctionOfTheDayDateFrom.selectedDate, GlobalSettings.DATE_SERVER_FORMAT); //noArrival.selectedDate.time / 1000;
+				noShowsReport.sArrivalTo = DateField.dateToString(correctionOfTheDayDate.selectedDate, GlobalSettings.DATE_SERVER_FORMAT);//noDeparture.selectedDate.time / 1000;
+
+				getReports( noShowsReport, reportType, DateField.dateToString(correctionOfTheDayDateFrom.selectedDate, GlobalSettings.DATE_SERVER_FORMAT) );
+			}
+
+			/**
+			 *	Get selected cash shifts for Correction of the day.
+			*/
+			public function updateSelectionCorrectionOfTheDayCashier(index:int,selected:Boolean):void
+			{
+				var tempSelect:Boolean = cashier.getItemAt(index).bSelected;
+
+				if (tempSelect) tempSelect = false
+				else tempSelect = true;
+
+				cashier.getItemAt(index).bIsSelected = tempSelect;
+			}
+
+			/**
+			 *	Get selected references for RoomTypes (in Correction of the day Report).
+			*/
+
+			public function updateSelectionCorrectionOfTheDayRoomType(index:int,selected:Boolean):void
+			{
+				var tempSelect:Boolean = (correctionOfTheDayRoomTypesDP.getItemAt(index) as HotelRoomWithBedTypesObjectVO).oRoomQuality.bIsSelected;
+
+				if (tempSelect) tempSelect = false
+				else tempSelect = true;
+
+				(correctionOfTheDayRoomTypesDP.getItemAt(index) as HotelRoomWithBedTypesObjectVO).oRoomQuality.bIsSelected = tempSelect;
+			}
+			
+			/**
+			 * Print report of correction of the day
+			 */
+			private function handlePrintCorrectionOfTheDay():void
+			{
+				var correctionReport:CorrectionsOfTheDayReportVO = new CorrectionsOfTheDayReportVO();
+				correctionReport.sDateFrom = DateField.dateToString(correctionOfTheDayDateFrom.selectedDate, GlobalSettings.DATE_SERVER_FORMAT);
+				var tempLength:int;
+				if (!correctionOfTheDayAllRoomType.selected)
+				{
+					tempLength = correctionOfTheDayRoomTypesDP.length;
+					for (var i:int = 0; i < tempLength; i++)
+					{
+						
+						if ((correctionOfTheDayRoomTypesDP.getItemAt(i) as HotelRoomWithBedTypesObjectVO).oRoomQuality.bIsSelected)
+						{
+							correctionReport.aRoomType.push((correctionOfTheDayRoomTypesDP.getItemAt(i) as HotelRoomWithBedTypesObjectVO).oRoomQuality.lQualityId);
+						}
+					}
+				}
+				
+				if (!correctionOfTheDayAllCashier.selected)
+				{
+					tempLength = cashier.length;
+					for (i = 0; i < tempLength; i++)
+					{
+						if (cashier.getItemAt(i).bIsSelected)
+						{
+							correctionReport.aCashier.push(cashier.getItemAt(i).num);
+						}
+					}
+				}
+				
+				var itemTree:Array = model.reportsModule.itemTree;
+				if (!correctionOfTheDayAllGroup.selected)
+				{
+					tempLength = correctionOfTheDayTree.length;
+					for (i = 0; i < tempLength; i++)
+					{
+						if (correctionOfTheDayTree[i].selected || correctionOfTheDayTree[i].middle)
+						{
+							correctionReport.aTransactionGroup.push((correctionOfTheDayTree[i] as TreeItemVO).iReturnId);
+							for (var j:int = 0; j < itemTree[i].children.length; j++)
+							{
+								if (correctionOfTheDayTree[i].children[j].selected || correctionOfTheDayTree[i].children[j].middle)
+								{
+									correctionReport.aTransactionSubGroup.push((correctionOfTheDayTree[i].children[j] as TreeItemVO).iReturnId);
+									for (var z:int = 0; z < itemTree[i].children[j].children.length; z++)
+									{
+										if (correctionOfTheDayTree[i].children[j].children[z].selected)
+										{
+											correctionReport.aTransaction.push((correctionOfTheDayTree[i].children[j].children[z] as TreeItemVO).iReturnId);
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+				getReports( correctionReport, reportType,  DateField.dateToString(correctionOfTheDayDate.selectedDate, GlobalSettings.DATE_SERVER_FORMAT));
+			}
+
+		]]>
+	</mx:Script>
+
+
+		<mx:Panel  width="100%" label="Correction of the day" layout="vertical" styleName="reportPanel">
+		<mx:HBox>
+			<mx:Form>
+				<mx:FormItem label="Date from:" labelWidth="120">
+					<mx:DateField id="correctionOfTheDayDateFrom" width="{GlobalSettings.WIDTH_DATE_FIELD}"
+						selectedDate="{GlobalFunctions.getDate()}" formatString="{GlobalSettings.DATE_FORMAT}"/>
+				</mx:FormItem>
+				<mx:FormItem label="Date of report:" labelWidth="120">
+					<mx:DateField id="correctionOfTheDayDate" width="{GlobalSettings.WIDTH_DATE_FIELD}"
+						selectedDate="{GlobalFunctions.getDate()}" formatString="{GlobalSettings.DATE_FORMAT}"/>
+				</mx:FormItem>
+				<mx:FormItem label="Gross filter:" labelWidth="120">
+						<mx:CheckBox id="correctionOfTheDayGrossFilter" selected="false" enabled="false"/>
+				</mx:FormItem>
+
+				<mx:FormItem label="Room Types:" labelWidth="120" indicatorGap="{indicatorGapFormItem}">
+							<mx:List id="correctionOfTheDayRoomType" enabled="false"
+								dataProvider="{correctionOfTheDayRoomTypesDP}"
+								width="150" height="100">
+								<mx:itemRenderer>
+									<mx:Component>
+										<mx:CheckBox
+											label="{data.oRoomQuality.sQualityName}"
+											selected="{data.oRoomQuality.bIsSelected}"
+											change="{outerDocument.updateSelectionCorrectionOfTheDayRoomType( outerDocument.correctionOfTheDayRoomType.selectedIndex, this.selected)}"/>
+									</mx:Component>
+								</mx:itemRenderer>
+							</mx:List>
+							<mx:CheckBox id="correctionOfTheDayAllRoomType" label="All room types" selected="true"
+								change="{allClick(correctionOfTheDayAllRoomType, correctionOfTheDayRoomType)}"/>
+					</mx:FormItem>
+
+					<mx:FormItem label="Cashier:" labelWidth="120" indicatorGap="{indicatorGapFormItem}">
+							<mx:Label text="{cashier.length}" visible="false" height="0"/> <!--tanec s bubnom, bez label list pustoy-->
+							<mx:List id="correctionOfTheDayCashShift" enabled="false"
+								dataProvider="{cashier}"
+								width="150" height="100">
+								<mx:itemRenderer>
+									<mx:Component>
+										<mx:CheckBox
+											label="{data.label}"
+											selected="{data.bIsSelected}"
+											change="{outerDocument.updateSelectionCorrectionOfTheDayCashier( outerDocument.correctionOfTheDayCashShift.selectedIndex, this.selected)}"/>
+									</mx:Component>
+								</mx:itemRenderer>
+							</mx:List>
+							<mx:CheckBox id="correctionOfTheDayAllCashier" label="All cashier" selected="true"
+								change="{allClick(correctionOfTheDayAllCashier, correctionOfTheDayCashShift)}"/>
+					</mx:FormItem>
+			</mx:Form>
+
+			<mx:Form>
+					<mx:FormItem label="Group:" labelWidth="120" indicatorGap="{indicatorGapFormItem}">
+					<components:ThreeStateTreeView id="correctionOfTheDayTransactTree" width="500" height="400"
+				        	treeDataProvider="{correctionOfTheDayTree}" y="54" enabled="false"/>
+				    <mx:CheckBox id="correctionOfTheDayAllGroup" label="All group" selected="true"
+							change="{allClick(correctionOfTheDayAllGroup, correctionOfTheDayTransactTree)}"/>
+					</mx:FormItem>
+			</mx:Form>
+
+		</mx:HBox>
+		<mx:HBox width="100%" horizontalAlign="right" paddingRight="15">
+			<mx:Button label="Print Report" click="handlePrintCorrectionOfTheDay()"/>
+		</mx:HBox>
+	</mx:Panel>
+</sub:VSubWindow>

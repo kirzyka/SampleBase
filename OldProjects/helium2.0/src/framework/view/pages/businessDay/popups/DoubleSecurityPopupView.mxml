@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<popup:BasePopupView
+	xmlns:popup="framework.view.components.popups.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:control="framework.view.pages.checkOut.control.*"
+
+	title="Please, enter your login and password" width="320">
+	
+	<mx:Script>
+		<![CDATA[
+			import framework.core.utils.UtilsSharedObject;
+			import framework.managers.PopUpManagerExt;
+			import mx.managers.PopUpManagerChildList;
+			import services.controller.AppController;
+			import framework.core.utils.UtilsSharedObject;
+			import services.vo.frontend.UserProfileVO;
+			import services.events.frontend.LoginEvent;
+			import services.events.BDC.PostTransactionsEvent;
+			import framework.model.AppModelLocator;
+			import services.events.BDC.CheckProfilesEvent;
+			import mx.controls.dataGridClasses.DataGridColumn;
+			import mx.events.ValidationResultEvent;
+			import framework.core.utils.UtilsMXML;
+			import mx.collections.ArrayCollection;
+			import framework.view.pages.checkOut.data.PaymentData;
+			import services.vo.checkOut.itemRouting.PaymentVO;
+			import services.vo.checkOut.itemRouting.PersonalPaymentVO;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.business.checkOut.CheckOutDelegate;
+			import services.vo.GlobalSettings;				
+				
+			private var flag:Boolean = true;
+			
+			/**
+			 * Request to server for check user
+			 */ 
+			private function handleLogin():void
+			{
+				cancel_LoginView.setFocus();
+				var userData:UserProfileVO = new UserProfileVO();
+				userData.sUserLogin = userLogin.text;
+				userData.sUserPassword = userPassword.text;
+				UtilsSharedObject.saveLoggedInUserVO(userData);
+			
+				var loginEvent:LoginEvent = new LoginEvent(AppController.LOGIN_EVENT);
+				loginEvent.userLogin = userLogin.text;
+				loginEvent.userPassword = userPassword.text;
+				loginEvent.callBack = showCloseProcess;
+				CairngormEventDispatcher.getInstance().dispatchEvent( loginEvent );
+			
+				closeWindow();	
+			}			
+			
+			/**
+			 * show close process
+			 */ 
+			private function showCloseProcess():void
+			{	
+				for (var i:int = 0; i < model.currentUser.cUHotels.length; i++)
+				{
+					if (model.currentUser.cUHotels[i].oHotel.iHotelId == model.hotelsModule.hotelTotalInfo.iHotelId)
+					{
+						 var pop:CloseBDCPopupView = PopUpManagerExt.createPopUp(this, CloseBDCPopupView) as CloseBDCPopupView;
+						 pop.callBack = callBack;				
+						 break;									
+					}										
+				}
+			}
+			
+			
+			private function closeWindow():void
+			{
+				PopUpManagerExt.removePopUp(this);
+			}
+			
+		]]>
+	</mx:Script>
+	<mx:Form id="loginForm" width="100%">
+			<mx:FormItem id="frmLoginItem" width="100%" label="Login" >
+				<mx:TextInput id="userLogin"
+					enter="handleLogin()"
+					text=""
+					width="100%"/>
+			</mx:FormItem>
+			<mx:FormItem id="frmPasswordItem" width="100%" label="Password">
+				<mx:TextInput id="userPassword"
+					enter="handleLogin()"
+					displayAsPassword="true"
+					text=""
+					width="100%"/>
+			</mx:FormItem>
+			<mx:HBox horizontalAlign="right" width="100%">
+				<mx:Button  id="login_LoginView"
+					label="Access"
+					click="handleLogin()"
+					keyDown="{if (event.keyCode==13) handleLogin();}"/>
+				<mx:Button  id="cancel_LoginView"
+					label="Cancel"
+					click="{closeWindow();}"/>
+			</mx:HBox>
+		</mx:Form>
+</popup:BasePopupView>

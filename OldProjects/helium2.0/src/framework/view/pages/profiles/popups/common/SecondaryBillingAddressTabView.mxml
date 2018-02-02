@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="utf-8"?>
+<tab:VSubWindow
+	xmlns:tab="framework.core.view.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:control="h2olib.control.*"
+	xmlns:controls="framework.view.components.controls.*"
+	xmlns:address="framework.view.components.address.*"
+
+	label="{model.locale.Profiles_SecondaryBillingAddresses_Title}"
+	creationComplete="changeAddressType()"
+	width="100%" height="100%">
+	
+	<mx:Script>
+		<![CDATA[
+			import services.vo.profiles.CompanyContactVO;
+			import services.vo.common.ContactVO;
+			import framework.view.components.address.data.ContactData;
+			import framework.view.components.address.data.LocationData;
+			import framework.core.utils.UtilsMXML;
+			import services.vo.common.CityVO;
+			import services.vo.profiles.CompanyAddressVO;
+			import services.vo.profiles.ProfileAddressPersonalVO;
+			import services.vo.common.CountryVO;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.controller.AppController;
+			import services.events.frontend.GetCityEvent;
+			import services.vo.GlobalStorage;
+			import services.vo.common.RegionVO;
+			import mx.collections.ArrayCollection;
+			
+			/**
+			 *  The prefix for localization by popup.
+			 */
+			private const localePrefix:String = "tabs.secondaryBillingAddresses."; 
+			
+			
+			
+			/**
+			 *  This proeprty is list of additional addresses.
+			 *  
+			 *  @default new ArrayCollection()
+			 *  
+			 *  @see services.vo.profiles.CompanyAddressVO;
+			 */
+			private var _additionalAddress:/* CompanyAddressVO */ArrayCollection = new ArrayCollection();
+			
+			private var isBilling:Boolean = false;
+			
+			private function changeAddressType():void
+			{
+				isBilling = (cmbAddressType) && (cmbAddressType.selectedIndex == 1);
+				
+				additionalAddress.filterFunction = filter;
+				additionalAddress.refresh();
+				// update view for addresses
+				if (dgAddresses)
+				{
+					dgAddresses.selectedItem = null;
+					btDeleteAddress.enabled = dgAddresses.selectedItem;
+				}
+			}
+			
+			public function filter(data:Object):Boolean
+			{
+				var item:CompanyAddressVO = data as CompanyAddressVO;
+				
+				if (cmbAddressType && cmbAddressType.selectedIndex == 0)
+					return (item.bIsBilling == false)
+				if (cmbAddressType && cmbAddressType.selectedIndex == 1)
+					return (item.bIsBilling == true)
+				
+				return false;
+			}
+			
+			/**
+			 *  Make contacts for address for company profile.
+			 *  
+			 *  @result list of contacts for company profile.
+			 */
+			private function toCompanyContacts(contacts:Array):Array
+			{
+				var res:Array = []
+				for each(var contact:ContactVO in contacts)
+				{
+					var companyContact:CompanyContactVO = new CompanyContactVO();
+					companyContact.bIsPrimary = false;
+					companyContact.oMapContact = contact;
+					
+					res.push(companyContact);
+				}
+				
+				return res;
+			}
+			
+			private function saveAddress():void
+			{
+				var address:CompanyAddressVO = lcLocation.location.toCompanyAddress(false, isBilling);
+				address.aContacts = toCompanyContacts(lcLocation.contacts);
+				if (dgAddresses.selectedItem)
+				{
+					additionalAddress.setItemAt(address, dgAddresses.selectedIndex);
+				}
+				else
+				{
+					additionalAddress.addItem(address);
+				}
+			}
+			
+			private function clear():void
+			{
+				dgAddresses.selectedIndex = -1;
+				lcLocation.clear();
+			}
+			
+			private function deleteAddress():void
+			{
+				additionalAddress.removeItemAt(dgAddresses.selectedIndex);
+			}
+			
+			private function updateBillingAddress():void
+			{
+				var address:CompanyAddressVO = dgAddresses.selectedItem as CompanyAddressVO;
+				lcLocation.location = LocationData.convert(address);
+				lcLocation.contacts = ContactData.toContact(address.aContacts);
+			}
+			
+			[Bindable(event="optionalAddressesChaned")]
+			public function get additionalAddress():ArrayCollection
+			{
+				return _additionalAddress;
+			}
+			/**
+			 *  @private
+			 */
+			public function set additionalAddress(value:ArrayCollection):void
+			{
+				_additionalAddress.removeAll();
+				for each(var address:CompanyAddressVO in value)
+				{
+					if (!address.bIsPrimary)
+					{
+						_additionalAddress.addItem(address);
+					}
+				}
+				
+				dispatchEvent(new Event("optionalAddressesChaned"));
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:HBox width="100%">
+		<mx:Label
+			text="{model.locale.Profiles_SecondaryBillingAddresses_AddressType_Label}:" />
+		<mx:ComboBox
+			id="cmbAddressType"
+			dataProvider="{[model.locale.Profiles_SecondaryBillingAddresses_AddressType_Secondary,
+							model.locale.Profiles_SecondaryBillingAddresses_AddressType_Billing]}"
+			change="changeAddressType()"/>
+	</mx:HBox>
+	
+	<mx:DataGrid
+		id="dgAddresses"
+		dataProvider="{additionalAddress}"
+		itemClick="updateBillingAddress()"
+		width="100%" height="100%">
+		<mx:columns>
+			<mx:DataGridColumn
+				headerText="Country"
+				dataField="sCountryName"/>
+			<mx:DataGridColumn
+				headerText="Region"
+				dataField="sRgnName"/>
+			<mx:DataGridColumn
+				headerText="City"
+				dataField="sCityName"/>
+			<mx:DataGridColumn
+				headerText="Street/App."/>
+			<mx:DataGridColumn
+				headerText="Phone"/>
+		</mx:columns>
+	</mx:DataGrid>
+	
+	<mx:HBox width="100%">
+		<mx:Button
+			label="Add New Address"
+			click="clear()"/>
+		<mx:Button id="btDeleteAddress"
+			label="{model.locale.Global_Button_Delete}"
+			enabled="{dgAddresses.selectedItem}"
+			click="deleteAddress()"/>
+	</mx:HBox>
+	
+	<control:Frame
+		label="Secondary Addresses"
+		horizontalScrollPolicy="off"
+		verticalScrollPolicy="off"
+		width="100%">
+		<mx:Form
+			horizontalScrollPolicy="off"
+			verticalScrollPolicy="off"
+			width="100%" height="320">
+			<address:LocationChooser
+				id="lcLocation"
+				countries="{storage.countries}"
+				phoneRequired="true"
+				creationComplete="{lcLocation.show()}"/>
+		</mx:Form>
+	</control:Frame>
+	
+	<mx:HBox width="100%" horizontalAlign="right">
+		<mx:Button
+			label="Save Address"
+			enabled="{lcLocation.isFillFields}"
+			click="saveAddress()"/>
+	</mx:HBox>
+</tab:VSubWindow>

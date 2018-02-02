@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="utf-8"?>
+<sub:VSubWindow xmlns:sub="framework.core.view.*" xmlns:mx="http://www.adobe.com/2006/mxml"
+	width="100%" height="100%">
+
+	<mx:Script>
+		<![CDATA[
+			import services.vo.reports.PaymentOfTheDayVO;
+			import services.vo.reports.NoShowsReportVO;
+			import framework.core.utils.UtilsSecurity;
+			import services.vo.reports.InHouseReportVO;
+			import services.vo.common.loyaltyPrograms.LoyaltyProgramsVO;
+			import framework.model.AppModelLocator;
+			import services.vo.GlobalFunctions;
+			import services.events.reports.GetReportEvent;
+			import services.vo.backend.ReportVO;
+			import framework.core.utils.UtilsGolobal;
+			import services.vo.common.SourceCodesVO;
+			import services.vo.backend.RoomSettingObjectVO;
+			import services.vo.common.MarketCodesVO;
+			import services.vo.hotels.HotelRoomWithBedTypesObjectVO;
+			import services.vo.GlobalSettings;
+			import services.vo.GlobalStorage;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.events.miscellaneous.loyaltyPrograms.GetLoyaltyProgramsEvent;
+			import services.controller.AppController;
+			import services.events.roomSettings.GetRoomSettingsDataEvent;
+			import mx.collections.ArrayCollection;
+			import services.vo.reports.ArrivalReportVO;
+
+  			/**
+			 *	Get reports. This function we have in parent.
+			*/
+  			public var getReports:Function = new Function();
+
+  			/**
+			 *	Get selected All for all list. This function we have in parent.
+			*/
+  			public var allClick:Function = new Function();
+			public var reportType:int;
+			
+  			[Bindable]
+			private var cashier:ArrayCollection = new ArrayCollection();
+
+			public function init():void
+			{
+				cashier.removeAll();
+				// fill cash shift list
+				var temp:Object;
+				for (var i:int = 1; i <= 4; i++)
+				{
+					temp = new Object();
+					if (i == 1)
+						temp.label = "Morning";
+					if (i == 2)
+						temp.label = "Evening";
+					if (i == 3)
+						temp.label = "Night";
+					if (i == 4)
+						temp.label = "All day";
+					temp.num = i;
+					temp.bIsSelected = false;
+					cashier.addItem(temp);
+				}
+			}
+
+			private function handlePrintDebitor():void
+			{
+				var idCashier:int;
+				if (cashier1.selected)
+					idCashier = cashier.getItemAt(0).num;
+				if (cashier2.selected)
+					idCashier = cashier.getItemAt(1).num;
+				if (cashier3.selected)
+					idCashier = cashier.getItemAt(2).num;
+				if (cashier4.selected)
+					idCashier = 0;
+				getReports( idCashier, reportType,  DateField.dateToString(debitorDate.selectedDate, GlobalSettings.DATE_SERVER_FORMAT));
+			}
+
+			/**
+			 *	Get selected cash shifts for Payments of the day.
+			*/
+			public function updateSelectionDebitorCashier(index:int,selected:Boolean):void
+			{
+				var tempSelect:Boolean = cashier.getItemAt(index).bSelected;
+
+				if (tempSelect) tempSelect = false
+				else tempSelect = true;
+				cashier.getItemAt(index).bIsSelected = tempSelect;
+			}
+		]]>
+	</mx:Script>
+
+
+		<mx:Panel  width="100%" label="Payments of the day" layout="vertical" styleName="reportPanel">
+			<mx:HBox width="100%">
+				<mx:Form>
+						<mx:FormItem label="Date of report:" labelWidth="120">
+							<mx:DateField id="debitorDate" width="{GlobalSettings.WIDTH_DATE_FIELD}"
+								selectedDate="{GlobalFunctions.getDate()}" formatString="{GlobalSettings.DATE_FORMAT}"/>
+						</mx:FormItem>
+				</mx:Form>
+				<mx:HBox width="100%" horizontalAlign="center">
+					<mx:Label text="Cashier:"/>
+					<mx:VBox>
+							<mx:RadioButton id="cashier1" label="{cashier.getItemAt(0).label}" groupName="debitorReport"/>
+							<mx:RadioButton id="cashier2" label="{cashier.getItemAt(1).label}" groupName="debitorReport"/>
+							<mx:RadioButton id="cashier3" label="{cashier.getItemAt(2).label}" groupName="debitorReport"/>
+							<mx:RadioButton id="cashier4" selected="true" label="{cashier.getItemAt(3).label}" groupName="debitorReport"/>
+					</mx:VBox>
+				</mx:HBox>
+			</mx:HBox>
+			<mx:HBox width="100%" horizontalAlign="right">
+				<mx:Button label="Print Report" click="handlePrintDebitor()"/>
+			</mx:HBox>
+		</mx:Panel>
+</sub:VSubWindow>

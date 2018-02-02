@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<view:HSubWindow
+	xmlns:view="framework.core.view.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	horizontalAlign="center" verticalAlign="middle"
+	height="100%" width="100%">
+	
+	<mx:Script>
+		<![CDATA[
+			import mx.collections.ArrayCollection;
+			import services.events.roomTypes.DeleteBedTypeEvent;
+			import services.controller.AppController;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.vo.backend.BedTypeObjectVO;
+			
+			private var index:int;
+			
+			private function handleDelete():void
+			{
+				var evt:DeleteBedTypeEvent = new DeleteBedTypeEvent(AppController.DELETE_BED_TYPE_EVENT );
+				
+				var bedTypesLength:int = model.roomTypesModule.roomBedTypes.length;
+				var roomBedTypes:ArrayCollection = model.roomTypesModule.roomBedTypes;
+				
+				for each(var bedType:BedTypeObjectVO in roomBedTypes)
+				{
+					if (bedType.iTypeId == data.iTypeId)
+					{
+						var ind:int = roomBedTypes.getItemIndex(bedType);
+						evt.bedTypes = bedType;
+						evt.numberOfDescription = ind;
+						evt.callBack = deleteDescription;
+						index = ind;
+					}
+				}
+				CairngormEventDispatcher.getInstance().dispatchEvent( evt );
+			}
+			
+			private function deleteDescription(index:int):void
+			{
+				model.roomTypesModule.currentDescriptions.removeItemAt(index);
+				model.roomTypesModule.roomBedTypes.refresh();
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:LinkButton
+		icon="@Embed(source='/assets/assets.swf', symbol='RemoveIcon')"
+		click="handleDelete()" />
+</view:HSubWindow>

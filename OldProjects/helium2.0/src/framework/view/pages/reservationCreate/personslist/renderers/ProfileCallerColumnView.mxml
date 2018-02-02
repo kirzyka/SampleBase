@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:HBox xmlns:mx="http://www.adobe.com/2006/mxml"
+	horizontalAlign="center"
+	width="100%">
+	<mx:Script>
+		<![CDATA[
+			import services.vo.profiles.ProfilePersonalVO;
+		]]>
+	</mx:Script>
+	
+	<mx:CheckBox id="cbCaller" 
+		selected="{(data as ProfilePersonalVO).bIsCaller}"
+		enabled="false"/>
+</mx:HBox>

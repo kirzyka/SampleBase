@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow xmlns:mx="http://www.adobe.com/2006/mxml" layout="vertical" showCloseButton="true" close="closeWindow()"
+	creationComplete="handleInit()" backgroundColor="#ffe39f" width="350" height="200" xmlns:profiles="framework.view.pages.profiles.*">
+
+
+	<mx:Script>
+		<![CDATA[
+			import services.vo.frontend.NotificationVO;
+			import framework.components.NotificationManager;
+			import framework.managers.PopUpManagerExt;
+
+					
+			private function handleInit():void
+			{
+				var index:int=(NotificationManager.getInstance().allNotification.length-1);
+				textNotification.text =	(NotificationManager.getInstance().allNotification[index] as NotificationVO).notification;
+				title=(NotificationManager.getInstance().allNotification[index] as NotificationVO).title;
+				NotificationManager.getInstance().deleteNotification();
+			}
+			
+			private function closeWindow():void
+			{				
+				PopUpManagerExt.removePopUp( this );
+				
+			}
+			
+		]]>
+	</mx:Script>
+	
+	<!--<mx:Label id="textNotification" fontWeight="bold" fontSize="12"/>-->
+	<mx:TextArea borderStyle="none" selectable="false" width="100%" id="textNotification" height="100%" horizontalScrollPolicy="off"  fontWeight="bold" fontSize="12"/>
+	
+	
+</mx:TitleWindow>

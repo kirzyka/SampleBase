@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="utf-8"?>
+<SubWindow xmlns="framework.core.view.*" 
+	xmlns:mx="http://www.adobe.com/2006/mxml" 
+	verticalGap="0"
+	width="100%" height="100%">
+<mx:Script>
+	<![CDATA[
+
+		public static const SEARCH:String = "onSearch";
+		public static const NIGHTS_CHANGE:String = "onNightsChange";
+		
+		[Bindable]
+		public var sDateFrom:String;
+		[Bindable]
+		public var sDateTo:String;
+		
+		[Bindable]
+		public var sRoomType:String;
+		[Bindable]
+		public var sBedType:String;
+		[Bindable]
+		public var sBedTypeFull:String;		
+		
+		private var _isGroupMode:Boolean;
+		[Bindable]
+		public function get isGroupMode():Boolean { return _isGroupMode; }
+		public function set isGroupMode(value:Boolean):void
+		{
+			_isGroupMode = value;
+		}
+		
+		[Bindable]
+		public var isReservationTypeEnabled:Boolean;
+
+		private function handleSearchByKey(event:KeyboardEvent):void
+		{
+			if(event.keyCode == Keyboard.ENTER)
+			{
+				dispatchEvent(new Event(SEARCH));
+			}
+
+			dispatchEvent(new Event(NIGHTS_CHANGE));
+		}
+		
+		public function onRoomsCountChange():void
+		{
+			dispatchEvent(new Event(NIGHTS_CHANGE));
+		}
+		
+					
+	]]>
+</mx:Script>	
+
+	<mx:HBox width="100%" height="35" horizontalAlign="right"
+		enabled="{isReservationTypeEnabled}">
+		<mx:Label text="Reservation:"/>
+		<mx:RadioButton id="rbIndividualReservationType" 
+			selected="{!isGroupMode}"
+			change="{isGroupMode = !rbGroupReservationType.selected}"
+			label="Individual"/>
+		<mx:RadioButton id="rbGroupReservationType" 
+			selected="{isGroupMode}"
+			change="{isGroupMode = rbGroupReservationType.selected}"
+			label="Group"/>
+	</mx:HBox>	
+	
+	<mx:HBox width="100%" height="100%" 
+		verticalGap="0" horizontalGap="0">
+		<mx:Form width="100%" height="100%" 
+			verticalGap="2"  
+			paddingTop="1" paddingLeft="1" paddingRight="1" paddingBottom="1">
+			<mx:FormItem label="Number of Rooms:">
+				<mx:NumericStepper id="nsRooms" 
+					width="60"
+					change="{onRoomsCountChange()}"
+					keyUp="handleSearchByKey(event)"
+					minimum="{1}"
+					maximum="{rbIndividualReservationType.selected ? 10 : 99 }"/>
+			</mx:FormItem>				
+			<mx:FormItem label="Adults:">
+				<mx:NumericStepper id="nsAdults"
+					width="60" 
+					minimum="{nsRooms.value}"
+					maximum="{rbIndividualReservationType.selected ? 10 : (model.reservationModule.iRoomCapacity * nsRooms.value) }"/>
+			</mx:FormItem>
+			<mx:FormItem label="{'Children &lt; ' + model.hotelsModule.hotelTotalInfo.iChildAge1}">
+				<mx:NumericStepper id="nsChildrenAge1"
+					width="60"/>
+			</mx:FormItem>
+			<mx:FormItem label="{'Children &lt; ' + model.hotelsModule.hotelTotalInfo.iChildAge2}">
+				<mx:NumericStepper id="nsChildrenAge2"
+					width="60"/>
+			</mx:FormItem>
+			<mx:FormItem label="{'Children &lt; ' + model.hotelsModule.hotelTotalInfo.iChildAge3}">
+				<mx:NumericStepper id="nsChildrenAge3"
+					width="60"/>
+			</mx:FormItem>
+		</mx:Form>
+		
+		<mx:Form width="100%" height="100%" 
+			verticalGap="2" 
+			paddingTop="1" paddingLeft="1" paddingRight="1" paddingBottom="1">
+			<mx:FormItem label="Dates: ">
+				<mx:Label text="{sDateFrom} - {sDateTo}" fontWeight="bold"/>
+			</mx:FormItem>				
+			<mx:FormItem label="Room Type:">
+				<mx:Label id="orderRoomType" text="{sBedTypeFull}"/>
+			</mx:FormItem>
+			<mx:FormItem label="Rate:">
+				<mx:Label id="orderRate"
+					text="{model.reservationModule.rateTypeLabel.getItemAt(model.reservationModule.typeOfRate)}"/>
+			</mx:FormItem>
+			<mx:Label text="Cancelation policy (day before): {model.reservationModule.iCancelationPolicy}"/>
+
+		</mx:Form>
+	</mx:HBox>	
+</SubWindow>

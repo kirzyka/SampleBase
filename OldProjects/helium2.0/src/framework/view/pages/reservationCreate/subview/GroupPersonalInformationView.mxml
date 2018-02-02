@@ -1,0 +1,662 @@
+<?xml version="1.0" encoding="utf-8"?>
+<VSubWindow 
+	xmlns="framework.core.view.*" 
+	xmlns:control="h2olib.control.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml" 
+	width="100%" height="100%" 
+	creationComplete="{onCreationComplete()}"
+	>
+	<mx:Script>
+		<![CDATA[
+		
+		import services.vo.reservation.ReservationRoomBlockedVO;
+		import services.vo.common.MarketCodesVO;
+		import h2olib.control.enum.MessageShowType;
+		import services.events.MsgEvent;
+		import h2olib.control.enum.MessageKind;
+		import mx.messaging.events.MessageEvent;
+		import services.vo.reservation.ReservationRoomBlockedVO;
+		import mx.events.ValidationResultEvent;
+		import mx.validators.Validator;
+		import framework.view.pages.reservationCreate.subview.rates.GroupReservationRatesPopup;
+		import framework.view.pages.reservationCreate.subview.roomingList.GroupReservationRoomingListPopup;
+		import mx.collections.ArrayCollection;
+		import services.vo.profiles.CompanyProfileViewVO;
+		import services.vo.profiles.CompanyProfileVO;
+		import framework.view.pages.reservationCreate.caller.FindTAProfilesPopupView;
+		import framework.view.pages.reservationCreate.caller.FindCompanyProfilesPopupView;
+		import services.vo.profiles.ProfileCallerVO;
+		import services.vo.profiles.ProfilePersonalVO;
+		import framework.managers.PopUpManagerExt;
+		import framework.view.pages.reservationCreate.popups.FindProfilesPopupViewForReservation;
+		import h2olib.utils.DateUtils;
+		import services.vo.common.SourceCodesVO;
+		import services.vo.GlobalStorage;
+		import framework.core.utils.UtilsGolobal;
+		import services.events.reservation.SaveGroupReservationEvent;
+		import framework.model.AppModelLocator;
+		import services.vo.GlobalSettings;
+		import framework.view.pages.reservationCreate.data.RoomingListItem;
+		import mx.events.CollectionEvent;
+		
+		private static const FORM_LEFT_COLUMN_LABEL_WIDTH:int = 130;
+		private static const FORM_RIGHT_COLUMN_TEXTINPUT_WIDTH:int = 300;	
+	
+		/**		Reservation Info		**/	
+		
+		/**		Grid		**/	
+		[Bindable]
+		private var aSourceCodes:ArrayCollection;
+		[Bindable]
+		private var aMarketCodes:ArrayCollection;		
+		/**		Room List		**/		
+		private var roomListPopup:GroupReservationRoomingListPopup;
+
+		
+		/**		Rates		**/
+		private var ratesPopup:GroupReservationRatesPopup;
+		
+		public var backFunction:Function;		
+		
+		private function onCreationComplete():void
+		{
+			aSourceCodes = UtilsGolobal.addFirstItem(new SourceCodesVO("none"),GlobalStorage.sourceCodes);
+			aMarketCodes = UtilsGolobal.addFirstItem(new MarketCodesVO("","none"),GlobalStorage.marketCodes);
+
+		}		
+
+		//--------------------------------------------------------//
+		//						Caller Info						  //
+		//--------------------------------------------------------//
+		
+		private function setDate(value:String):Date
+		{
+			var result:Date;
+			
+			if(value != "" && value != null)
+			{
+				result = DateField.stringToDate(value, DateUtils.DATE_SERVER_FORMAT);
+			}
+			
+			return result;
+		}
+		
+		private function onChangeCallerName():void
+		{			
+			var callerName:String = txtCallerName.text;
+			var callerFirstName:String = txtCallerFirstName.text;
+			var callerPhone:String = txtCallerPhone.text;
+			
+			model.reservationModule.currentGroupReservation.oMapReservation.oCaller.iProfileId = 0;
+			model.reservationModule.currentGroupReservation.oMapReservation.oCaller.oProfile = new ProfilePersonalVO();
+			model.reservationModule.currentGroupReservation.oMapReservation.oCaller.oProfile.sSurname = callerName;
+			model.reservationModule.currentGroupReservation.oMapReservation.oCaller.oProfile.sName = callerFirstName;
+			model.reservationModule.currentGroupReservation.oMapReservation.oCaller.oProfile.phone = callerPhone;
+			if(model.reservationModule.currentGroupReservation.oMapReservation.oCaller.bIsTravelAgency)
+			{
+				model.reservationModule.currentGroupReservation.oMapReservation.oCaller.oProfile.lCompanyId = model.reservationModule.currentGroupReservation.oMapReservation.oCaller.iTravelAgencyId;
+				model.reservationModule.currentGroupReservation.oMapReservation.oCaller.oProfile.sCompanyName = model.reservationModule.currentGroupReservation.oMapReservation.oCaller.sTravelAgencyName;
+			}
+			else
+			{
+				model.reservationModule.currentGroupReservation.oMapReservation.oCaller.oProfile.lCompanyId = model.reservationModule.currentGroupReservation.oMapReservation.oCaller.iCompanyId;
+				model.reservationModule.currentGroupReservation.oMapReservation.oCaller.oProfile.sCompanyName = model.reservationModule.currentGroupReservation.oMapReservation.oCaller.sCompanyName;				
+			}
+		}
+				
+		private function onChangeCallerCompany():void
+		{			
+			model.reservationModule.currentGroupReservation.oMapReservation.oCaller.oProfile.lCompanyId = 0;
+			model.reservationModule.currentGroupReservation.oMapReservation.oCaller.iCompanyId = 0;
+			model.reservationModule.currentGroupReservation.oMapReservation.oCaller.bIsTravelAgency = true;
+			model.reservationModule.currentGroupReservation.oMapReservation.oCaller.oProfile.sCompanyName = txtCallerCompany.text;
+			model.reservationModule.currentGroupReservation.oMapReservation.oCaller.sCompanyName = txtCallerCompany.text;
+		}		
+		
+		private function onChangeCallerTravelAgency():void
+		{			
+			model.reservationModule.currentGroupReservation.oMapReservation.oCaller.oProfile.lCompanyId = 0;
+			model.reservationModule.currentGroupReservation.oMapReservation.oCaller.iTravelAgencyId = 0;
+			model.reservationModule.currentGroupReservation.oMapReservation.oCaller.bIsTravelAgency = true;
+			model.reservationModule.currentGroupReservation.oMapReservation.oCaller.oProfile.sCompanyName = txtCallerTA.text;
+			model.reservationModule.currentGroupReservation.oMapReservation.oCaller.sTravelAgencyName = txtCallerTA.text;
+		}			
+		
+		
+		/**------------------------------------------------------
+		*						Buttons					 
+		**/			
+
+		// Reservation Info
+		/** Caller	**/
+		private function addCallerProfileHandler():void 
+		{
+			var pop:FindProfilesPopupViewForReservation = PopUpManagerExt.createPopUp(model.owner, FindProfilesPopupViewForReservation) as FindProfilesPopupViewForReservation;
+			pop.callBack = setCallerProfile;
+			PopUpManagerExt.centerPopUp( pop );
+		}
+
+		private function setCallerProfile(profile:ProfilePersonalVO):void 
+		{
+			model.reservationModule.currentGroupReservation.oMapReservation.oCaller.oProfile = new ProfilePersonalVO();
+			model.reservationModule.currentGroupReservation.oMapReservation.oCaller.oProfile = profile;
+			model.reservationModule.currentGroupReservation.oMapReservation.oCaller.iProfileId = profile.lId;
+			model.reservationModule.currentGroupReservation.oMapReservation.oCaller.iCompanyId = profile.lCompanyId;
+			model.reservationModule.currentGroupReservation.oMapReservation.oCaller.sCompanyName = profile.sCompanyName;
+			model.reservationModule.currentGroupReservation.oMapReservation.oCaller.oProfile.phone;
+		}
+
+		/**	Company	**/
+		private function addCompanyHandler():void 
+		{
+				var pop:FindCompanyProfilesPopupView = PopUpManagerExt.createPopUp(model.owner, FindCompanyProfilesPopupView) as FindCompanyProfilesPopupView;
+				pop.title = "Company";
+				pop.callBack = setCallerCompany;
+				PopUpManagerExt.centerPopUp(pop);
+		}
+
+		private function setCallerCompany(company:CompanyProfileVO,isTravelAgency:Boolean = false):void 
+		{
+			model.reservationModule.currentGroupReservation.oMapReservation.oCaller.iCompanyId = company.lMainId;
+			model.reservationModule.currentGroupReservation.oMapReservation.oCaller.sCompanyName = company.sName;
+			model.reservationModule.currentGroupReservation.oMapReservation.oCaller.bIsTravelAgency = isTravelAgency;
+			model.reservationModule.currentGroupReservation.oMapReservation.oCaller.oProfile.sCompanyName = company.sName;
+			model.reservationModule.currentGroupReservation.oMapReservation.oCaller.oProfile.lCompanyId = company.lMainId;
+		}
+
+
+		/** Travel Agency	**/
+		private function addTravelAgencyHandler():void {
+
+				var pop:FindTAProfilesPopupView = PopUpManagerExt.createPopUp(model.owner, FindTAProfilesPopupView) as FindTAProfilesPopupView;
+				pop.title = "Travel Agency";
+				pop.callBack = setCallerTravelAgency;
+				PopUpManagerExt.centerPopUp(pop);
+		}
+		
+		private function setCallerTravelAgency(company:CompanyProfileVO,isTravelAgency:Boolean = true):void 
+		{
+			model.reservationModule.currentGroupReservation.oMapReservation.oCaller.iTravelAgencyId = company.lMainId;
+			model.reservationModule.currentGroupReservation.oMapReservation.oCaller.sTravelAgencyName = company.sName;
+			model.reservationModule.currentGroupReservation.oMapReservation.oCaller.bIsTravelAgency = isTravelAgency;
+			model.reservationModule.currentGroupReservation.oMapReservation.oCaller.oProfile.sCompanyName = company.sName;
+			model.reservationModule.currentGroupReservation.oMapReservation.oCaller.oProfile.lCompanyId = company.lMainId;			
+		}
+
+		//--------------------------------------------------------//
+		//						Common							  //
+		//--------------------------------------------------------//		
+		
+		public function clearModel():void
+		{
+			
+			model.reservationModule.aGroupBasket.removeAll();
+			model.reservationModule.tmpRoomBlockedList = new Array();
+			/*model.reservationCreateModule.caller = new ProfileCallerVO();
+			model.reservationCreateModule.orders.removeAll();
+			tnRooms.removeAllChildren();
+			model.reservationCreateModule.callerIsGuest = false;
+			model.reservationCreateModule.basketTotalPrice = 0;
+
+			model.reservationCreateModule.callerFirstName = "";
+			model.reservationCreateModule.callerLastName = "";
+			model.reservationCreateModule.callerTel = "";*/
+
+		}
+		
+		
+		private function isValid():Boolean
+		{
+			var result:Boolean = true;
+
+			if(DateUtils.getMaxDate(dfArrivalDate.selectedDate, dfDepartureDate.selectedDate) == dfArrivalDate.selectedDate)
+			{
+				new MsgEvent(MessageKind.ERROR,
+					"Error",
+					"Departure date must be later than arrival date!",
+					MessageShowType.UNKNOWN).dispatch();
+				return false;					
+			}		
+
+			if(cmbSourceCode.selectedIndex == 0)
+			{
+				new MsgEvent(MessageKind.ERROR,
+					"Error",
+					"Please select Source Code!",
+					MessageShowType.UNKNOWN).dispatch();
+				return false;					
+			}	
+			if(cmbMarketCode.selectedIndex == 0)
+			{
+				new MsgEvent(MessageKind.ERROR,
+					"Error",
+					"Please select Market Code!",
+					MessageShowType.UNKNOWN).dispatch();
+				return false;					
+			}				
+			for each(var validator:Validator in validators)
+			{
+				if(validator.validate().type == ValidationResultEvent.INVALID)
+				{
+					result = false;
+				}
+			}
+			
+			return result;
+		}		
+		/**------------------------------------------------------
+		*						Buttons					 
+		**/					
+		private function onBack():void
+		{
+			backFunction();
+		}
+		
+		private function onSave():void
+		{
+			if(isValid())
+			{
+				var saveGroupReservationEvent:SaveGroupReservationEvent = new SaveGroupReservationEvent();
+				saveGroupReservationEvent.oGroupReservation = model.reservationModule.currentGroupReservation;
+				saveGroupReservationEvent.callBack = saveGroupReservationNotification;			
+				saveGroupReservationEvent.dispatch();
+			}
+		}
+
+		private function saveGroupReservationNotification():void
+		{
+			var msgEvent:MsgEvent = new MsgEvent(MessageKind.INFORMATION,
+							"Information",
+							"Group reservation has been successfully saved!",
+							MessageShowType.UNKNOWN);
+			msgEvent.dispatch();	
+		}
+
+		//--------------------------------------------------------//
+		//						Grid							  //
+		//--------------------------------------------------------//
+		
+			
+		/**------------------------------------------------------
+		*						Label Functions					 
+		**/		
+		private function getSourceCodeLabel(item:SourceCodesVO):String
+		{
+			return /* item.sName + "-" +  */item.sDescription;
+		}
+		
+		private function getMarketCodeLabel(item:MarketCodesVO):String
+		{
+			return /* item.sName + "-" +  */item.sDescription;
+		}		
+		
+		
+				
+
+		//--------------------------------------------------------//
+		//						Room List						  //
+		//--------------------------------------------------------//		
+		
+		private function openRoomListView():void
+		{
+			roomListPopup = PopUpManagerExt.createPopUp(model.owner, GroupReservationRoomingListPopup, true) as GroupReservationRoomingListPopup;
+						
+			PopUpManagerExt.centerPopUp(roomListPopup);
+		}		
+		
+		//--------------------------------------------------------//
+		//						Rates							  //
+		//--------------------------------------------------------//		
+		
+		private function openRatesView():void
+		{
+			ratesPopup = PopUpManagerExt.createPopUp(model.owner, GroupReservationRatesPopup, true) as GroupReservationRatesPopup;			
+			
+			PopUpManagerExt.centerPopUp(ratesPopup);			
+		}
+		
+		
+		private function getCutOffDays(arrivalDate:Date, cutOffDate:Date):String
+		{
+			var result:String = "";			
+			result = DateUtils.dateDiff(DateUtils.DAY_OF_MONTH, cutOffDate, arrivalDate).toString();			
+			return result;
+		}
+		
+	]]>
+</mx:Script>
+	<!--		VALIDATORS				-->
+	<mx:Array id="validators">
+		<mx:StringValidator id="vldGroupName" source="{txtGroupName}" property="text" minLength="1" 
+			requiredFieldError="Group name is required field!"/>
+		<mx:StringValidator id="vldGroupID" source="{txtGroupId}" property="text" minLength="1" 
+			requiredFieldError="Group Id is required field!"/>			
+		<mx:StringValidator id="vldCallerName" source="{txtCallerName}" property="text" minLength="1" 
+			requiredFieldError="Caller name is required field!"/>
+		
+		<!--mx:DateValidator id="vldCutOffDate" source="{dfCutOffDate}" property="selectedDate" 
+			requiredFieldError="Cut Off Date is required field!"/>
+		<mx:DateValidator id="vldOptionDate" source="{dfOptionDate}" property="selectedDate" 
+			requiredFieldError="Option date is required field!"/-->
+	</mx:Array>
+
+
+	<!--		RESERVATION DETAILS		-->
+	<mx:HBox width="100%" height="100%" backgroundColor="#FFFFFF"  >
+		
+		<control:Frame label="Reservation Details"  
+			width="600" height="100%"
+			horizontalScrollPolicy="off">
+			
+			<mx:VBox  width="100%" maxWidth="600"
+				paddingTop="5" paddingLeft="5" paddingRight="5">
+				
+				<mx:HBox width="100%">
+					<mx:FormItem label="Group Name:"
+						width="100%"
+						direction="horizontal"
+						horizontalAlign="left"
+						required="true">
+						<mx:TextInput id="txtGroupName" 
+							text="{model.reservationModule.currentGroupReservation.sGroupName}"
+							change="{model.reservationModule.currentGroupReservation.sGroupName = txtGroupName.text}"
+							width="100%"/>
+					</mx:FormItem>		
+					<mx:FormItem label="Id:"
+						direction="horizontal"
+						labelWidth="30"
+						required="true">
+						<mx:TextInput id="txtGroupId"							
+							width="100"
+							text="{model.reservationModule.currentGroupReservation.sGroupCode}"
+							change="{model.reservationModule.currentGroupReservation.sGroupCode = txtGroupId.text}"/>				
+					</mx:FormItem>					
+				</mx:HBox>
+				<mx:RadioButtonGroup id="rbgAccounts"/>	
+				
+				<mx:HBox width="100%">
+					<mx:Label text="Group type:"
+						width="150"/>
+					<mx:RadioButton id="rbNameList" 
+						label="Name List" 
+						width="150"
+						enabled="{model.reservationModule.currentGroupReservation.iId == 0}"
+						selected="{!model.reservationModule.currentGroupReservation.bGroupCreationType}"
+						change="{model.reservationModule.currentGroupReservation.bGroupCreationType = !rbNameList.selected}"/>
+					<mx:RadioButton id="rbCallInGroup" 
+						label="Call In Group"
+						enabled="{model.reservationModule.currentGroupReservation.iId == 0}"
+						selected="{model.reservationModule.currentGroupReservation.bGroupCreationType}"
+						change="{model.reservationModule.currentGroupReservation.bGroupCreationType = rbCallInGroup.selected}"/>
+				</mx:HBox>
+				
+							
+				<mx:HBox width="100%">
+					<mx:Label text="Post transaction to:"
+						width="150"/>						
+					<mx:RadioButton id="rbGroupAccount" 
+						label="Group account" 
+						groupName="rbgAccounts"
+						width="150"
+						selected="{model.reservationModule.currentGroupReservation.bIsGroupPayment}"
+						change="{model.reservationModule.currentGroupReservation.bIsGroupPayment = rbGroupAccount.selected}"/>
+					<mx:RadioButton id="rbRoomAccounts" 
+						label="Room accounts"
+						groupName="rbgAccounts"
+						selected="{!model.reservationModule.currentGroupReservation.bIsGroupPayment}"
+						change="{model.reservationModule.currentGroupReservation.bIsGroupPayment = !rbRoomAccounts.selected}"/>																
+				</mx:HBox>
+					
+				<mx:CheckBox id="chkRegistrationCards" 
+					label="Common registration card :"
+					labelPlacement="left"
+					selected="{model.reservationModule.currentGroupReservation.bIsRegistrationCard}"
+					change="{model.reservationModule.currentGroupReservation.bIsRegistrationCard = chkRegistrationCards.selected}"/>			
+			
+				<mx:HBox width="100%"
+					verticalGap="0">
+					<mx:Form width="100%" height="100%" 
+						paddingTop="0" verticalGap="1">	
+						<mx:FormItem label="Arrival Date:">
+							<mx:DateField id="dfArrivalDate"
+								width="120"
+								editable="false"
+								enabled="false"
+								formatString="{GlobalSettings.DATE_FORMAT}"
+								disabledRanges="{[ {rangeEnd: DateUtils.dateAdd(DateUtils.DAY_OF_MONTH,-1, model.businessDate)} ]}"
+								selectedDate="{setDate(model.reservationModule.currentGroupReservation.sArrivalDate)}"
+								change="{model.reservationModule.currentGroupReservation.sArrivalDate = DateField.dateToString(dfArrivalDate.selectedDate, DateUtils.DATE_SERVER_FORMAT) }"/>
+						</mx:FormItem>		
+						<mx:FormItem label="Cut Off Date:"
+							required="true">
+							<mx:DateField id="dfCutOffDate"
+								width="120"
+								formatString="{GlobalSettings.DATE_FORMAT}"
+								disabledRanges="{[ {rangeEnd: DateUtils.dateAdd(DateUtils.DAY_OF_MONTH,-1, model.businessDate)},{rangeStart: DateUtils.dateAdd(DateUtils.DAY_OF_MONTH,1, dfArrivalDate.selectedDate)} ]}"
+								selectedDate="{setDate(model.reservationModule.currentGroupReservation.sCutOfDate)}"
+								change="{model.reservationModule.currentGroupReservation.sCutOfDate = DateField.dateToString(dfCutOffDate.selectedDate, DateUtils.DATE_SERVER_FORMAT) }"/>
+						</mx:FormItem>		
+						<mx:FormItem label="Cut Off Days:">
+							<mx:Label id="txtCutOffDays"
+								text="{getCutOffDays(dfArrivalDate.selectedDate, dfCutOffDate.selectedDate)}"  />
+						</mx:FormItem>
+						<mx:FormItem label="Option Date:"
+							required="true">
+							<mx:DateField id="dfOptionDate"
+								width="120"
+								formatString="{GlobalSettings.DATE_FORMAT}"
+								disabledRanges="{[ {rangeEnd: DateUtils.dateAdd(DateUtils.DAY_OF_MONTH,-1, model.businessDate)},{rangeStart: DateUtils.dateAdd(DateUtils.DAY_OF_MONTH,1, dfCutOffDate.selectedDate)} ]}"
+								selectedDate="{setDate(model.reservationModule.currentGroupReservation.sOptionDate)}"
+								change="{model.reservationModule.currentGroupReservation.sOptionDate = DateField.dateToString(dfOptionDate.selectedDate, DateUtils.DATE_SERVER_FORMAT) }"/>
+						</mx:FormItem>				
+					</mx:Form>
+					
+					
+					<mx:Form width="100%" height="100%" 
+						paddingTop="0" verticalGap="1">
+						<mx:FormItem label="Departure Date:">
+							<mx:DateField id="dfDepartureDate"
+								width="120"
+								editable="false"
+								enabled="false"
+								formatString="{GlobalSettings.DATE_FORMAT}"
+								disabledRanges="{[ {rangeEnd: DateUtils.getMaxDate(dfArrivalDate.selectedDate,DateUtils.dateAdd(DateUtils.DAY_OF_MONTH,-1, model.businessDate))} ]}"
+								selectedDate="{setDate(model.reservationModule.currentGroupReservation.sDepartureDate)}"
+								change="{model.reservationModule.currentGroupReservation.sDepartureDate = DateField.dateToString(dfDepartureDate.selectedDate, DateUtils.DATE_SERVER_FORMAT) }"/>
+						</mx:FormItem>
+						
+						<mx:FormItem 
+							direction="horizontal">
+							<mx:Label text="Planned"/>
+							<mx:Label text="Actual"/>
+						</mx:FormItem>
+														
+						<mx:FormItem label="Adults:"
+							direction="horizontal">
+							<mx:TextInput text="{model.reservationModule.currentGroupReservation.iAdults}"
+								enabled="false"
+								width="40"/>
+							<mx:Spacer width="5"/>
+							<mx:TextInput text="{model.reservationModule.iActualAdultsCount}"
+								enabled="false"
+								width="40"/>
+						</mx:FormItem>
+						<mx:FormItem label="{'Children &lt; ' + model.hotelsModule.hotelTotalInfo.iChildAge1}"
+							direction="horizontal">
+							<mx:TextInput text="{model.reservationModule.currentGroupReservation.iChildBefore}"
+								enabled="false"
+								width="40"/>
+							<mx:Spacer width="5"/>
+							<mx:TextInput text="{model.reservationModule.iActualChildren1Count}"
+								enabled="false"
+								width="40"/>
+						</mx:FormItem>
+						<mx:FormItem label="{'Children &lt; ' + model.hotelsModule.hotelTotalInfo.iChildAge2}"
+							direction="horizontal">
+							<mx:TextInput text="{model.reservationModule.currentGroupReservation.iChildMiddle}"
+								enabled="false"
+								width="40"/>
+							<mx:Spacer width="5"/>
+							<mx:TextInput text="{model.reservationModule.iActualChildren2Count}"
+								enabled="false"
+								width="40"/>
+						</mx:FormItem>
+						<mx:FormItem label="{'Children &lt; ' + model.hotelsModule.hotelTotalInfo.iChildAge3}"
+							direction="horizontal">
+							<mx:TextInput text="{model.reservationModule.currentGroupReservation.iChildAbove}"
+								enabled="false"
+								width="40"/>
+							<mx:Spacer width="5"/>
+							<mx:TextInput text="{model.reservationModule.iActualChildren3Count}"
+								enabled="false"
+								width="40"/>
+						</mx:FormItem>
+					</mx:Form>				
+					
+				</mx:HBox>				
+			</mx:VBox>				
+			
+			<mx:HBox width="100%" height="100%"
+				verticalGap="0"
+				horizontalAlign="center">
+
+				<!--	Caller Info		-->		
+				<control:Frame label="Caller Info">
+					<mx:Form labelWidth="{FORM_LEFT_COLUMN_LABEL_WIDTH}"
+						paddingTop="0" verticalGap="1">
+						<mx:FormItem label="Name:"
+							width="100%"
+							direction="horizontal"
+							required="true">
+							<mx:TextInput id="txtCallerName"
+								width="{FORM_RIGHT_COLUMN_TEXTINPUT_WIDTH}"
+								text="{model.reservationModule.currentGroupReservation.oMapReservation.oCaller.oProfile.sSurname}"
+								change="{onChangeCallerName()}"
+								/>
+							<mx:Button label="Profile"
+								click="{addCallerProfileHandler()}"/>
+						</mx:FormItem>
+						<mx:FormItem label="First Name:"
+							width="100%">
+							<mx:TextInput id="txtCallerFirstName"							
+								width="{FORM_RIGHT_COLUMN_TEXTINPUT_WIDTH}"
+								text="{model.reservationModule.currentGroupReservation.oMapReservation.oCaller.oProfile.sName}"
+								change="{onChangeCallerName()}"/>
+						</mx:FormItem>	
+						<mx:FormItem label="Phone:"
+							width="100%">
+							<mx:TextInput id="txtCallerPhone"
+								width="{FORM_RIGHT_COLUMN_TEXTINPUT_WIDTH}"
+								text="{model.reservationModule.currentGroupReservation.oMapReservation.oCaller.oProfile.phone}"
+								change="{onChangeCallerName()}"/>
+						</mx:FormItem>			
+						<mx:FormItem label="Company:"
+							width="100%"
+							direction="horizontal">
+							<mx:TextInput id="txtCallerCompany"
+								width="{FORM_RIGHT_COLUMN_TEXTINPUT_WIDTH}"
+								text="{model.reservationModule.currentGroupReservation.oMapReservation.oCaller.sCompanyName}"
+								change="{onChangeCallerCompany()}"/>
+							<mx:Button label="Profile"
+								click="{addCompanyHandler()}"/>
+						</mx:FormItem>
+						<mx:FormItem label="Travel Agent:"
+							width="100%"
+							direction="horizontal">
+							<mx:TextInput id="txtCallerTA"
+								width="{FORM_RIGHT_COLUMN_TEXTINPUT_WIDTH}"
+								text="{model.reservationModule.currentGroupReservation.oMapReservation.oCaller.sTravelAgencyName}"
+								change="{onChangeCallerTravelAgency() }"/>
+							<mx:Button label="Profile"
+								click="{addTravelAgencyHandler()}"/>
+						</mx:FormItem>	
+						
+						<mx:FormItem label="Source Code:"
+							width="100%"
+							required="true"
+							direction="horizontal">
+							<control:ComboBoxEx id="cmbSourceCode"
+								dataProvider="{aSourceCodes}"
+								width="120"
+								labelFunction="getSourceCodeLabel"
+								selectedIndex="{UtilsGolobal.getIndexByValue(aSourceCodes, model.reservationModule.currentGroupReservation.oMapReservation.oCaller.iSourceCodeId,'iId')}"
+								change="{model.reservationModule.currentGroupReservation.oMapReservation.oCaller.oSourceCode = (cmbSourceCode.selectedItem as SourceCodesVO);
+										 model.reservationModule.currentGroupReservation.oMapReservation.oCaller.iSourceCodeId = (cmbSourceCode.selectedItem as SourceCodesVO).iId}"/>
+						</mx:FormItem>						
+						<mx:FormItem label="Market code:"
+							width="100%"
+							required="true"
+							direction="horizontal">
+							<control:ComboBoxEx id="cmbMarketCode"
+								dataProvider="{aMarketCodes}"
+								width="120"
+								labelFunction="getMarketCodeLabel"
+								selectedIndex="{UtilsGolobal.getIndexByValue(aMarketCodes, model.reservationModule.currentGroupReservation.oMapReservation.oCaller.iMarketCodeId,'iId')}"
+								change="{model.reservationModule.currentGroupReservation.oMapReservation.oCaller.oMarketCode = (cmbMarketCode.selectedItem as MarketCodesVO);
+										 model.reservationModule.currentGroupReservation.oMapReservation.oCaller.iMarketCodeId = (cmbMarketCode.selectedItem as MarketCodesVO).iId}"/>
+
+						</mx:FormItem>							
+									
+						<mx:FormItem label="Keyword:"
+							width="100%">
+							<mx:TextInput id="txtCallerKeyword"
+								width="{FORM_RIGHT_COLUMN_TEXTINPUT_WIDTH}"
+								text="{model.reservationModule.currentGroupReservation.sKeyword}"
+								change="{model.reservationModule.currentGroupReservation.sKeyword = txtCallerKeyword.text}"/>
+						</mx:FormItem>												
+					</mx:Form>
+												
+				</control:Frame>				
+			</mx:HBox>	
+			
+									
+		</control:Frame>
+		
+		<!--		ROOMS OVERVIEW			-->
+		
+		<mx:VBox width="100%" height="100%">
+			<mx:Label text="Room Overview from {dfArrivalDate.text + ' to ' + dfDepartureDate.text}"/>	
+		
+			<mx:DataGrid width="100%" height="100%"
+				dataProvider="{model.reservationModule.currentGroupReservation.aRoomBlocked}">
+				<mx:columns>
+					<mx:DataGridColumn headerText="Date"
+						dataField="sDateUIFormat"
+						width="100"/>
+					<mx:DataGridColumn headerText="Type"
+						dataField="sRoomTypeName"/>
+					<mx:DataGridColumn headerText="blocked"
+						dataField="iRoomQuantity"
+					
+						itemRenderer="framework.view.pages.reservationCreate.renderer.NumericStepperRoomOverview"
+						width="60">	
+					</mx:DataGridColumn>	
+					<mx:DataGridColumn headerText="avail."
+						dataField="iRoomQuantityAvail"
+						width="60"/>	
+					<mx:DataGridColumn headerText="picked"
+						dataField="iRoomAllocateQuantity"
+						width="60"/>											
+				</mx:columns>
+			</mx:DataGrid>	
+		</mx:VBox>
+		
+	</mx:HBox>	
+	
+	<mx:ApplicationControlBar width="100%">
+		<mx:Button id="btnBack" 
+			label="Back"
+			click="{onBack()}"/>
+		<mx:Spacer width="20"/>
+		<mx:Button id="btnRoomingList" 
+			label="Rooming List"
+			click="{openRoomListView()}"/>
+		<mx:Button id="btnRates" 
+			label="Rates"
+			click="{openRatesView()}"/>
+		<mx:Spacer width="100%"/>
+		<mx:Button id="btnSave" 
+			label="Save"
+			click="{onSave()}"/>
+	</mx:ApplicationControlBar>
+</VSubWindow>

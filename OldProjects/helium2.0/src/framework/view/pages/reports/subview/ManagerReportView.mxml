@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<sub:VSubWindow xmlns:sub="framework.core.view.*"  xmlns:mx="http://www.adobe.com/2006/mxml" width="100%">
+
+	<mx:Script>
+		<![CDATA[
+			import services.vo.reports.ManagerReportVO;
+			import services.vo.reports.NoShowsReportVO;
+			import services.vo.reports.InHouseReportVO;
+			import services.vo.common.loyaltyPrograms.LoyaltyProgramsVO;
+			import framework.model.AppModelLocator;
+			import services.vo.GlobalFunctions;
+			import services.events.reports.GetReportEvent;
+			import services.vo.backend.ReportVO;
+			import services.vo.common.SourceCodesVO;
+			import services.vo.backend.RoomSettingObjectVO;
+			import services.vo.common.MarketCodesVO;
+			import services.vo.hotels.HotelRoomWithBedTypesObjectVO;
+			import services.vo.GlobalSettings;
+			import services.vo.GlobalStorage;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.events.miscellaneous.loyaltyPrograms.GetLoyaltyProgramsEvent;
+			import services.controller.AppController;
+			import services.events.roomSettings.GetRoomSettingsDataEvent;
+			import mx.collections.ArrayCollection;
+			import services.vo.reports.ArrivalReportVO;
+			
+  			/**
+			 *	Get reports. This function we have in parent.
+			*/
+  			public var getReports:Function = new Function();
+
+  			/**
+			 *	Get selected All for all list. This function we have in parent.
+			*/
+  			public var allClick:Function = new Function();
+
+			public var reportType:int;
+			
+			public function init():void
+			{
+
+			}
+
+			private function handlePrintManager():void
+			{
+				var managerReport:ManagerReportVO = new ManagerReportVO();
+				managerReport.bLastYear = managerLastYear.selected;
+				if (netF.selected)
+				{
+					managerReport.bNet = true;
+				}
+				else
+				{
+					managerReport.bNet = false;
+				}
+				getReports( managerReport, reportType,  DateField.dateToString(managerDate.selectedDate, GlobalSettings.DATE_SERVER_FORMAT));
+			}
+
+
+		]]>
+	</mx:Script>
+
+		<mx:Panel  width="100%" label="Manager report" layout="vertical" styleName="reportPanel">
+		<mx:HBox>
+			<mx:Form>
+					<mx:FormItem label="Date of report:" labelWidth="120">
+						<mx:DateField id="managerDate" width="{GlobalSettings.WIDTH_DATE_FIELD}"
+							selectedDate="{GlobalFunctions.getDate()}" formatString="{GlobalSettings.DATE_FORMAT}"/>
+					</mx:FormItem>
+			</mx:Form>
+			<mx:Form>
+					<mx:FormItem label="Filter:" labelWidth="120">
+						<!--<mx:CheckBox id="managerGrossFilter" selected="true"/>-->
+						<mx:RadioButton id="grossF" label="Gross" groupName="filter" />
+						<mx:RadioButton id="netF" selected="true" label="Net" groupName="filter" />
+					</mx:FormItem>
+			</mx:Form>
+			<mx:Form>
+					<mx:FormItem label="Last year:" labelWidth="120">
+						<mx:CheckBox id="managerLastYear" selected="true"/>
+					</mx:FormItem>
+			</mx:Form>
+		</mx:HBox>
+		<mx:HBox width="100%" horizontalAlign="right" paddingRight="15">
+			<mx:Button label="Print Report" click="handlePrintManager()"/>
+		</mx:HBox>
+	</mx:Panel>
+</sub:VSubWindow>

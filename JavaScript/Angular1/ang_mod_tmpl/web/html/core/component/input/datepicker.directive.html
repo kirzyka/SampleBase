@@ -1,0 +1,29 @@
+<span class="datepicker">
+    <input type="text"
+           ng-model="selectedDateLabel"
+           maxlength="10"
+           disabled>
+    <span class="icon"
+          ng-click="datepickerVm.openCalendar($event)"></span>
+
+    <div class="calendar-popup"
+         ng-show="datepickerVm.isCalendarOpen">
+
+        <div class="overlay-light"
+             tabindex="0"
+             ng-click="datepickerVm.onOverlayClick($event)"></div>
+
+        <calendar class="calendar-box"
+            ng-model="selectedDate"
+            ng-style="datepickerVm.calendarPosition"
+
+            visible="datepickerVm.isCalendarOpen"
+            disabled-dates="disabledDates"
+
+            date-changed="datepickerVm.onDateChanged()">
+        </calendar>
+    </div>
+</span>
+
+
+

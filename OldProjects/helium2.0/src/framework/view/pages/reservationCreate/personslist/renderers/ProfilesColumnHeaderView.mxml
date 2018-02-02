@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:HBox xmlns:mx="http://www.adobe.com/2006/mxml" width="100%">
+	
+	<mx:Script>
+		<![CDATA[
+			import framework.view.pages.reservationCreate.events.ShowProfilesFinder;
+			import mx.controls.DataGrid;
+			import mx.core.Application;
+			import framework.managers.PopUpManagerExt;
+			
+			private function handleClick():void
+			{
+				(owner as DataGrid).dispatchEvent( new ShowProfilesFinder(ShowProfilesFinder.SHOW_PROFILES_FINDER_EVENT) );
+			}
+		]]>
+	</mx:Script>
+	
+	<!--<mx:Button label="Profiles..." click="handleClick()" width="100%" id="profiles_ProfilesColumnHeaderView"/>-->
+	
+</mx:HBox>

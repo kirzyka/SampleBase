@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<popup:DataPopupView xmlns:popup="framework.view.components.popups.*"
+	addTitle="Add Loyalty Program"
+	editTitle="Edit Loyalty Program"
+
+	xmlns:mx="http://www.adobe.com/2006/mxml" layout="vertical" showCloseButton="true" 
+	close="closeWindow()" creationComplete="init()">
+	
+	<mx:Script>
+		<![CDATA[
+			import services.events.miscellaneous.loyaltyPrograms.GetLoyaltyProgramsEvent;
+			import services.events.miscellaneous.loyaltyPrograms.AddLoyaltyProgramEvent;
+			import services.vo.common.loyaltyPrograms.LoyaltyProgramsVO;
+			import services.controller.AppController;
+			import framework.model.AppModelLocator;
+			import mx.events.CloseEvent;
+			import mx.collections.ArrayCollection;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import framework.managers.PopUpManagerExt;
+			
+			[Bindable]
+			private var submitEnable:Boolean = true;
+			
+			[Bindable]
+			private var currentProgram:LoyaltyProgramsVO = new LoyaltyProgramsVO();
+						
+			private function init():void
+			{
+				if (isEdit)
+				{
+					currentProgram = data as LoyaltyProgramsVO;
+				}								
+				programName.text = currentProgram.sName;
+				programDescription.text = currentProgram.sDesc;
+			}
+			
+			private function handleCreateLanguage():void
+			{
+				var evt:AddLoyaltyProgramEvent = new AddLoyaltyProgramEvent(AppController.ADD_LOYALTY_PROGRAMS_EVENT);
+				evt.program.sName = programName.text;
+				evt.program.sDesc = programDescription.text;
+				evt.program.lId = currentProgram.lId;
+				evt.program.iDesc = currentProgram.iDesc;
+				CairngormEventDispatcher.getInstance().dispatchEvent(evt);
+				completeCall(); // with callback
+			}
+			
+		
+			private function closeWindow(evt:CloseEvent = null):void
+			{
+				PopUpManagerExt.removePopUp( this );
+			}
+		
+			private function checkFillRequiredFields():void
+			{
+				if(programName.text.length > 0) submitEnable = true;
+				else submitEnable = false;				   
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:FormItem label="Loyalty program name" required="true">
+		<mx:TextInput id="programName" change="checkFillRequiredFields()" width="200" maxChars="50"/>
+	</mx:FormItem>
+	<mx:FormItem label="Loyalty program description">
+		<mx:TextInput id="programDescription" width="200"  maxChars="500"/>
+	</mx:FormItem>
+	
+	<mx:HBox width="100%" horizontalAlign="right">
+		<mx:Button label="Save" click="handleCreateLanguage()" change="checkFillRequiredFields()" enabled="{submitEnable}" id="submit_From_AddProgramPopupView"/>
+		<mx:Button label="Close" click="closeWindow()" id="cancel_From_AddProgramPopupView"/>
+	</mx:HBox>
+	
+</popup:DataPopupView>

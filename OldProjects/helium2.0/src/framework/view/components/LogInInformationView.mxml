@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8"?>
+<view:HSubWindow
+	xmlns:view="framework.core.view.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	styleName="LoginTopView"
+	height="28" width="100%">
+	
+	<mx:Script>
+		<![CDATA[
+			import mx.controls.DateField;
+			import services.vo.cashShift.CashierVO;
+			import services.vo.frontend.UserProfileVO;
+			import services.vo.GlobalImageAssets;
+			import framework.model.AppModelLocator;
+			import services.vo.GlobalSettings;
+			
+			private function handleLogOut():void
+			{
+				model.backendIndex = 0;
+				model.mainViewIndex = 0;
+				
+				model.isLogOut = false;
+			}
+			
+			///////////label functions////////////////////////////////////////////////////////
+			private function createLabelLastOpenShift(item:CashierVO):String
+			{
+				var res:String;
+				var firstPart:String;
+				
+				res = String(item.iCashierNum);
+				if (res == '1')
+				{
+					res = ' Morning';
+				}
+				if (res == '2')
+				{
+					res = ' Evening';
+				}
+				if (res == '3')
+				{
+					res = ' Night';
+				}
+				
+				if (item.sCashierStatusCode == "BD_STATUS_NEW")
+				{
+					res = res + ' (New)';
+				}
+				if (item.sCashierStatusCode == "BD_STATUS_OPEN")
+				{
+					res = res + ' (Open)';
+				}
+				if (item.sCashierStatusCode == "BD_STATUS_REOPENED")
+				{
+					res = res + ' (Reopen)';
+				}
+				if (item.sCashierStatusCode == "BD_STATUS_CLOSED")
+				{
+					res = res + ' (Closed)';
+				}
+				
+				if (model.cashShiftModule.currOpenShift.sDate != null)
+				{
+					firstPart = 'Cash shift '+  
+					DateField.dateToString( DateField.stringToDate(model.cashShiftModule.currOpenShift.sDate, GlobalSettings.DATE_SERVER_FORMAT), GlobalSettings.DATE_FORMAT) +
+					' No.' + model.cashShiftModule.currOpenShift.iCashierId + ' ' + res;
+				}
+				else
+				{
+					firstPart = 'There are no cash shifts in the hotel';
+				}
+				return firstPart;
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:Label
+		visible="{model.isFrontend}"
+		text="{createLabelLastOpenShift(model.cashShiftModule.currOpenShift)}"
+		fontSize="12"
+		fontWeight="bold"
+		textAlign="left"
+		height="19"/>
+	<mx:Spacer width="20" />
+	<mx:Label
+		text="You are logged in as:"
+		color="#333333"
+		fontSize="10"
+		textAlign="right"/>
+	<mx:Label
+		text="{model.currentUser.cLogInUser.sUserLogin}"
+		color="#333333"
+		fontWeight="bold"
+		fontSize="11"/>
+	<mx:Spacer width="12" />
+	<mx:Button id="idLogOut"
+		label="Log Out"
+		styleName="LogOutButton"
+		click="handleLogOut()"
+		height="19" width="80"/>
+</view:HSubWindow>

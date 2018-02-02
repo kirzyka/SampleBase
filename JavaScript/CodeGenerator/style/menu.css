@@ -1,0 +1,16 @@
+
+#inline_menu {
+    position: absolute;
+    top: 44px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: #f7f7f7;
+    border-color: #fff;
+    width: 190px;
+    float: left;
+    border-right: 1px solid transparent;
+    -webkit-box-shadow: 3px 0 10px -5px rgba(0,0,0,.35);
+    -moz-box-shadow: 3px 0 10px -5px rgba(0,0,0,.35);
+    box-shadow: 3px 0 10px -5px rgba(0,0,0,.35);
+}

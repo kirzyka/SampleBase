@@ -1,0 +1,59 @@
+[24,
+{
+"to_id":-25348491,
+"signer_id":4092914,
+"likes":{"count":0},
+"from_id":-25348491,
+"attachment":
+{"photo":{"src_xbig":"http://cs405329.vk.me/v405329914/6d07/SGT2DDuf-dk.jpg","owner_id":-25348491,"aid":-7,"src":"http://cs405329.vk.me/v405329914/6d05/Rk1Q4kMvIuM.jpg","access_key":"847157919ff389a0cb","src_big":"http://cs405329.vk.me/v405329914/6d06/IZ-lStJ0Fsc.jpg","pid":300711582,"width":640,"src_small":"http://cs405329.vk.me/v405329914/6d04/41KHH74zcag.jpg","created":1364226158,"text":"","height":640,"user_id":4092914},
+"type":"photo"},
+"text":"Французский завтрак (~400 ккал)<br><br>Нам понадобятся: 3 кусочка белого хлеба, примерно по 30гр., полстакана молока, половина банана, кардамон.<br><br>Для начала, смешаем в блендере молоко, кардамон и банан. Обмакиваем хлеб в получившуюся массу с обеих сторон и запекаем в духовке.<br><br>Приятного аппетита и хорошего дня!",
+"id":108,
+"reposts":{"count":0},
+"date":1364226156,
+"attachments":
+[
+{"photo":{"src_xbig":"http://cs405329.vk.me/v405329914/6d07/SGT2DDuf-dk.jpg","owner_id":-25348491,"aid":-7,"src":"http://cs405329.vk.me/v405329914/6d05/Rk1Q4kMvIuM.jpg","access_key":"847157919ff389a0cb","src_big":"http://cs405329.vk.me/v405329914/6d06/IZ-lStJ0Fsc.jpg","pid":300711582,"width":640,"src_small":"http://cs405329.vk.me/v405329914/6d04/41KHH74zcag.jpg","created":1364226158,"text":"","height":640,"user_id":4092914},
+"type":"photo"}
+],
+"comments":{"count":0}
+},
+{
+"to_id":-25348491,
+"signer_id":4092914,
+"likes":{"count":0},
+"from_id":-25348491,
+"attachment":
+{"photo":{"src_xbig":"http://cs405329.vk.me/v405329914/6af1/S5NOgb98iuM.jpg","owner_id":-25348491,"aid":-7,"src":"http://cs405329.vk.me/v405329914/6aef/Vg8CtC5xwCw.jpg","access_key":"f09bbcd553ddaf661b","src_big":"http://cs405329.vk.me/v405329914/6af0/v_Ik_XInFwc.jpg","pid":300476778,"width":640,"src_small":"http://cs405329.vk.me/v405329914/6aee/WkeTkRdOr8o.jpg","created":1363907915,"text":"","height":515,"user_id":4092914},
+"type":"photo"},
+"text":"Лето покажет кто ел по ночам! :)",
+"id":107,
+"reposts":{"count":0},
+"date":1363907915,
+"attachments":
+[
+{"photo":{"src_xbig":"http://cs405329.vk.me/v405329914/6af1/S5NOgb98iuM.jpg","owner_id":-25348491,"aid":-7,"src":"http://cs405329.vk.me/v405329914/6aef/Vg8CtC5xwCw.jpg","access_key":"f09bbcd553ddaf661b","src_big":"http://cs405329.vk.me/v405329914/6af0/v_Ik_XInFwc.jpg","pid":300476778,"width":640,"src_small":"http://cs405329.vk.me/v405329914/6aee/WkeTkRdOr8o.jpg","created":1363907915,"text":"","height":515,"user_id":4092914},
+"type":"photo"}
+],
+"comments":{"count":0}
+},
+{
+"to_id":-25348491,
+"signer_id":4092914,
+"likes":{"count":0},
+"from_id":-25348491,
+"attachment":
+{"video":{"owner_id":-25348491,"title":"Fletcher Sanchez Chinese Pole Teaser","access_key":"a27788c1cb24c75751","image_big":"http://cs7003.vk.me/c6040/u4092914/video/l_74146a85.jpg","description":"A new training teaser of movements and sequences on the acrobatic apparatus chinese pole.<br><br>Website, new number, and more videos and training clips to come.<br>Contact me for more information at: fletcherblair@ymail.com <br>And above all, ENJOY!","date":1363886858,"duration":100,"views":1,"vid":164771978,"image":"http://cs7003.vk.me/c6040/u4092914/video/l_74146a85.jpg","image_xbig":"http://cs7003.vk.me/c6040/u4092914/video/y_99d6e113.jpg","image_small":"http://cs7003.vk.me/c6040/u4092914/video/s_f65e4627.jpg"},
+"type":"video"},
+"text":"Fletcher Sanchez Chinese Pole Teaser",
+"id":106,
+"reposts":{"count":0},
+"date":1363886858,
+"attachments":
+[
+{"video":{"owner_id":-25348491,"title":"Fletcher Sanchez Chinese Pole Teaser","access_key":"a27788c1cb24c75751","image_big":"http://cs7003.vk.me/c6040/u4092914/video/l_74146a85.jpg","description":"A new training teaser of movements and sequences on the acrobatic apparatus chinese pole.<br><br>Website, new number, and more videos and training clips to come.<br>Contact me for more information at: fletcherblair@ymail.com <br>And above all, ENJOY!","date":1363886858,"duration":100,"views":1,"vid":164771978,"image":"http://cs7003.vk.me/c6040/u4092914/video/l_74146a85.jpg","image_xbig":"http://cs7003.vk.me/c6040/u4092914/video/y_99d6e113.jpg","image_small":"http://cs7003.vk.me/c6040/u4092914/video/s_f65e4627.jpg"},
+"type":"video"}
+],
+"comments":{"count":0}
+}
+]

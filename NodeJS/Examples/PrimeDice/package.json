@@ -1,0 +1,9 @@
+{
+  "name": "PrimediceBot",
+  "version": "0.0.1",
+  "dependencies": {
+    "colors": "^1.1.2",
+    "superagent": "^3.3.2"
+  },
+  "devDependencies": {}
+}

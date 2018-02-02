@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Canvas xmlns:mx="http://www.adobe.com/2006/mxml"
+	horizontalScrollPolicy="off" verticalScrollPolicy="off"
+	 width="110" height="18">
+	<mx:Script>
+		<![CDATA[
+			import services.vo.backend.RoomSettingObjectVO;
+			import framework.view.pages.items.events.ItemGroupEvent;
+			import mx.binding.utils.BindingUtils;
+			import services.vo.items.ItemsGroupVO;
+			
+			[Bindable]
+			public var isSelected:Boolean = false;
+			
+			protected function handleSelected(e:MouseEvent):void
+			{
+				var item:RoomSettingObjectVO = data as RoomSettingObjectVO;
+				this.isSelected = !isSelected;
+				item.bIsSelected = this.isSelected;		
+			}
+		]]>
+	</mx:Script>
+	<mx:HBox width="100%" height="100%">
+		<mx:CheckBox id="checkItem" selected="{isSelected}"
+					 click="handleSelected(event)"/>
+		<mx:Label truncateToFit="true" width="120" text="{(data as RoomSettingObjectVO).sRsettingCode+ ', '+ (data as RoomSettingObjectVO).sRsettingDesctiptionLocale}"/>
+	</mx:HBox>
+</mx:Canvas>

@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="utf-8"?>
+<sub:VSubWindow xmlns:sub="framework.core.view.*" xmlns:mx="http://www.adobe.com/2006/mxml" width="100%">
+
+	<mx:Script>
+		<![CDATA[
+			import framework.core.utils.UtilsGolobal;
+			import services.vo.common.DataListVO;
+			import services.vo.reports.HousekeepingReportVO;
+			import services.vo.reports.NoShowsReportVO;
+			import services.vo.reports.InHouseReportVO;
+			import services.vo.common.loyaltyPrograms.LoyaltyProgramsVO;
+			import framework.model.AppModelLocator;
+			import services.vo.GlobalFunctions;
+			import services.events.reports.GetReportEvent;
+			import services.vo.backend.ReportVO;
+			import services.vo.common.SourceCodesVO;
+			import services.vo.backend.RoomSettingObjectVO;
+			import services.vo.common.MarketCodesVO;
+			import services.vo.hotels.HotelRoomWithBedTypesObjectVO;
+			import services.vo.GlobalSettings;
+			import services.vo.GlobalStorage;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.events.miscellaneous.loyaltyPrograms.GetLoyaltyProgramsEvent;
+			import services.controller.AppController;
+			import services.events.roomSettings.GetRoomSettingsDataEvent;
+			import mx.collections.ArrayCollection;
+			import services.vo.reports.ArrivalReportVO;
+			
+				//config
+  			[Bindable]
+  			public var indicatorGapFormItem:int = 14;
+
+  			/**
+			 *	Get reports. This function we have in parent.
+			*/
+  			public var getReports:Function = new Function();
+
+  			/**
+			 *	Get selected All for all list. This function we have in parent.
+			*/
+  			public var allClick:Function = new Function();
+
+			public var reportType:int;
+			private const SORT_ORDER_ROOM_NO:int      = 1; // for iSortOrder in HousekeepingReportVO
+  			private const SORT_ORDER_ALPHABETICAL:int = 2;
+
+
+  			[Bindable]
+			private var houseKeepingRoomTypes:ArrayCollection = new ArrayCollection();
+
+			public function init():void
+			{
+				 houseKeepingRoomTypes = UtilsGolobal.clone(model.hotelsModule.hotelRoomTypes) as ArrayCollection;
+			}
+
+			/**
+			 *	Get selected references for MarketCode in Housekeeping report.
+			*/
+
+			public function updateSelectionHousekeepingStatuses(index:int,selected:Boolean):void
+			{
+				var tempSelect:Boolean = (GlobalStorage.housekeepingStatuses.getItemAt(index) as DataListVO).bIsSelected;
+
+				if (tempSelect) tempSelect = false
+				else tempSelect = true;
+
+				(GlobalStorage.housekeepingStatuses.getItemAt(index) as DataListVO).bIsSelected = tempSelect;
+			}
+
+			/**
+			 *	Get selected references for RoomTypes (in Housekeeping).
+			*/
+
+			public function updateSelectionHousekeepingRoomType(index:int,selected:Boolean):void
+			{
+				var tempSelect:Boolean = (houseKeepingRoomTypes.getItemAt(index) as HotelRoomWithBedTypesObjectVO).oRoomQuality.bIsSelected;
+
+				if (tempSelect) tempSelect = false
+				else tempSelect = true;
+
+				(houseKeepingRoomTypes.getItemAt(index) as HotelRoomWithBedTypesObjectVO).oRoomQuality.bIsSelected = tempSelect;
+			}
+
+			/**
+			 * print report of house keeping
+			 */ 
+			private function handlePrintHouseKeepingReport():void
+			{
+				var hkReport:HousekeepingReportVO = new HousekeepingReportVO();
+
+				hkReport.bShowName = housekeepingShowName.selected;
+				if (housekeepingSortOrderRoom.selected)
+				{
+					hkReport.iSortOrder = SORT_ORDER_ROOM_NO;
+				}
+				if (housekeepingSortOrderAlphabetical.selected)
+				{
+					hkReport.iSortOrder = SORT_ORDER_ALPHABETICAL;
+				}
+
+				if (!housekeepingAllRoomType.selected)
+				{
+				for (var i:int = 0; i < houseKeepingRoomTypes.length; i++)
+					if ((houseKeepingRoomTypes.getItemAt(i) as HotelRoomWithBedTypesObjectVO).oRoomQuality.bIsSelected)
+						hkReport.aRoomType.push((houseKeepingRoomTypes.getItemAt(i) as HotelRoomWithBedTypesObjectVO).oRoomQuality.lQualityId);
+				}
+
+				if (!housekeepingAllStatus.selected)
+				{
+				 for (i = 0; i < GlobalStorage.housekeepingStatuses.length; i++)
+					if ((GlobalStorage.housekeepingStatuses.getItemAt(i) as DataListVO).bIsSelected)
+						hkReport.aHouseKeepingStatus.push((GlobalStorage.housekeepingStatuses.getItemAt(i) as DataListVO).iId);
+				}
+				getReports( hkReport, reportType,  DateField.dateToString(housekepingDate.selectedDate, GlobalSettings.DATE_SERVER_FORMAT));
+			}
+		]]>
+	</mx:Script>
+
+		<mx:Panel label="Housekeeping Report" width="100%" layout="vertical" horizontalScrollPolicy="off" styleName="reportPanel">
+			<mx:HBox>
+				<mx:Form>
+					<mx:FormItem label="Date of report:" labelWidth="120">
+						<mx:DateField id="housekepingDate" width="{GlobalSettings.WIDTH_DATE_FIELD}"
+							selectedDate="{GlobalFunctions.getDate()}" formatString="{GlobalSettings.DATE_FORMAT}"/>
+						<mx:CheckBox id="housekeepingShowName" label="Show Name" selected="true"/>
+						<mx:RadioButton id="housekeepingSortOrderRoom" selected="true" label="Sort Order Room No" groupName="house"/>
+						<mx:RadioButton id="housekeepingSortOrderAlphabetical" label="Sort Order Alphabetical" groupName="house"/>
+					</mx:FormItem>
+				</mx:Form>
+				<mx:Form paddingLeft="-25">
+					<mx:FormItem label="Room Types:" labelWidth="180" indicatorGap="{indicatorGapFormItem}">
+							<mx:List id="housekeepingRoomType" enabled="false"
+								dataProvider="{houseKeepingRoomTypes}"
+								width="150" height="100">
+								<mx:itemRenderer>
+									<mx:Component>
+										<mx:CheckBox
+											label="{data.label}"
+											selected="{data.oRoomQuality.bIsSelected}"
+											change="{outerDocument.updateSelectionHousekeepingRoomType( outerDocument.housekeepingRoomType.selectedIndex, this.selected)}"/>
+									</mx:Component>
+								</mx:itemRenderer>
+							</mx:List>
+							<mx:CheckBox id="housekeepingAllRoomType" label="All room types" selected="true"
+								change="{allClick(housekeepingAllRoomType, housekeepingRoomType)}"/>
+					</mx:FormItem>
+					</mx:Form>
+					<mx:Form paddingLeft="-15">
+					<mx:FormItem label="Housekeeping status:" labelWidth="180" indicatorGap="{indicatorGapFormItem}">
+							<mx:List id="housekeepingStatus" enabled="false"
+								dataProvider="{GlobalStorage.housekeepingStatuses}"
+								width="150" height="100">
+								<mx:itemRenderer>
+									<mx:Component>
+										<mx:CheckBox
+											label="{data.sName}"
+											selected="{data.bIsSelected}"
+											change="{outerDocument.updateSelectionHousekeepingStatuses( outerDocument.housekeepingStatus.selectedIndex, this.selected)}"/>
+									</mx:Component>
+								</mx:itemRenderer>
+							</mx:List>
+							<mx:CheckBox id="housekeepingAllStatus" label="All statuses" selected="true"
+								change="{allClick(housekeepingAllStatus, housekeepingStatus)}"/>
+					</mx:FormItem>
+				</mx:Form>
+			</mx:HBox>
+			<mx:HBox width="100%" horizontalAlign="right" paddingRight="15">
+				<mx:Button label="Print Report" click="handlePrintHouseKeepingReport()"/>
+			</mx:HBox>
+		</mx:Panel>
+</sub:VSubWindow>

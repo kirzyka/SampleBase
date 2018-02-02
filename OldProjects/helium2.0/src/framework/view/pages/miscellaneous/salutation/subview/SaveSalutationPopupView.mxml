@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8"?>
+<popup:DataPopupView
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:popup="framework.view.components.popups.*"
+	addTitle="Add salutation"
+	editTitle="Edit salutation"
+
+	creationComplete="init()">
+	
+	<mx:Script>
+		<![CDATA[
+			
+			import services.vo.common.LanguageVO;
+			import services.vo.GlobalStorage;
+			import services.events.miscellaneous.salutation.GetSalutationEvent;
+			import services.events.miscellaneous.salutation.AddSalutationEvent;
+			import services.vo.common.SalutationVO;
+			import services.vo.common.NationalityVO;
+			import services.vo.GlobalSettings;
+			import services.controller.AppController;
+			import framework.model.AppModelLocator;
+			import mx.events.CloseEvent;
+			import mx.collections.ArrayCollection;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import framework.managers.PopUpManagerExt;
+			
+			[Bindable]
+			public var currentLanguage:int = 0;
+			
+			[Bindable]
+			private var rest:String;
+			
+			private function init():void
+			{
+				rest = "A-z0-9. &<>";
+				setDefaultSettings();
+				
+				if(isEdit)
+				{
+					languageName.enabled = false;
+					salutationName.text = (data as SalutationVO).sName;
+										
+					if (currentLanguage == 0)
+					{
+						for (var i:int = 0; i < GlobalStorage.language.length; i++)
+						{
+							if ((GlobalStorage.language.getItemAt(i) as LanguageVO).lId == (data as SalutationVO).lLanguageId)
+							{
+								languageName.selectedIndex = i;
+								break;
+							}
+							
+						}
+					}					
+				}
+				
+			}
+			
+			private function setDefaultSettings():void
+			{
+				languageName.selectedIndex = currentLanguage;
+				languageName.enabled = true;
+			}
+			
+			
+			private function handleCreateSalutaion():void
+			{
+				var salutation:SalutationVO = (isEdit) ? data as SalutationVO : new SalutationVO();
+				
+				var event:AddSalutationEvent = new AddSalutationEvent (AppController.ADD_SALUTATION_EVENT);
+				event.salutation.lLanguageId = (languageName.selectedItem as LanguageVO).lId;
+				event.salutation.sName = salutationName.text;
+				event.salutation.sDescription = salutationDescription.text;
+				event.salutation.lId = salutation.lId;
+				event.callBack = completeCall;
+				CairngormEventDispatcher.getInstance().dispatchEvent(event);
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:Form>
+		<mx:FormItem label="Language*:">
+			<mx:ComboBox  id="languageName" 
+				dataProvider="{GlobalStorage.language}" 
+				labelField="sName" 
+				enabled="false"
+				width="120"/>
+		</mx:FormItem>
+		<mx:FormItem label="Salutation*:">
+			<mx:TextInput id="salutationName" 
+				maxChars="11" 
+				text="{(data as SalutationVO).sName}" 
+				restrict="{rest}"
+				width="120"/>
+		</mx:FormItem>
+		<mx:FormItem label="Description:">
+			<mx:TextInput id="salutationDescription"
+				maxChars="255" 
+				restrict="{rest}" 
+				text="{(data as SalutationVO).sDescription}"
+				width="120"/>
+		</mx:FormItem>
+	</mx:Form>
+	
+	<mx:HBox width="100%" horizontalAlign="right">
+		<mx:Button id="btSaveSalutation" 
+			label="{model.locale.Global_Button_Save}"
+			enabled="{salutationName.text.length > 0}"
+			click="handleCreateSalutaion()" 
+			width="{GlobalSettings.BUTTON_WIDTH_APPLY}" />
+		<mx:Button id="btCancel" 
+			label="{model.locale.Global_Button_Cancel}" 
+			click="close()"
+			width="{GlobalSettings.BUTTON_WIDTH}" />
+	</mx:HBox>
+</popup:DataPopupView>

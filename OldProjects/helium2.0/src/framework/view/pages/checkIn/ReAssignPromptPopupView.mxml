@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow title="Reassign" xmlns:mx="http://www.adobe.com/2006/mxml" layout="vertical" showCloseButton="true" close="closeWindow()">
+	
+	<mx:Script>
+		<![CDATA[
+			import framework.managers.PopUpManagerExt;
+			
+			public var assignFunction:Function;
+			 
+			private function closeWindow():void
+			{
+				PopUpManagerExt.removePopUp( this );
+			}
+			
+			private function handleReassing():void
+			{
+				assignFunction();
+				closeWindow();
+			}
+		]]> 
+	</mx:Script>
+	
+	<mx:Label text="The room is already assigned. Do you want to reassign?" fontWeight="bold" fontSize="14"/>
+	<mx:Label text="Reassign will cancel previous assignment" fontSize="10" />
+	
+	<mx:HBox width="100%" horizontalAlign="right">
+		<mx:Button label="Assign" click="handleReassing()"/>
+		<mx:Spacer width="100%"/>
+		<mx:Button label="Cancel" click="closeWindow()"/>
+	</mx:HBox>
+	
+</mx:TitleWindow>

@@ -1,0 +1,66 @@
+.cp-container {
+    background: #999;
+    margin-bottom: 5px;
+}
+
+.cp-container .btn {
+    width: 22px;
+    height: 22px;
+    float: left;
+    cursor: pointer;
+}
+
+.cp-container .header {
+    padding: 10px;
+    background: #457abb;
+    color: #fff;
+    font-size: 1em;
+}
+.cp-container .header span.caption {
+    margin-left: 10px;
+}
+
+.cp-container .content {
+    color: #fff;
+    background: #eee;
+    max-height: 0px;
+    overflow: hidden;
+    -webkit-transition: max-height .3s ease;
+    -moz-transition: max-height .3s ease;
+    -ms-transition: max-height .3s ease;
+    -o-transition: max-height .3s ease;
+    transition: max-height .3s ease;
+}
+
+.cp-container .content .container {
+    padding: 5px;
+    opacity: 0;
+    -webkit-transition: opacity .6s ease;
+    -moz-transition: opacity .6s ease;
+    -ms-transition: opacity .6s ease;
+    -o-transition: opacity .6s ease;
+    transition: opacity .6s ease;
+}
+
+.cp-collapsed  .btn {
+    width: 22px;
+    height: 22px;
+    background: url("../../assets/arrow_22.png");
+}
+
+.cp-expanded .btn  {
+    background: url("../../assets/arrow_22.png");
+    -webkit-transform: rotate(90deg);
+    -moz-transform: rotate(90deg);
+    -ms-transform: rotate(90deg);
+    -o-transform: rotate(90deg);
+    transform: rotate(90deg);
+}
+
+.cp-expanded .content {
+    max-height: 800px;
+}
+
+.cp-expanded .content .container {
+    opacity: 1;
+}

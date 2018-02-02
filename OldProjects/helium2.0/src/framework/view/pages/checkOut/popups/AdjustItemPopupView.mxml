@@ -1,0 +1,248 @@
+<?xml version="1.0" encoding="utf-8"?>
+<popup:CheckOutPopupView
+	xmlns:popup="framework.view.pages.checkOut.popups.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:control="h2olib.control.*"
+	prefix="popups.adjustItem."
+	
+	title="{model.locale.CheckOut_Popups_AdjustItem_Title}" >
+	
+	<mx:Script>
+		<![CDATA[
+			import framework.core.utils.UtilsGolobal;
+			import h2olib.utils.DateUtils;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			
+			import services.business.checkOut.CheckOutDelegate;
+			import services.controller.AppController;
+			import services.events.checkOut.AdjustItemEvent;
+			import services.events.checkOut.SplitItemEvent;
+			import services.vo.GlobalSettings;
+			import services.vo.checkOut.itemRouting.ItemCheckOutVO;
+			import framework.core.utils.UtilsMXML;
+			
+			import mx.events.ValidationResultEvent;
+			
+			// ===================================================================== //
+			//                         VARIABLES AND CONSTANTS                       //
+			// ===================================================================== //
+			/**
+			 *  This property is selected index of adjusted item.
+			 *  
+			 *  @default -1
+			 */
+			private var _selectedIndex:int = -1;
+			/**
+			 *  This property is current price applied for item.
+			 *  
+			 *  @default 0.00
+			 */
+			private var _prevPrice:Number = 0.00;
+			
+			// ===================================================================== //
+			//                            OVERRIDE METHODS                           //
+			// ===================================================================== //
+			/**
+			 *  @override
+			 */
+			override public function set data(value:Object):void
+			{
+				super.data = value;
+				
+				if ((data as ItemCheckOutVO).aComponents.length > 0)
+				{
+					prevPrice = ((data as ItemCheckOutVO).aComponents[0] as ItemCheckOutVO).fPrice;
+					// apply price by selected item 
+					ntiPrice.text = nfPrice.format(prevPrice);
+				}
+				else
+				{
+					prevPrice = (data as ItemCheckOutVO).fPrice;
+				}
+			}
+			
+			// ===================================================================== //
+			//                       COMMON METHODS AND HANDLERS                     //
+			// ===================================================================== //
+			/**
+			 *  The confirmation handler to adjust item. Before appliyng result of
+			 *  adjust to item, validate his price.
+			 */
+			private function handleSplitItem():void
+			{
+				var result:ValidationResultEvent = nvPrice.validate();
+				if (result.type == ValidationResultEvent.VALID)
+				{
+					var item:ItemCheckOutVO = (data as ItemCheckOutVO);
+					// format price
+					ntiPrice.text= nfPrice.format(ntiPrice.text);
+					// apply adjust for item
+					var event:AdjustItemEvent = new AdjustItemEvent(CheckOutDelegate.ADJUST_ITEM);
+					if (item.aComponents.length == 0)
+					{
+						event.id = item.lId;
+					}
+					else
+					{
+						event.id = (cmbMergedItems.selectedItem as ItemCheckOutVO).lId;
+					}
+					event.absolute = rbAmoutType.selected;
+					event.value = nfPrice.format(ntiPrice.text);
+					event.reason = taReason.text;
+					event.index = selectedIndex;
+					event.isAttached = isAttached;
+					event.attachedId = attachedId;
+					event.callBack = completeCall;
+					CairngormEventDispatcher.getInstance().dispatchEvent(event);
+				}
+			}
+			
+			private function onChangeItem():void
+			{
+				prevPrice = (cmbMergedItems.selectedItem as ItemCheckOutVO).fPrice;
+				// apply price by selected item 
+				ntiPrice.text = nfPrice.format(prevPrice);
+			}
+			
+			private function funcItemInfo(item:ItemCheckOutVO):String
+			{
+				var date:String = DateUtils.dateConvert(item.dDate, DateUtils.SERVER_TO_CLIENT);
+				return "(" + date + ") " + item.sTransName + " - " + UtilsGolobal.round(item.fPrice,2) + "€";
+			}
+			
+			// ===================================================================== //
+			//                       GETTER AND SETTER HANDLERS                      //
+			// ===================================================================== //
+			[Bindable(event="prevPriceChanged")]
+			/**
+			 *  The current price applied for item.
+			 */
+			protected function get prevPrice():Number
+			{
+				return _prevPrice;
+			}
+			/**
+			 *  @private
+			 */
+			protected function set prevPrice(value:Number):void
+			{
+				_prevPrice = value;
+				
+				dispatchEvent(new Event("prevPriceChanged"));
+			}
+			
+			/**
+			 *  The selected index of adjusted item.
+			 */
+			public function get selectedIndex():Number
+			{
+				return _selectedIndex;
+			}
+			/**
+			 *  @private
+			 */
+			public function set selectedIndex(value:Number):void
+			{
+				_selectedIndex = value;
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:Form width="100%" height="100%">
+		<mx:FormItem
+			label="{model.locale.CheckOut_Popups_AdjustItem_Code}:"
+			width="100%">
+			<mx:TextInput id="tiCode"
+				text="{ItemCheckOutVO(data).sTransCode}"
+				editable="false"
+				width="80"/>
+		</mx:FormItem>
+		
+		<mx:FormItem
+			label="{model.locale.CheckOut_Popups_AdjustItem_Name}:"
+			visible="{ItemCheckOutVO(data).aComponents.length == 0}"
+			includeInLayout="{ItemCheckOutVO(data).aComponents.length == 0}"
+			width="100%">
+			<mx:TextInput id="tiName"
+				text="{ItemCheckOutVO(data).sTransName}"
+				visible="{ItemCheckOutVO(data).aComponents.length == 0}"
+				editable="false"/>
+		</mx:FormItem>
+		<mx:FormItem
+			label=""
+			visible="{ItemCheckOutVO(data).aComponents.length != 0}"
+			includeInLayout="{ItemCheckOutVO(data).aComponents.length != 0}"
+			width="100%">
+			<mx:Label
+				text="Choose a component to use:"
+				visible="{ItemCheckOutVO(data).aComponents.length != 0}"/>
+		</mx:FormItem>
+		<mx:FormItem
+			label="{model.locale.CheckOut_Popups_AdjustItem_Name}:"
+			visible="{ItemCheckOutVO(data).aComponents.length != 0}"
+			includeInLayout="{ItemCheckOutVO(data).aComponents.length != 0}"
+			width="100%">
+			<mx:ComboBox id="cmbMergedItems"
+				dataProvider="{ItemCheckOutVO(data).aComponents}"
+				labelFunction="funcItemInfo"
+				visible="{ItemCheckOutVO(data).aComponents.length != 0}"
+				change="onChangeItem()"/>
+		</mx:FormItem>
+		
+		<mx:FormItem
+			label="{model.locale.CheckOut_Popups_AdjustItem_Price}:"
+			required="true"
+			width="100%"
+			direction="horizontal">
+			<control:NumericTextInput id="ntiPrice"
+				value="{ItemCheckOutVO(data).fPrice}"
+				width="80"/>
+		</mx:FormItem>
+		<mx:FormItem
+			width="100%"
+			direction="horizontal">	
+			<mx:RadioButton id="rbAmoutType"
+				label="{model.locale.CheckOut_Popups_AdjustItem_Amount}"
+				groupName="splitType"
+				selected="true"/>
+			<mx:RadioButton id="rbPercentageType"
+				label="{model.locale.CheckOut_Popups_AdjustItem_Percentage}"
+				groupName="splitType"/>
+		</mx:FormItem>		
+		<mx:FormItem
+			label="{model.locale.CheckOut_Popups_AdjustItem_Reason}:"
+			required="true"
+			width="100%">
+			<mx:TextArea id="taReason"
+				text="{ItemCheckOutVO(data).sAdjustedReason}"
+				maxChars="250"
+				width="100%" height="60"/>
+		</mx:FormItem>
+	</mx:Form>
+	
+	<mx:HBox width="100%" horizontalAlign="right">
+		<mx:Button
+			label="{model.locale.Global_Button_Apply}"
+			enabled="{UtilsMXML.and((ntiPrice.text != String(prevPrice)),
+				ntiPrice.text.length > 0,
+				taReason.text.length > 0)}"
+			click="handleSplitItem()"
+			width="{GlobalSettings.BUTTON_WIDTH_APPLY}"/>
+		<mx:Button
+			label="{model.locale.Global_Button_Cancel}"
+			click="close()"
+			width="{GlobalSettings.BUTTON_WIDTH}"/>
+	</mx:HBox>
+	<!--
+		Optional data for using. For example, formatters, validators, etc.
+	  -->
+	<mx:NumberFormatter id="nfPrice"
+		precision="2"
+		useThousandsSeparator="false"
+		rounding="none"/>
+	
+	<mx:NumberValidator id="nvPrice"
+		source="{ntiPrice}"
+		property="text" 
+		domain="real"/>
+</popup:CheckOutPopupView>

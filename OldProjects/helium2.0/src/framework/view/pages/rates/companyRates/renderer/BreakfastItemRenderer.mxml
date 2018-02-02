@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:HBox paddingLeft="15" xmlns:mx="http://www.adobe.com/2006/mxml" textAlign="center" 
+	width="100%" horizontalScrollPolicy="off" creationComplete="handleInit()">
+	<mx:Script>
+		<![CDATA[
+			import services.vo.backend.CompanyRateObjectVO;
+			import services.vo.backend.RatesModuleVO;
+			import mx.controls.Alert;
+			import services.vo.backend.RoomSettingObjectVO;
+			import services.vo.GlobalImageAssets;
+			import framework.model.AppModelLocator;
+			import services.vo.backend.RoomTypeHierarchicalVO;
+			import services.events.backend.SetRoomTypeShortNameEvent;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.vo.backend.RoomTypeRowVO;
+			import services.controller.AppController;
+			import services.events.backend.SetRoomTypeDescriptionEvent;
+			
+			private var currValue:String;
+			
+			private var model:AppModelLocator = AppModelLocator.getInstance();
+			
+			private function handleInit():void
+			{
+			}
+			
+			override public function set data(value:Object):void
+			{
+				super.data = value;
+				
+
+				if(data != null)
+				{					
+					if(data is CompanyRateObjectVO)
+					{ 
+						
+						if ((data as CompanyRateObjectVO).bBreakfastIncluded)
+						breakfast.alpha = 1;
+						else
+						breakfast.alpha = 0;
+					} 
+				}
+			}
+		]]>
+	</mx:Script>
+
+	<mx:Image source="{GlobalImageAssets.getInstance().chekIcon}" width="16" height="16" id="breakfast" alpha="1" />
+</mx:HBox>

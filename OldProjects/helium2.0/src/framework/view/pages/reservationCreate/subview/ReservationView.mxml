@@ -1,0 +1,1374 @@
+<?xml version="1.0" encoding="utf-8"?>
+<VSubWindow
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:subview="framework.view.pages.reservationCreate.subview.*"
+	xmlns:dataGrid="framework.view.pages.reservationCreate.component.dataGrid.*" 
+	xmlns:reservationCreate="framework.view.pages.reservationCreate.*"
+	xmlns="framework.core.view.*"
+	xmlns:text="flash.text.*"
+	verticalGap="0"
+	width="100%" height="100%"
+	verticalScrollPolicy="off"
+ 	creationComplete="handleInit()" >
+
+	<mx:Script>
+		<![CDATA[
+			import mx.events.ItemClickEvent;
+			import services.vo.search.GroupReservationViewVO;
+			import services.events.reservation.GetGroupReservationEvent;
+			import services.vo.rates.CommonRateVO;
+			import services.vo.profiles.ProfilePersonalVO;
+			import services.vo.profiles.ProfileCallerVO;
+			import framework.view.pages.reservationCreate.data.OccupancyItem;
+			import services.vo.reservation.ReservationRoomBlockedVO;
+			import framework.utils.UtilsString;
+			import framework.view.pages.reservationCreate.data.GroupBasketItem;
+			import services.vo.reservation.GroupReservationVO;
+			import mx.collections.HierarchicalCollectionView;
+			import services.vo.GlobalImageAssets;
+			import framework.view.pages.reservationCreate.popups.OccupancyView;
+			import framework.view.pages.reservationCreate.data.ReservationCalendarModel;
+			import mx.core.Application;
+			import framework.core.utils.UtilsMXML;
+			import services.vo.rates.bar.BarPriceVO;
+			import services.events.rates.bar.GetHotelBarPriceEvent;
+			import mx.events.MenuEvent;
+			import mx.controls.Menu;
+			import h2olib.utils.DateUtils;
+			import mx.events.ListEvent;
+			import framework.module.ReservationModule;
+			import mx.managers.PopUpManager;
+			import framework.view.pages.reservationCreate.popups.GuestPerRooms;
+			import services.vo.rates.companyRates.CompanyRateItemVO;
+			import framework.core.utils.UtilsGolobal;
+			import mx.managers.PopUpManagerChildList;
+			import h2olib.control.enum.MessageShowType;
+			import h2olib.control.enum.MessageKind;
+			import services.events.MsgEvent;
+			import services.events.reservation.SaveReservationEvent;
+			import services.events.hotels.GetHotelRoomTypesEvent;
+			import services.vo.reservation.ReservationVO;
+			import services.vo.reservation.RoomPersonsVO;
+			import framework.view.pages.reservationCreate.personslist.OrderPersonsListView;
+			import services.vo.reservation.OrderVO;
+			import services.events.reservation.GetReservationCalendarDataEvent;
+			import mx.controls.ComboBox;
+			import services.vo.backend.PackageVO;
+			import services.vo.rates.companyRates.CompanyRateObjectVO;
+			import mx.core.IFlexDisplayObject;
+			import framework.view.pages.reservationCreate.popups.SelectRateReservationPopupView;
+			import framework.managers.PopUpManagerExt;
+			import framework.core.utils.UtilsSecurity;
+			import services.vo.frontend.NotificationVO;
+			import mx.events.ValidationResultEvent;
+			import mx.binding.utils.ChangeWatcher;
+			import mx.events.AdvancedDataGridEvent;
+			import services.events.hotels.GetHotelRoomTypesEvent;
+			import services.vo.GlobalStorage;
+			import mx.accessibility.DateFieldAccImpl;
+			import framework.view.pages.reservationCreate.events.ReservationCalendarEvent;
+			import services.vo.backend.DateResultVO;
+			import services.vo.GlobalSettings;
+			import framework.model.AppModelLocator;
+			import services.vo.frontend.ReservationOrderVO;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.controller.AppController;
+			import services.vo.GlobalFunctions;
+			import mx.events.CollectionEvent;
+		    import services.vo.frontend.ReservationCalendarCellVO;
+		    import mx.collections.ArrayCollection;
+		    import mx.controls.Alert;
+		    import mx.utils.*;
+
+			//		VARs
+
+			[Bindable]
+			private var reservDataArray:ArrayCollection = new ArrayCollection();
+			[Bindable]
+			private var currentSeletionData:ArrayCollection = new ArrayCollection();//ReservationCalendarCellVO
+			[Bindable]
+			private var currentRate:ReservationCalendarCellVO = new ReservationCalendarCellVO();
+			[Bindable]
+			private var currQualityId:int = 0;
+			[Bindable]
+			private var currSysRoomTypeId:int = 0;
+			[Bindable]
+			private var currRoomTypeId:int = 0;
+			private var currPrice:Number = 0;
+			[Bindable]
+			public var bar:BarPriceVO = new BarPriceVO();
+			[Bindable]
+			private var currentCompanyRate:CompanyRateObjectVO;
+			[Bindable]
+			private var currentPackageRate:PackageVO;
+			
+			[Bindable]
+			private var isShowGroup:Boolean;
+			[Bindable]
+			public var isGroupMode:Boolean;
+			
+			public var selectRateReservationPopupView:SelectRateReservationPopupView;
+			
+			private var isShown:Boolean = true;
+
+			private var selectNewDataWatcher:ChangeWatcher;
+			private var notEnoughRoomsWatcher:ChangeWatcher;
+
+			private var msgEvent:MsgEvent;
+
+			private var altRateMNU:Menu;
+
+			private var isCreated:Boolean;
+			//		Methods
+
+			
+			private function handleInit():void
+			{
+				orderDetailsView.addEventListener(OrderDetailsView.SEARCH, onODSearch);
+				orderDetailsView.addEventListener(OrderDetailsView.NIGHTS_CHANGE, onODNightsChange);
+
+				altRateMNU = new Menu();
+                var dp:Object = [{label: "BAR", index: 0}, {label: "Company Rate", index: 1}, {label: "Package", index: 2}];
+                altRateMNU.dataProvider = dp;
+                altRateMNU.selectedIndex = ReservationModule.BAR;
+                altRateMNU.addEventListener(MenuEvent.ITEM_CLICK, btnAltRateClick);
+                pubAlternativeRate.popUp = altRateMNU;
+                pubAlternativeRate.label = altRateMNU.dataProvider[altRateMNU.selectedIndex].label;
+                
+                //loadData();
+                
+			}
+			
+			//		Filter
+			
+			private function onODSearch(event:Event):void
+			{
+				handleSearch();
+			}
+			private function onODNightsChange(event:Event):void
+			{
+				handleNightsChange();
+			}
+			public function loadData():void
+			{
+				if(!model.reservationModule.isLoadingCalendarData)
+				{
+					
+					model.reservationModule.isLoadingCalendarData = true;
+					model.reservationModule.orders.removeAll();
+					model.reservationModule.aGroupBasket.removeAll();
+					model.reservationModule.tmpRoomBlockedList = new Array();
+					model.reservationModule.basketTotalPrice = 0;
+					model.reservationModule.iTotalGroupReservationPrice = 0;
+	
+					var dateResultToday:Date = model.businessDate;//new Date(GlobalFunctions.getDate());
+					var dateResultTomorrow:Date = DateUtils.dateAdd(DateUtils.DAY_OF_MONTH, 1, model.businessDate);//new Date(GlobalFunctions.getDate());
+	
+	                dateFrom.selectedDate = dateResultToday;
+	                dateTo.selectedDate = dateResultTomorrow;
+	
+	
+				    dgCalendar.addEventListener(ReservationCalendarEvent.RCE_ITEM_CLICK, handleCalendarItemsClick);
+				    dgCalendar.addEventListener(ReservationCalendarEvent.RCE_COLUMN_SELECTION_CHANGED, handleColumnSelectionChange);
+	
+				   	selectNewDataWatcher = ChangeWatcher.watch(ReservationCalendarModel.instance, "enableColumnSelection", handleSelectNewDates);
+	
+				    if(model.hotelsModule.hotelRoomTypes.length == 0)
+				    {
+				    	var getRTevt:GetHotelRoomTypesEvent = new GetHotelRoomTypesEvent( AppController.GET_HOTEL_ROOM_TYPES );
+						CairngormEventDispatcher.getInstance().dispatchEvent( getRTevt );
+				    }
+	
+				    isShown = true;
+	
+					var time:String = DateField.dateToString(dateFrom.selectedDate,GlobalSettings.DATE_SERVER_FORMAT);
+					getCalendarData(time);
+	
+					currRoomTypeId = 0;
+	
+					refreshOrderDetails(true);
+					calculateNights();
+				}
+			}
+
+			private function handleSelectNewDates(evt:Event):void
+			{
+				currRoomTypeId = 0;
+				boxOrderDetails.enabled = false;
+				//btnAltRate.enabled = false;
+				pubAlternativeRate.enabled = false;
+			}
+
+			private function handleColumnSelectionChange(evt:ReservationCalendarEvent):void
+
+			{
+				dateFrom.selectedDate = evt.startDate;
+				dateTo.selectedDate = evt.endDate;
+
+				handleDateArrivalChange();
+
+				boxOrderDetails.enabled = false;
+				//btnAltRate.enabled = false;
+				pubAlternativeRate.enabled = false;
+			}
+
+			private function handleCalendarItemsClick(evt:ReservationCalendarEvent):void
+			{
+				currentSeletionData = evt.selectedData; //ReservationCalendarCellVO
+				var cellDate:Date = evt.startDate;
+				for each(var cell:ReservationCalendarCellVO in currentSeletionData )
+				{
+					cell.date = cellDate;
+					cellDate = DateUtils.dateAdd(DateUtils.DAY_OF_MONTH,1,cellDate);
+				}
+
+
+				if(currentSeletionData.length > 0)
+				{
+					currentRate = currentSeletionData.getItemAt(0) as ReservationCalendarCellVO;
+				}
+				currQualityId = evt.qualityId;
+				currSysRoomTypeId = evt.cellData.iSysRoomTypeId;
+				currRoomTypeId = evt.cellData.iHotelRoomTypeId;
+				currPrice = evt.cellData.fPriceOne;
+
+
+				model.reservationModule.iRoomCapacity = evt.cellData.iRoomCapacity;
+				model.reservationModule.iMinStay = evt.cellData.iMinStay;
+				model.reservationModule.bIsGuarantee = evt.cellData.bIsGuarantee;
+				model.reservationModule.iCancelationPolicy = evt.cellData.iCanselationPolicy;
+
+				if(currRoomTypeId > 0)
+				{					
+					orderDetailsView.sBedTypeFull = evt.bedTypeNameFull;
+					orderDetailsView.sBedType = evt.bedTypeName;
+					orderDetailsView.sRoomType = evt.roomTypeName;
+					boxOrderDetails.enabled = true;
+
+					if(currentSeletionData.length > 1)
+					{
+					 	pubAlternativeRate.enabled = true;
+					}
+				}
+			}
+
+			private function handleGetReservationData():void
+			{
+				model.reservationModule.isLoadingCalendarData = false;
+				
+				dgCalendar.dateArrival = dateFrom.selectedDate;
+				dgGroup.dateArrival = dateFrom.selectedDate;
+				dgAvailableRooms.dateArrival = dateFrom.selectedDate;
+				dgCalendar.aCalendarData = model.reservationModule.aCalendar;
+				dgGroup.aCalendarData = model.reservationModule.aGroupCalendar;
+				dgAvailableRooms.aCalendarData = model.reservationModule.aCalendarRoomStatus;
+				reservDataArray = UtilsGolobal.clone(model.reservationModule.aCalendar) as ArrayCollection;
+
+				boxOrderDetails.enabled = false;
+				//btnAltRate.enabled = false;
+				pubAlternativeRate.enabled = false;
+				isShown = false;
+			}
+
+			public function handleShow():void
+			{
+				isShown = true;
+
+				var time:String = "";//dateFrom.selectedDate.time;
+				getCalendarData(time);
+
+				currRoomTypeId = 0;
+
+				refreshOrderDetails(true);
+			}
+
+			private function getCalendarData(dateTime:String):void
+			{
+				var event:GetReservationCalendarDataEvent = new GetReservationCalendarDataEvent(AppController.GET_RESERVATION_DATA_EVENT);
+				event.startDate = dateTime;//'2009-12-05';
+				event.callBack = handleGetReservationData;
+				CairngormEventDispatcher.getInstance().dispatchEvent(event);
+			}
+
+			private function handleAddToBasket():void
+			{
+				model.reservationModule.guestsPerRooms = new ArrayCollection();
+				if(orderDetailsView.nsAdults.value < orderDetailsView.nsRooms.value)
+				{
+					new MsgEvent(MessageKind.WARNING,
+								"Warning",
+								"Number of rooms is more than number of adults!",
+								MessageShowType.UNKNOWN).dispatch();
+					return;
+				}
+				
+				var guestsPerRoomInfo:RoomPersonsVO = new RoomPersonsVO();
+				guestsPerRoomInfo.iAdults = orderDetailsView.nsAdults.value;
+				guestsPerRoomInfo.iChildBefore = orderDetailsView.nsChildrenAge1.value;
+				guestsPerRoomInfo.iChildMiddle = orderDetailsView.nsChildrenAge2.value;
+				guestsPerRoomInfo.iChildAbove = orderDetailsView.nsChildrenAge3.value;
+				model.reservationModule.guestsPerRooms.addItem(guestsPerRoomInfo);
+
+				if(orderDetailsView.rbIndividualReservationType.selected)
+				{
+					//		Individual reservation
+					if(orderDetailsView.nsRooms.value == 1)
+					{
+						if(orderDetailsView.nsAdults.value > model.reservationModule.iRoomCapacity)
+						{
+							new MsgEvent(MessageKind.WARNING,
+													"Warning",
+													"Number of guests is bigger than room capacity. Please, decrease it.",
+													MessageShowType.UNKNOWN).dispatch();
+							return;
+						}					
+						createOrder();
+					}
+					else
+					{
+						var guestsPerPooms:GuestPerRooms = PopUpManagerExt.createPopUp(AppModelLocator.getInstance().owner, GuestPerRooms) as GuestPerRooms;
+						var guestsTotal:RoomPersonsVO = new RoomPersonsVO();
+						guestsTotal.iAdults = orderDetailsView.nsAdults.value;
+						guestsTotal.iChildBefore = orderDetailsView.nsChildrenAge1.value;
+						guestsTotal.iChildMiddle = orderDetailsView.nsChildrenAge2.value;
+						guestsTotal.iChildAbove = orderDetailsView.nsChildrenAge3.value;
+						guestsPerPooms.guestsTotal = guestsTotal;
+						guestsPerPooms.roomCount = orderDetailsView.nsRooms.value;
+						guestsPerPooms.callBack	= createOrder;
+						PopUpManagerExt.centerPopUp(guestsPerPooms);							
+					}
+				}
+				else
+				{	
+					var cell:ReservationCalendarCellVO = currentSeletionData[0] as ReservationCalendarCellVO;
+					//cell.iRoomCapacity				
+					//		Group Reservation
+					if (	orderDetailsView.nsRooms.value == 1 || 
+							orderDetailsView.nsRooms.value == orderDetailsView.nsAdults.value ||
+							cell.iRoomCapacity == 1 ||
+							orderDetailsView.nsAdults.value == orderDetailsView.nsRooms.value * cell.iRoomCapacity )
+					{	
+						addToGroupBasket();
+					}
+					else
+					{										
+						var occupancyView:OccupancyView = PopUpManagerExt.createPopUp(AppModelLocator.getInstance().owner, OccupancyView) as OccupancyView;
+						
+						occupancyView.sRoomTypeName = orderDetailsView.sBedTypeFull;						
+						OccupancyView.iRoomCapacity = cell.iRoomCapacity;
+						OccupancyView.iRoomCount = orderDetailsView.nsRooms.value;
+						OccupancyView.iAdults = orderDetailsView.nsAdults.value;
+						
+						occupancyView.callBack	= addToGroupBasket;
+						PopUpManagerExt.centerPopUp(occupancyView);
+					}
+					
+					
+				}
+			}
+
+			private function createOrder():void
+			{
+				var guestsPerRooms:ArrayCollection = UtilsGolobal.clone(model.reservationModule.guestsPerRooms) as ArrayCollection;//RoomPersonVO
+				for each(var room:RoomPersonsVO in guestsPerRooms)
+				{
+					var order:OrderVO = new OrderVO();
+					
+					order.iCompanyRateId = currentRate.iCompanyRateId;
+					order.iPackageRateId = currentRate.iPackageRateId;
+					order.iRateId = currentRate.iRateId;
+					order.iBarId = currentRate.iBarId;
+					
+					order.sStartDate = DateField.dateToString(dateFrom.selectedDate,GlobalSettings.DATE_SERVER_FORMAT );
+					order.sEndDate = DateField.dateToString(dateTo.selectedDate,GlobalSettings.DATE_SERVER_FORMAT );
+					order.iRateType = model.reservationModule.typeOfRate;
+					order.iRoomTypeId = currRoomTypeId;
+					order.sRoomTypeFullName = orderDetailsView.sBedTypeFull;
+					order.iRoomCount = 1;
+					
+					order.iTotalAdults = room.iAdults;
+					order.iTotalChildBefore = room.iChildBefore;
+					order.iTotalChildMiddle = room.iChildMiddle;
+					order.iTotalChildAbove = room.iChildAbove;
+					
+					order.guestsPerRooms = new ArrayCollection([room]);
+					
+					
+					///!!! PRICE CALCULATION
+					var totalPrice:Number = 0;
+					var selectedDayCount:int;
+					if(currentSeletionData.length == 1)
+					{
+						selectedDayCount = 1;
+					}
+					else
+					{
+						selectedDayCount = currentSeletionData.length-1;
+					}
+
+					if(room.iAdults > model.reservationModule.iRoomCapacity)
+					{
+						new MsgEvent(MessageKind.WARNING,
+												"Warning",
+												"Number of guests is bigger than room capacity. Please, decrease it.",
+												MessageShowType.UNKNOWN).dispatch();
+						return;
+					}
+
+					var firstDay:ReservationCalendarCellVO = currentSeletionData[0] as ReservationCalendarCellVO;
+					if(firstDay.bPriceIsPerStay)
+					{
+							switch(room.iAdults)
+							{
+								case 1:
+									totalPrice += firstDay.fPriceOne;
+								break;
+								case 2:
+									totalPrice += firstDay.fPriceTwo;
+								break;
+								case 3:
+									totalPrice += firstDay.fPriceTwo + firstDay.fPriceExtra;
+								break;
+								default:
+									totalPrice += firstDay.fPriceTwo + ((room.iAdults-2) * firstDay.fPriceExtra);
+								break;
+							}
+							totalPrice += firstDay.fPriceChildBefore * room.iChildBefore;
+							totalPrice += firstDay.fPriceChildMiddle * room.iChildMiddle;
+							totalPrice += firstDay.fPriceChildAbove * room.iChildAbove;
+					}
+					else
+					{
+						for(var i:int = 0;i<selectedDayCount;i++)
+						{
+							var item:ReservationCalendarCellVO = currentSeletionData[i] as ReservationCalendarCellVO;
+							switch(room.iAdults)
+							{
+								case 1:
+									totalPrice += item.fPriceOne;
+								break;
+								case 2:
+									totalPrice += item.fPriceTwo;
+								break;
+								case 3:
+									totalPrice += item.fPriceTwo + item.fPriceExtra;
+								break;
+								default:
+									totalPrice += item.fPriceTwo + ((room.iAdults-2) * item.fPriceExtra);
+								break;
+							}
+
+							totalPrice += item.fPriceChildBefore * room.iChildBefore;
+							totalPrice += item.fPriceChildMiddle * room.iChildMiddle;
+							totalPrice += item.fPriceChildAbove * room.iChildAbove;
+						}
+					}
+					order.nPrice = UtilsGolobal.round( totalPrice,2);					
+					
+					//decrease free room count
+					var calendarCell:ReservationCalendarCellVO;
+					
+					if(currentSeletionData.length > 1)
+					{
+						for(var k:int=0;k<currentSeletionData.length-1;k++)
+						{
+							calendarCell = (currentSeletionData[k] as ReservationCalendarCellVO);
+							calendarCell.iEmptyCount--;
+							//calendarCell.iEmptyCount -= orderDetailsView.nsRooms.value;
+							
+						}
+					}
+					// prepare room view for next screen					
+					order.aRoomPersonsView.addItem(new OrderPersonsListView());					
+					basket.addToBasket(order);
+					
+				}				
+				// refresh
+				refreshOrderDetails(false);
+				dgCalendar.aCalendarData = model.reservationModule.aCalendar;
+				dgGroup.aCalendarData = model.reservationModule.aGroupCalendar;
+				dgAvailableRooms.aCalendarData = model.reservationModule.aCalendarRoomStatus;
+			}
+
+
+			private function addToGroupBasket():void
+			{
+				var cell:ReservationCalendarCellVO = currentSeletionData[0] as ReservationCalendarCellVO;
+				var aRooms:ArrayCollection = new ArrayCollection();
+				var i:int;
+				
+				if(orderDetailsView.nsRooms.value == 1)
+				{
+					for(i = 0; i < cell.iRoomCapacity; i++)
+					{
+						if((i+1) == orderDetailsView.nsAdults.value)
+						{
+							aRooms.addItem(new OccupancyItem(i + 1, 1));	
+						}
+						else
+						{
+							aRooms.addItem(new OccupancyItem(i + 1, 0));
+						}
+					}
+				} 
+				else if(orderDetailsView.nsRooms.value == orderDetailsView.nsAdults.value ||
+						cell.iRoomCapacity == 1 )
+				{
+					for(i = 0; i < cell.iRoomCapacity; i++)
+					{
+						if(i == 0)
+						{
+							aRooms.addItem(new OccupancyItem(i + 1, orderDetailsView.nsAdults.value));	
+						}
+						else
+						{
+							aRooms.addItem(new OccupancyItem(i + 1, 0));
+						}
+					}
+				}
+				else if(orderDetailsView.nsAdults.value == orderDetailsView.nsRooms.value * cell.iRoomCapacity)
+				{
+					for(i = 0; i < cell.iRoomCapacity; i++)
+					{
+						if(i == cell.iRoomCapacity - 1)
+						{
+							aRooms.addItem(new OccupancyItem(i + 1, orderDetailsView.nsRooms.value));	
+						}
+						else
+						{
+							aRooms.addItem(new OccupancyItem(i + 1, 0));
+						}
+					}
+				}
+				else
+				{
+					aRooms = OccupancyView.aResult;
+				}
+				
+				var newRow:GroupBasketItem = new GroupBasketItem();
+				newRow.sStartDate = DateField.dateToString(dateFrom.selectedDate,GlobalSettings.DATE_SERVER_FORMAT );
+				newRow.sEndDate = DateField.dateToString( dateTo.selectedDate,GlobalSettings.DATE_SERVER_FORMAT );
+											
+				var selectedDayCount:int;
+				if(currentSeletionData.length == 1)
+				{
+					selectedDayCount = 1;
+				}
+				else
+				{
+					selectedDayCount = currentSeletionData.length-1;
+				}
+				
+				//!!! PRICE CALCULATION				
+				var totalPrice:Number = 0;		
+				for each(var item:OccupancyItem in aRooms)
+				{
+					var totalRoomPrice:int = 0;	
+					
+					if(item.iRoomCount > 0)
+					{
+						for(i = 0; i < selectedDayCount; i++)
+						{
+							cell = currentSeletionData[i] as ReservationCalendarCellVO;
+				
+							if(item.iAdultsPerRoom == 1)
+							{
+								totalRoomPrice += cell.fPriceOne * item.iRoomCount;
+							}
+							else if(item.iAdultsPerRoom == 2)
+							{
+								totalRoomPrice += cell.fPriceTwo * item.iRoomCount;
+							} 
+							else
+							{
+								totalRoomPrice += (cell.fPriceTwo + (cell.fPriceExtra * (item.iAdultsPerRoom - 2))) * item.iRoomCount; ;
+							}
+						}
+					}
+					totalPrice += totalRoomPrice;			
+				}				
+				
+				for(i = 0; i < selectedDayCount; i++)
+				{
+					cell = currentSeletionData[i] as ReservationCalendarCellVO;
+		
+					totalPrice += orderDetailsView.nsChildrenAge1.value * cell.fPriceChildBefore;
+					totalPrice += orderDetailsView.nsChildrenAge2.value * cell.fPriceChildMiddle;
+					totalPrice += orderDetailsView.nsChildrenAge3.value * cell.fPriceChildAbove;
+				}				
+				
+				newRow.nPrice = UtilsGolobal.round( totalPrice,2);				
+				model.reservationModule.iTotalGroupReservationPrice += newRow.nPrice;
+				
+				newRow.iRoomCount = orderDetailsView.nsRooms.value;
+				
+				newRow.iRateType = model.reservationModule.typeOfRate;
+				newRow.iRoomTypeId = currRoomTypeId;
+				newRow.sRoomTypeFullName = orderDetailsView.sBedTypeFull;
+				
+				newRow.iAdults = orderDetailsView.nsAdults.value;
+				newRow.iChildBefore = orderDetailsView.nsChildrenAge1.value;
+				newRow.iChildMiddle = orderDetailsView.nsChildrenAge2.value;
+				newRow.iChildAbove = orderDetailsView.nsChildrenAge3.value;
+				
+				createTMPBlockedRoomsList(newRow);
+				model.reservationModule.aGroupBasket.addItem(newRow);															
+			}
+			
+			private function createTMPBlockedRoomsList(item:GroupBasketItem):void
+			{
+				
+				var nightCount:int = DateUtils.dateDiff(DateUtils.DAY_OF_MONTH,DateField.stringToDate(item.sStartDate, DateUtils.DATE_SERVER_FORMAT) ,DateField.stringToDate(item.sEndDate, DateUtils.DATE_SERVER_FORMAT));
+			
+				for(var i:int = 0; i<nightCount; i++)
+				{
+					var newItem:ReservationRoomBlockedVO = new ReservationRoomBlockedVO();
+					newItem.sDate = DateField.dateToString(DateUtils.dateAdd(DateUtils.DAY_OF_MONTH, i,DateField.stringToDate(item.sStartDate, DateUtils.DATE_SERVER_FORMAT)), DateUtils.DATE_SERVER_FORMAT); 
+					newItem.iRoomType = item.iRoomTypeId;
+					newItem.sRoomTypeName = item.sRoomTypeFullName;
+					newItem.iRoomQuantity = newItem.iRoomQuantityAvail = item.iRoomCount;
+					
+					var cell:ReservationCalendarCellVO = currentSeletionData[i] as ReservationCalendarCellVO;
+					
+					newItem.oRateObject = new CommonRateVO();
+					
+					if(cell.iPackageRateId > 0)
+					{
+						newItem.oRateObject.iPackagePriceId = cell.iPackageRateId;
+						newItem.oRateObject.oMapPackage = new PackageVO();
+						newItem.oRateObject.oMapPackage.iPackageId = cell.iPackageRateId;
+						newItem.oRateObject.oMapPackage.sPackageName = cell.sRateName;
+						newItem.oRateObject.oMapPackage.fPriceOneAdult = cell.fPriceOne;
+						newItem.oRateObject.oMapPackage.fPriceTwoAdults = cell.fPriceTwo;
+						newItem.oRateObject.oMapPackage.fPriceExtraAdult = cell.fPriceExtra;
+						newItem.oRateObject.oMapPackage.fPriceChildBelow = cell.fPriceChildBefore;
+						newItem.oRateObject.oMapPackage.fPriceChildMiddle = cell.fPriceChildMiddle;
+						newItem.oRateObject.oMapPackage.fPriceChildAbove = cell.fPriceChildAbove;
+					}
+					else if(cell.iCompanyRateId > 0)
+					{
+						newItem.oRateObject.iCompanyPriceId = cell.iCompanyRateId;
+						newItem.oRateObject.oMapCompanyRate = new CompanyRateObjectVO();
+						newItem.oRateObject.oMapCompanyRate.iRateId = cell.iCompanyRateId;
+						newItem.oRateObject.oMapCompanyRate.sName = cell.sRateName;
+						newItem.oRateObject.oMapCompanyRate.fPriceOneAdult = cell.fPriceOne;
+						newItem.oRateObject.oMapCompanyRate.fPriceTwoAdults = cell.fPriceTwo;
+						newItem.oRateObject.oMapCompanyRate.fPriceExtraAdult = cell.fPriceExtra;
+					}
+					else if(cell.iBarId > 0)
+					{
+						newItem.oRateObject.iBarId = cell.iBarId;
+						newItem.oRateObject.iBarPriceId = cell.iRateId;
+						newItem.oRateObject.oMapBarPrice = new BarPriceVO();
+						newItem.oRateObject.oMapBarPrice.iRateId = cell.iRateId;
+						newItem.oRateObject.oMapBarPrice.fPriceOneAdult = cell.fPriceOne;
+						newItem.oRateObject.oMapBarPrice.fPriceTwoAdults = cell.fPriceTwo;
+						newItem.oRateObject.oMapBarPrice.fPriceExtraAdult = cell.fPriceExtra;
+						newItem.oRateObject.oMapBarPrice.fPriceChildBefore = cell.fPriceChildBefore;
+						newItem.oRateObject.oMapBarPrice.fPriceChildMiddle = cell.fPriceChildMiddle;
+						newItem.oRateObject.oMapBarPrice.fPriceChildAbove = cell.fPriceChildAbove;
+					} 					
+										
+					newItem.groupBasketItem = item;
+					model.reservationModule.tmpRoomBlockedList.push(newItem);		
+				}				
+				
+			}
+
+			private function btnAltRateClick(event:MenuEvent):void
+			{
+				switch (event.item.index)
+				{
+					case 0:
+						model.reservationModule.typeOfRate = altRateMNU.selectedIndex = ReservationModule.BAR;
+						pubAlternativeRate.label = altRateMNU.dataProvider[altRateMNU.selectedIndex].label;
+						changeRate();
+					break;
+					default:
+						selectRateReservationPopupView = PopUpManagerExt.createPopUp(this, SelectRateReservationPopupView) as SelectRateReservationPopupView;
+						selectRateReservationPopupView.dateFrom = DateField.dateToString(dateFrom.selectedDate,GlobalSettings.DATE_SERVER_FORMAT );
+						selectRateReservationPopupView.dateTo = DateField.dateToString(dateTo.selectedDate,GlobalSettings.DATE_SERVER_FORMAT );
+						selectRateReservationPopupView.roomQualityId = currQualityId;
+						selectRateReservationPopupView.ratePage = event.item.index;
+						//pop.bedTypeId = currSysRoomTypeId;
+						selectRateReservationPopupView.callBack = selectRateComplete;
+						PopUpManagerExt.centerPopUp(selectRateReservationPopupView);
+					break;
+				}
+			}
+
+			private function handleSearch():void
+			{
+				var searchDateFrom:Date = dateFrom.selectedDate;
+				var searchDateTo:Date = dateTo.selectedDate;
+				var time:String = DateField.dateToString(dateFrom.selectedDate,GlobalSettings.DATE_SERVER_FORMAT);
+
+				if(dgCalendar.isNeedNewData(searchDateFrom, searchDateTo))
+				{
+					getCalendarData(time);	
+				} 
+				else
+				{
+					dgCalendar.dateArrival = searchDateFrom;
+					dgCalendar.dateDeparture = searchDateTo;
+					dgCalendar.updateColumnsSelection();
+					dgCalendar.invalidateList();
+					
+					dgGroup.dateArrival = searchDateFrom;
+					dgGroup.dateDeparture = searchDateTo;
+					dgGroup.invalidateList();
+					
+					dgAvailableRooms.dateArrival = searchDateFrom;
+					dgAvailableRooms.dateDeparture = searchDateTo;
+					dgAvailableRooms.invalidateList();
+					
+				}
+			}
+
+			private function todaySearch():void
+			{
+				dateFrom.selectedDate = new Date();
+				dateTo.selectedDate = DateUtils.dateAdd(DateUtils.DAY_OF_MONTH,nsNights.value, new Date());
+
+				handleSearch();
+			}
+
+
+			private function handleApply():void
+			{
+				var reservation:ReservationVO = new ReservationVO();
+				reservation.iId = 0;
+				reservation.iHotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+				reservation.aOrders = model.reservationModule.orders.toArray();
+				model.reservationModule.currPage = 1;
+				if(orderDetailsView.isGroupMode)
+				{
+					model.reservationModule.currentGroupReservation = new GroupReservationVO();
+					model.reservationModule.currentGroupReservation.oMapReservation = new ReservationVO();
+					model.reservationModule.currentGroupReservation.oMapReservation.iHotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+					model.reservationModule.currentGroupReservation.oMapReservation.oCaller = new ProfileCallerVO();
+					model.reservationModule.currentGroupReservation.oMapReservation.oCaller.oProfile = new ProfilePersonalVO();
+					model.reservationModule.currentGroupReservation.aRoomBlocked = model.reservationModule.tmpRoomBlockedList; //ReservationRoomBlockedVO
+					
+					for each(var gBasketItem:GroupBasketItem in model.reservationModule.aGroupBasket)
+					{
+						model.reservationModule.currentGroupReservation.iAdults += gBasketItem.iAdults;
+						model.reservationModule.currentGroupReservation.iChildBefore += gBasketItem.iChildBefore;
+						model.reservationModule.currentGroupReservation.iChildMiddle += gBasketItem.iChildMiddle;
+						model.reservationModule.currentGroupReservation.iChildAbove += gBasketItem.iChildAbove;
+						
+					}
+					
+					//Create Blocked Rooms List
+					//createBlockedRoomsList();
+					getArrivalAndDepartureDate();
+					
+					model.reservationModule.reservationMode = 1;
+				}
+				else
+				{
+					model.reservationModule.reservationMode = 0;
+				}
+			}
+			
+			private function getArrivalAndDepartureDate():void
+			{
+				var minDate:Date;
+				var maxDate:Date;
+				var room:ReservationRoomBlockedVO;
+				if(model.reservationModule.currentGroupReservation.aRoomBlocked.length > 0)
+				{
+					room = model.reservationModule.currentGroupReservation.aRoomBlocked[0] as ReservationRoomBlockedVO;
+					minDate = DateField.stringToDate(room.sDate, DateUtils.DATE_SERVER_FORMAT);
+					maxDate = DateField.stringToDate(room.sDate, DateUtils.DATE_SERVER_FORMAT);
+				}
+				
+				if(model.reservationModule.currentGroupReservation.aRoomBlocked.length > 1)
+				{
+					for (var i:int = 1; i < model.reservationModule.currentGroupReservation.aRoomBlocked.length; i++)
+					{
+						room = model.reservationModule.currentGroupReservation.aRoomBlocked[i] as ReservationRoomBlockedVO;
+						var itemDate:Date = DateField.stringToDate(room.sDate, DateUtils.DATE_SERVER_FORMAT);
+						minDate = DateUtils.getMinDate(itemDate,minDate);
+						maxDate = DateUtils.getMaxDate(itemDate,maxDate);
+						
+					}					
+					model.reservationModule.currentGroupReservation.sArrivalDate = DateField.dateToString(minDate, DateUtils.DATE_SERVER_FORMAT);
+					model.reservationModule.currentGroupReservation.sDepartureDate = DateField.dateToString(maxDate, DateUtils.DATE_SERVER_FORMAT);
+				}
+				else
+				{
+					model.reservationModule.currentGroupReservation.sArrivalDate = room.sDate;
+					model.reservationModule.currentGroupReservation.sDepartureDate = room.sDate;					
+				}
+				
+				var tmpDate:Date = DateField.stringToDate(model.reservationModule.currentGroupReservation.sDepartureDate, DateUtils.DATE_SERVER_FORMAT);
+				tmpDate =  DateUtils.dateAdd(DateUtils.DAY_OF_MONTH, 1, tmpDate);
+				model.reservationModule.currentGroupReservation.sDepartureDate = DateField.dateToString(tmpDate, DateUtils.DATE_SERVER_FORMAT); 
+				
+			}			
+			
+			
+
+			private function handleDateArrivalChange():void
+			{
+				var arrivalDate:Date = dateFrom.selectedDate;
+				var departureDate:Date = dateTo.selectedDate;
+				if(departureDate < arrivalDate)
+				{
+					dateTo.text = DateField.dateToString( dateFrom.selectedDate, GlobalSettings.DATE_FORMAT);
+				}
+				calculateNights();
+			}
+
+			private function handleNightsChange():void
+			{
+				var i:int = nsNights.value;
+				dateTo.selectedDate = DateUtils.dateAdd(DateUtils.DAY_OF_MONTH, i, dateFrom.selectedDate);//GlobalFunctions.getDateByDay(dateFrom.text,nightsCount.value,0).date;
+				
+				orderDetailsView.nsRooms.value = nsRooms.value;
+				orderDetailsView.onRoomsCountChange();
+				
+			}
+
+			private function handleDateDepartureChange():void
+			{
+				var arrivalDate:Date = dateFrom.selectedDate;
+				var departureDate:Date = dateTo.selectedDate;
+
+				if(departureDate < arrivalDate)
+				{
+					dateFrom.text = DateField.dateToString( dateTo.selectedDate, GlobalSettings.DATE_FORMAT);
+				}
+
+				calculateNights();
+			}
+
+			private function calculateNights():void
+			{
+				var nights:int = 0;
+				if(dateFrom.selectedDate != null && dateTo.selectedDate != null)
+				{
+					var calcDateFrom:Date = new Date(dateFrom.selectedDate.time);
+					while(calcDateFrom.time < dateTo.selectedDate.time)
+					{
+						nights++;
+
+						calcDateFrom.time += GlobalSettings.DAY_UNIX_TIME;
+					}
+				}
+
+				nsNights.value = nights;
+			}
+
+			private function refreshOrderDetails(updateFlag:Boolean):void
+			{
+				orderDetailsView.nsRooms.value = 1;
+				orderDetailsView.nsAdults.value = 1;
+				orderDetailsView.nsChildrenAge1.value = 0;
+				orderDetailsView.nsChildrenAge2.value = 0;
+				orderDetailsView.nsChildrenAge3.value = 0;
+				orderDetailsView.orderRate.text = model.reservationModule.rateTypeLabel[model.reservationModule.typeOfRate];
+				if(updateFlag)
+				{				
+					altRateMNU.selectedIndex = ReservationModule.BAR;
+					model.reservationModule.typeOfRate = ReservationModule.BAR;				
+					pubAlternativeRate.label = altRateMNU.dataProvider[altRateMNU.selectedIndex].label;
+				}
+				else
+				{
+					orderDetailsView.orderRate.text = model.reservationModule.rateTypeLabel[model.reservationModule.typeOfRate];	
+				}				
+			}
+
+			private function handleNextWeek():void
+			{
+				var nextDate:Date = new Date(dgCalendar.getLastDate().time + GlobalSettings.DAY_UNIX_TIME);
+				dateFrom.selectedDate = nextDate;
+				dateTo.selectedDate = nextDate;
+				calculateNights();
+				var time:String = DateField.dateToString(nextDate,GlobalSettings.DATE_SERVER_FORMAT);
+				getCalendarData(time);
+				//getCalendarData(time);
+			}
+
+			private function handlePrevWeek():void
+			{
+				var prevDate:Date = new Date(dgCalendar.getFirstDate().time - 7*GlobalSettings.DAY_UNIX_TIME);
+				dateFrom.selectedDate = prevDate;
+				dateTo.selectedDate = prevDate;
+				calculateNights();
+				var time:String = DateField.dateToString(prevDate,GlobalSettings.DATE_SERVER_FORMAT);
+				getCalendarData(time);
+			}
+
+			private function handleSearchByKey(event:KeyboardEvent):void
+			{
+				if(event.keyCode == Keyboard.ENTER)
+				{
+					handleSearch();
+				}
+
+				handleNightsChange();
+			}
+
+			private var cmbRates:ComboBox = new ComboBox();
+
+			private function selectRateComplete():void
+			{
+				var lblRate:Label = new Label();
+
+				lblRate.setStyle('fontWeight','bold');
+				bxRates.removeAllChildren();
+				/*if(model.reservationModule.rateType ==  ReservationModule.BAR){
+					changeRate();
+				}*/
+				model.reservationModule.typeOfRate = selectRateReservationPopupView.rateType;
+				
+				if(model.reservationModule.typeOfRate ==  ReservationModule.COMPANY_RATE)
+				{
+					altRateMNU.selectedIndex =  ReservationModule.COMPANY_RATE;
+					pubAlternativeRate.label = altRateMNU.dataProvider[altRateMNU.selectedIndex].label;
+					if(selectRateReservationPopupView.selectedCompanyRates.length == 1) {
+						lblRate.text = (selectRateReservationPopupView.selectedCompanyRates.getItemAt(0) as CompanyRateObjectVO).sName;
+						bxRates.addChild(lblRate);
+						currentCompanyRate = selectRateReservationPopupView.selectedCompanyRates.getItemAt(0) as CompanyRateObjectVO;
+						changeRate();
+					}
+					else {
+						cmbRates.dataProvider = selectRateReservationPopupView.selectedCompanyRates;
+						cmbRates.labelField = 'sName';
+						cmbRates.addEventListener(ListEvent.CHANGE, selectNewRate);
+						bxRates.addChild(cmbRates);
+					}
+				}
+
+				if(model.reservationModule.typeOfRate == ReservationModule.PACKAGE_RATE)
+				{
+					altRateMNU.selectedIndex =  ReservationModule.PACKAGE_RATE;
+					pubAlternativeRate.label = altRateMNU.dataProvider[altRateMNU.selectedIndex].label;
+					if(selectRateReservationPopupView.selectedPackageRates.length == 1) {
+						lblRate.text = (selectRateReservationPopupView.selectedPackageRates.getItemAt(0) as PackageVO).sPackageName;
+						bxRates.addChild(lblRate);
+						currentPackageRate = selectRateReservationPopupView.selectedPackageRates.getItemAt(0) as PackageVO;
+						changeRate();
+					}
+					else {
+						currentPackageRate = selectRateReservationPopupView.selectedPackageRates.getItemAt(0) as PackageVO;
+						changeRate();
+						cmbRates.dataProvider = selectRateReservationPopupView.selectedPackageRates;
+						cmbRates.labelField = 'sPackageName';
+						cmbRates.addEventListener(ListEvent.CHANGE, selectNewRate);
+						bxRates.addChild(cmbRates);
+					}
+				}
+
+			}
+
+			private function selectNewRate(event:ListEvent = null):void
+			{
+
+				if(model.reservationModule.typeOfRate ==  ReservationModule.COMPANY_RATE)
+				{
+					currentCompanyRate = cmbRates.selectedItem as CompanyRateObjectVO;
+					changeRate();
+				}
+
+				if(model.reservationModule.typeOfRate == ReservationModule.PACKAGE_RATE)
+				{
+					currentPackageRate = cmbRates.selectedItem as PackageVO;
+					changeRate();
+				}
+			}
+
+			private function changeRate():void
+			{
+				var i:int;
+				var j:int;
+				var k:int
+				var s:int;
+				var roomType:Object;
+
+				switch(model.reservationModule.typeOfRate)
+				{
+					case ReservationModule.BAR:
+						model.reservationModule.aCalendar = reservDataArray;
+						
+					break;
+					case ReservationModule.COMPANY_RATE:
+						for(i=0;i<model.reservationModule.aCalendar.length;i++)
+						{
+
+							if(model.reservationModule.aCalendar[i].hasOwnProperty("qualityId"))
+							{
+								if(model.reservationModule.aCalendar[i].qualityId == currQualityId)
+								{
+									roomType = model.reservationModule.aCalendar[i];
+									for(j=1;j<15;j++)
+									{
+
+										setCompanyRate(roomType["d"+j] as ReservationCalendarCellVO);
+
+										if(roomType.hasOwnProperty("children"))
+										{
+											for(s=0;s<(roomType.children as Array).length;s++)
+											{
+												for(k=1;k<15;k++)
+												{
+													setCompanyRate(roomType.children[s]["d"+k]);
+												}
+											}
+										}
+									}
+								}
+							}
+
+						}
+					break;
+					case ReservationModule.PACKAGE_RATE:
+						// TEST
+						var testResult:Boolean = true;
+
+						if(currentPackageRate.iMinStay > currentSeletionData.length - 1)
+						{
+							testResult = false;
+						}
+
+						if(currentPackageRate.iMaxStay < currentSeletionData.length - 1)
+						{
+							testResult = false;
+						}
+
+						if(DateUtils.dateDiff(DateUtils.DAY_OF_MONTH, DateField.stringToDate(currentPackageRate.sDateStart,GlobalSettings.DATE_SERVER_FORMAT), (currentSeletionData[0] as ReservationCalendarCellVO).date) < 0)
+						{
+							testResult = false;
+						}
+						//var testD:Date = DateField.stringToDate(currentPackageRate.sDateEnd,GlobalSettings.DATE_SERVER_FORMAT);
+
+						if(DateUtils.dateDiff(DateUtils.DAY_OF_MONTH, (currentSeletionData[currentSeletionData.length - 1] as ReservationCalendarCellVO).date, DateField.stringToDate(currentPackageRate.sDateEnd,GlobalSettings.DATE_SERVER_FORMAT)) < 0)
+						{
+							testResult = false;
+						}
+
+						if(!testResult)
+						{
+							new MsgEvent(MessageKind.WARNING,
+										"Warning",
+										"Unfortunately, this Package rate couldn't be applied to selected period. BAR will be used to calculate the price.\n"
+										+ "Package details: valid from " + currentPackageRate.sDateStart + " to " + currentPackageRate.sDateEnd + ", min stay - " + currentPackageRate.iMinStay + ", max stay - " + currentPackageRate.iMaxStay + ".",
+
+										MessageShowType.UNKNOWN).dispatch();
+							return;
+						}
+
+						// IF TEST PASSED
+						for(i=0;i<model.reservationModule.aCalendar.length;i++)
+						{
+
+							if(model.reservationModule.aCalendar[i].hasOwnProperty("qualityId"))
+							{
+								if(model.reservationModule.aCalendar[i].qualityId == currQualityId)
+								{
+									roomType = model.reservationModule.aCalendar[i];
+									for(j=1;j<15;j++)
+									{
+
+										setPackageRate(roomType["d"+j] as ReservationCalendarCellVO);
+
+										if(roomType.hasOwnProperty("children"))
+										{
+											for(s=0;s<(roomType.children as Array).length;s++)
+											{
+												for(k=1;k<15;k++)
+												{
+													setPackageRate(roomType.children[s]["d"+k]);
+												}
+											}
+										}
+									}
+								}
+							}
+
+						}
+					break;
+				}
+				dgCalendar.aCalendarData = model.reservationModule.aCalendar;
+				
+				
+			}
+
+			private function setCompanyRate(rate:ReservationCalendarCellVO):void
+			{
+				if(rate!=null)
+				{
+					rate.sRateName = currentCompanyRate.sName;
+					rate.iCompanyRateId = currentCompanyRate.iRateId;
+					rate.iPackageRateId = 0;
+					rate.iRateId = 0;
+					rate.iBarId = 0;
+					rate.fPriceOne = currentCompanyRate.fPriceOneAdult;
+					rate.fPriceTwo = currentCompanyRate.fPriceTwoAdults;
+					rate.fPriceThree = currentCompanyRate.fPriceTwoAdults + currentCompanyRate.fPriceExtraAdult;
+					rate.fPriceExtra = currentCompanyRate.fPriceExtraAdult;
+					rate.fPriceChildBefore = 0;
+					rate.fPriceChildMiddle = 0;
+					rate.fPriceChildAbove = 0;
+					
+				}
+				currentRate = rate;
+			}
+
+			private function setPackageRate(rate:ReservationCalendarCellVO):void
+			{
+				if(rate!=null)
+				{
+					rate.sRateName = currentPackageRate.sPackageName;
+					rate.iCompanyRateId = 0;
+					rate.iPackageRateId = currentPackageRate.iPackageId;
+					rate.iRateId = 0;
+					rate.iBarId = 0;
+					rate.fPriceOne = currentPackageRate.fPriceOneAdult;
+					rate.fPriceTwo = currentPackageRate.fPriceTwoAdults;
+					rate.fPriceThree = currentPackageRate.fPriceTwoAdults + currentPackageRate.fPriceExtraAdult;
+					rate.fPriceExtra = currentPackageRate.fPriceExtraAdult;
+					rate.fPriceChildBefore = currentPackageRate.fPriceChildBelow;
+					rate.fPriceChildMiddle = currentPackageRate.fPriceChildMiddle;
+					rate.fPriceChildAbove = currentPackageRate.fPriceChildAbove;
+					rate.bPriceIsPerStay = currentPackageRate.bPriceIsPerStay;
+				}
+				currentRate = rate;
+			}
+			
+			/**------------------------------------------------------
+			*						Group			 
+			**/	
+			private function openGroupReservation(event:ListEvent):void
+			{
+				if(event.itemRenderer != null)
+				{
+					if(event.itemRenderer.data != null)
+					{
+						if(event.itemRenderer.data.hasOwnProperty("id"))
+						{
+							var getGroupReservationEvent:GetGroupReservationEvent = new GetGroupReservationEvent();
+							getGroupReservationEvent.iId = event.itemRenderer.data.id;
+							getGroupReservationEvent.callBack = showGroupReservationEdit;
+							getGroupReservationEvent.dispatch();							
+						}
+					}
+				}
+			}
+			private function showGroupReservationEdit():void
+			{
+				model.reservationModule.openGRFromSearch = false;
+				model.reservationModule.currPage = 1;
+				model.reservationModule.reservationMode = 1;
+				
+				/*
+				var pageEvent:PageEvent = new PageEvent();
+				pageEvent.index = 8; // 8 - Reservation
+				pageEvent.dispatch();*/				
+			}			
+			
+
+		]]>
+	</mx:Script>
+
+
+	<mx:DateValidator id="dateValidator" inputFormat="{GlobalSettings.DATE_FORMAT}" />
+	<mx:DateFormatter id="dateFormatter" formatString="{GlobalSettings.DATE_FORMAT}"/>
+
+	<mx:VBox width="100%" height="100%" verticalGap="0">
+	
+		<mx:HBox width="100%" paddingBottom="5">
+			<mx:VBox>
+				<mx:FormItem label="Arrival:" labelWidth="70">
+					<mx:DateField id="dateFrom"
+						width="{GlobalSettings.WIDTH_DATE_FIELD}"
+						formatString="{GlobalSettings.DATE_FORMAT}"
+						disabledRanges="{[ {rangeEnd: DateUtils.dateAdd(DateUtils.DAY_OF_MONTH,-1, model.businessDate)} ]}"
+						change="handleDateArrivalChange()"/>
+				</mx:FormItem>
+				<mx:FormItem label="Departure:" labelWidth="70">
+					<mx:DateField id="dateTo"
+						width="{GlobalSettings.WIDTH_DATE_FIELD}"
+						formatString="{GlobalSettings.DATE_FORMAT}"
+						disabledRanges="{[ {rangeEnd:dateFrom.selectedDate} ]}"
+						change="handleDateDepartureChange()"/>
+				</mx:FormItem>				
+			</mx:VBox>
+			
+			<mx:VBox>
+				<mx:FormItem label="Nights:" labelWidth="60">
+					<mx:NumericStepper id="nsNights"
+						change="handleNightsChange()"
+						minimum="0" maximum="14"
+						keyUp="handleSearchByKey(event)"/>
+				</mx:FormItem>
+				<mx:FormItem label="Rooms:" labelWidth="60">
+					<mx:NumericStepper id="nsRooms"
+						change="handleNightsChange()"
+						minimum="0" maximum="99"
+						keyUp="handleSearchByKey(event)"/>
+				</mx:FormItem>				
+			</mx:VBox>
+			
+			<mx:VBox>
+				<mx:HBox>
+					<mx:Button id="search_ReservationView"
+						label="Check Availability"
+						click="{handleSearch()}"
+						enabled="{UtilsMXML.and(dateFrom.selectedDate != null, dateTo.selectedDate != null)}"
+						keyUp="handleSearchByKey(event)"/>
+					<!--mx:CheckBox id="chkShowGroups"	
+						label="Show Groups"
+						change="onShowGroupsChange()"
+						selected="{isShowGroup}"/-->				
+				</mx:HBox>
+					
+				<!--mx:Button id="btnToday"
+					label="Today"
+					click="{todaySearch()}"/-->
+				<mx:CheckBox id="chkShowTentetiveRooms"
+					label="Show Results Including Tentative Rooms"/>				
+			</mx:VBox>
+
+			<mx:HBox width="100%"
+				horizontalAlign="right">
+				<mx:HBox>
+					<mx:HBox visible="{model.reservationModule.typeOfRate == 0 ? false : true}">
+						<mx:Label text="Rate"/>
+						<mx:Box id="bxRates"/>
+					</mx:HBox>
+
+					<mx:PopUpButton id="pubAlternativeRate"/>
+
+					<!--mx:Button label="Alternative Rate"
+						click="btnAltRateClick()"
+						id="btnAltRate"/-->
+				</mx:HBox>
+			</mx:HBox>
+		</mx:HBox>
+
+		<!--mx:VBox width="100%" height="100%"-->			
+			<mx:Canvas width="100%" height="100%"
+				horizontalScrollPolicy="off">			
+				
+								
+					<!-- Room Types	-->
+					<dataGrid:ReservationCalendar id="dgCalendar"						
+						width="100%" 
+						horizontalScrollPolicy="off" verticalScrollPolicy="off"					
+						resizableColumns="false"/>
+					<!-- Info (Occ.DEF / Occ.DEF/TEN / Available Rooms)	-->
+					<dataGrid:AvailableRoomsCalendar id="dgAvailableRooms"
+						y="{dgCalendar.y + dgCalendar.height}"
+						width="100%" height="170" 
+						horizontalScrollPolicy="off" verticalScrollPolicy="off"
+						borderSides="left right"
+						resizableColumns="false"/>
+					<!-- Groups		-->
+					<dataGrid:GroupReservationCalendar id="dgGroup"
+						width="100%"
+						horizontalScrollPolicy="off" verticalScrollPolicy="off"
+						y="{dgAvailableRooms.y + dgAvailableRooms.height}"
+						
+						selectionMode="multipleCells"
+						resizableColumns="false"
+        				allowMultipleSelection="false"
+						doubleClickEnabled="true"
+						
+						itemDoubleClick="{openGroupReservation(event)}"	        				
+						/>
+					<mx:HRule width="100%"/>
+			</mx:Canvas>		
+		<!--/mx:VBox-->
+	
+		
+		<mx:HBox width="100%" horizontalAlign="center">
+			<mx:Button
+				id="btnWeekPreview"
+				label="&lt;&lt;"
+				toolTip="Previous Week"
+				click="{handlePrevWeek()}"
+				enabled="{model.reservationModule.aCalendar.length > 0 ? true : false}"/>
+			<!--mx:Spacer width="100%"/-->
+			<mx:Label text="Week"/>
+			<mx:Button
+				id="btnWeekNext"
+				label=">>"
+				toolTip="Next Week"
+				click="{handleNextWeek()}"
+				enabled="{model.reservationModule.aCalendar.length > 0 ? true : false}"/>
+		</mx:HBox>
+		
+		
+
+		<mx:HBox
+			backgroundColor="#FFFFFF"
+			width="100%"
+			horizontalGap="0" verticalGap="0"
+			enabled="{model.reservationModule.aCalendar.length > 0 ? true : false}">			
+
+			<!-- Order Detail	-->
+
+			<mx:VBox id="boxOrderDetails" 
+				backgroundColor="#FFFFFF"
+				width="460" height="100%" verticalGap="0">
+				<mx:ApplicationControlBar width="100%">
+					<mx:Label text="Order detail" fontSize="16" fontWeight="bold"/>
+					<mx:Spacer width="100%"/>
+					<mx:Button id="btnAddToBasket"
+						label="Add to Basket"
+						enabled="{currentSeletionData.length > 1}"
+						click="{handleAddToBasket()}">
+						<mx:icon>
+							{GlobalImageAssets.getInstance().cartAddIcon}
+						</mx:icon>
+					</mx:Button>
+				</mx:ApplicationControlBar>			
+				<subview:OrderDetailsView id="orderDetailsView"
+					sDateFrom="{dateFrom.text}"
+					sDateTo="{dateTo.text}"
+					isGroupMode="{isGroupMode}"
+					isReservationTypeEnabled="{UtilsMXML.and(model.reservationModule.orders.length == 0, model.reservationModule.aGroupBasket.length == 0)}"
+					width="100%" height="100%"/>
+				
+			</mx:VBox>
+
+			<!-- Basket	-->
+
+			<mx:VBox id="boxBasket"
+				backgroundColor="#FFFFFF"
+				width="100%" verticalGap="0">
+				<mx:ApplicationControlBar width="100%" horizontalGap="0">
+					<mx:Label text="Basket" fontSize="16" fontWeight="bold"/>
+					<mx:Spacer width="100%"/>
+					<mx:Label text="Total Price: " 
+						fontWeight="bold" fontSize="17"/>					
+					<mx:Label text="{orderDetailsView.rbIndividualReservationType.selected ? UtilsGolobal.round(model.reservationModule.basketTotalPrice,2):
+																							 UtilsGolobal.round(model.reservationModule.iTotalGroupReservationPrice,2)	}" 
+						fontWeight="bold" fontSize="20"/>
+					<mx:Spacer width="100%"/>
+					<mx:Button id="btnPersonalData"
+						label="Go to Personal Data"
+						click="{handleApply()}"
+						enabled="{model.reservationModule.orders.length > 0 || model.reservationModule.aGroupBasket.length > 0}">
+						<mx:icon>
+							{GlobalImageAssets.getInstance().groupGoIcon}
+						</mx:icon>						
+					</mx:Button>	
+				</mx:ApplicationControlBar>
+				<reservationCreate:BasketView id="basket"
+					visible="{!orderDetailsView.isGroupMode}"
+					includeInLayout="{!orderDetailsView.isGroupMode}"
+					width="100%" height="100%"/>
+				<reservationCreate:BasketForGroupView id="basketForGroup"
+					visible="{orderDetailsView.isGroupMode}"
+					includeInLayout="{orderDetailsView.isGroupMode}"
+					width="100%" height="100%"/>		
+					
+			</mx:VBox>
+		</mx:HBox>
+	</mx:VBox>
+</VSubWindow>

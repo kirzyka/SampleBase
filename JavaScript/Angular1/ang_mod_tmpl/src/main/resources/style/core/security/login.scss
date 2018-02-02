@@ -1,0 +1,88 @@
+.log-out{
+ //@include cross(animation,logOut 0.3s linear);
+}
+
+.log-in{
+ //@include cross(animation,logIn 0.3s linear);
+}
+
+.log-error {
+  input {
+    @include cross(animation,logError 0.5s linear);
+  }
+}
+
+.login-form {
+  display: inline-block;
+  width: 350px;
+  text-align: left;
+  color: $color-white;
+
+  .content {
+    /*background: url("../asset/img/header-back-blue.png");*/
+
+    .form {
+
+      input {
+        color: $color-black;
+        width: 100%;
+        padding: 10px;
+        box-sizing: border-box;
+      }
+
+    }
+
+    .control-box {
+      position: relative;
+      text-align: right;
+      padding: 5px 0 0 0;
+
+      .login-btn {
+        color: $color-white;
+        background: $color-blue-2;
+        box-sizing: border-box;
+        width: 100%;
+        border: 2px solid $color-blue-2;
+        height: 36px;
+      }
+    }
+  }
+
+}
+
+/*@keyframes logIn {
+  0% {
+    opacity: 0;
+    @include cross(transform,scale(0));
+
+  }
+  100% {
+    opacity: 1;
+    @include cross(transform,scale(1));
+   }
+}*/
+
+@keyframes logOut {
+  0% {
+    opacity: 1;
+    @include cross(transform,scale(1));
+
+  }
+  100% {
+    opacity: 0;
+    @include cross(transform,scale(0));
+  }
+}
+
+@keyframes logError {
+  0% {
+    background: #ff9490;
+    //@include cross(transform,scale(1));
+
+  }
+  100% {
+    background: #fff;
+    //@include cross(transform,scale(0));
+  }
+}
+

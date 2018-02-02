@@ -1,0 +1,406 @@
+<?xml version="1.0" encoding="utf-8"?>
+<popup:DataPopupView 
+	xmlns:popup="framework.view.components.popups.*"  
+	editTitle="Edit Room" 
+	addTitle="Add Room" 
+	xmlns:mx="http://www.adobe.com/2006/mxml" 
+	xmlns:control="h2olib.control.*"
+	layout="vertical"
+	showCloseButton="true" close="closeWindow()" creationComplete="handleInit()">
+	<mx:Script>
+		<![CDATA[
+			import services.events.hotels.AddRoomListEvent;
+			import services.business.roomSettings.RoomSettingsDelegate;
+			import services.events.roomSettings.GetRoomSettingsDataEvent;
+			import services.events.hotels.GetHotelStageListEvent;
+			import services.vo.hotels.HotelRoomObjectVO;
+			import services.events.hotels.GetHotelRoomTypesEvent;
+			import services.events.hotels.GetHotelRoomSettingsEvent;
+			import services.vo.hotels.HotelRoomWithBedTypesObjectVO;
+			import services.vo.hotels.HotelRoomTypeObjectVO;
+			import services.events.hotels.AddRoomEvent;
+			import services.vo.GlobalStorage;
+			import mx.events.CloseEvent;
+			import mx.events.CollectionEvent;
+			import services.vo.GlobalSettings;
+			import mx.utils.ObjectUtil;
+			import mx.utils.ArrayUtil;
+			import services.vo.backend.RoomWithBedTypesObjectVO;
+			import services.vo.backend.RoomTypeRowVO;
+			import mx.controls.Alert;
+			import mx.collections.ArrayCollection;
+			import services.vo.backend.RoomTypesObjectVO;
+			import services.vo.backend.RoomSettingObjectVO;
+			import framework.model.AppModelLocator;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.controller.AppController;
+			import framework.managers.PopUpManagerExt;
+		
+			[Bindable]
+			private var submitEnable:Boolean = false;
+			
+			[Bindable]
+			private var rsHotelItems:ArrayCollection = new ArrayCollection();
+			[Bindable]
+			private var rsItems:ArrayCollection = new ArrayCollection();
+			
+			
+			private var i:int = 0;
+			private var j:int = 0;
+			
+			private function handleInit():void
+			{				
+				//fill date
+				var evt:GetRoomSettingsDataEvent = new GetRoomSettingsDataEvent( AppController.GET_ROOM_SETTINGS_DATA_EVENT ); 
+				evt.isMandatory = true;
+				CairngormEventDispatcher.getInstance().dispatchEvent( evt );
+				
+				if (isEdit)
+				{
+					roomGenerator.visible = false;
+					var getRSevt:GetHotelRoomSettingsEvent = new GetHotelRoomSettingsEvent( AppController.GET_HOTEL_ROOM_SETTINGS );
+					getRSevt.callBack = handleGetHotelRoomSetting;
+					CairngormEventDispatcher.getInstance().dispatchEvent( getRSevt );
+					
+					roomName.text = model.hotelsModule.currRoom.sRoomName;
+					var useRoomSetting:RoomSettingObjectVO;
+					
+					if (model.hotelsModule.currRoom.aRoomSetting!=null && model.hotelsModule.currRoom.aRoomSetting.length != 0)
+					{	
+									
+						for (var y:int = 0; y < model.hotelsModule.currRoom.aRoomSetting.length; y++)
+						{
+							useRoomSetting = model.hotelsModule.currRoom.aRoomSetting[y] as RoomSettingObjectVO;
+							if (useRoomSetting.sCodeDirect == GlobalSettings.DS)
+							{
+								disabled.selected = true;
+							}
+							if (useRoomSetting.sCodeDirect == GlobalSettings.SM || useRoomSetting.sCodeDirect == GlobalSettings.NS)
+							{
+								for(var i:int = 0; i < cmbSmoker.dataProvider.length; i++)
+								{
+									if(cmbSmoker.dataProvider.getItemAt(i).sCodeDirect == useRoomSetting.sCodeDirect)
+									{
+										cmbSmoker.selectedIndex = i;
+										break; 
+									}
+								}
+							}
+						}
+					}
+					roomCapacity.value = model.hotelsModule.currRoom.iRoomCapacity;	
+				}
+				else
+				{
+					roomGenerator.visible = true;
+					getRSevt = new GetHotelRoomSettingsEvent( AppController.GET_HOTEL_ROOM_SETTINGS );
+					CairngormEventDispatcher.getInstance().dispatchEvent( getRSevt );
+				}
+			
+				roomName.restrict = "0-9";
+				rsHotelItems = ObjectUtil.copy( model.hotelsModule.hotelRoomSettings ) as ArrayCollection;				
+				
+			}
+			
+			private function handleGetHotelRoomSetting():void
+			{
+				
+				for(i = 0;i<roomSettingList.dataProvider.length;i++)
+				{
+					if (model.hotelsModule.currRoom.aRoomSetting!=null && model.hotelsModule.currRoom.aRoomSetting.length != 0)
+					for (j = 0; j <  model.hotelsModule.currRoom.aRoomSetting.length; j++)
+						if ((model.hotelsModule.currRoom.aRoomSetting[j] as RoomSettingObjectVO).iRsettingCode == model.hotelsModule.hotelRoomSettings.getItemAt(i).iRsettingCode)
+						{
+						(model.hotelsModule.hotelRoomSettings.getItemAt(i) as RoomSettingObjectVO).bIsSelected = true;
+				}		}		
+				selectCurrentRoomType();
+			}
+			
+		
+			/**
+			 * 	Set room type dropdown.
+			*/
+			private function selectCurrentRoomType():void
+			{
+				i = model.hotelsModule.hotelRoomTypes.length;				
+				while(i--)
+				{
+					if ((model.hotelsModule.hotelRoomTypes[i] as HotelRoomWithBedTypesObjectVO).aRoomWithBedTypes) // if is not standalone
+					{
+						j = (model.hotelsModule.hotelRoomTypes[i] as HotelRoomWithBedTypesObjectVO).aRoomWithBedTypes.length;	
+						while(j--)
+						{
+							if (((model.hotelsModule.hotelRoomTypes[i] as HotelRoomWithBedTypesObjectVO).aRoomWithBedTypes[j] as HotelRoomTypeObjectVO).iId == model.hotelsModule.currRoom.iRoomRTypeId)
+							{
+								roomQuality.selectedIndex = i;
+								hotelRoomType.selectedIndex = j;
+							}
+						}
+					}
+					else // It is standalone
+					{
+						if ((model.hotelsModule.hotelRoomTypes[i] as HotelRoomWithBedTypesObjectVO).flx_oRoomStandalone.iId == model.hotelsModule.currRoom.iRoomRTypeId)
+						roomQuality.selectedIndex = i;
+					}		
+				}
+			}
+			
+			/**
+			 * 	Set Room data.
+			 * 	Check for Room generator.
+			 * 	Add Rooms.
+			*/
+			private function handleCreateRoom():void
+			{
+				var rsList:Array = new Array();
+				var useRoomSetting:RoomSettingObjectVO;
+				
+				for(var i:int = 0; i<model.hotelsModule.hotelRoomSettings.length; i++)
+				{
+					useRoomSetting = model.hotelsModule.hotelRoomSettings.getItemAt(i) as RoomSettingObjectVO;
+					if (useRoomSetting.bIsSelected)
+					rsList.push(useRoomSetting); 
+				}
+				
+				for (i = 0; i < model.roomSettingsModule.roomSettingsDP.length; i++)
+				{
+					useRoomSetting = model.roomSettingsModule.roomSettingsDP.getItemAt(i) as RoomSettingObjectVO;
+					if(cmbSmoker.selectedItem.sCodeDirect  == useRoomSetting.sCodeDirect)
+					{
+						rsList.push(useRoomSetting);
+					}
+					if (disabled.selected && (useRoomSetting.sCodeDirect == GlobalSettings.DS))
+					{										
+						rsList.push(useRoomSetting);
+					}
+				}
+				
+				var room:HotelRoomObjectVO = new HotelRoomObjectVO();				
+				
+				room.iRoomId = model.hotelsModule.currRoom.iRoomId;
+				room.sRoomName = roomName.text;
+				room.iRoomCapacity = roomCapacity.value;
+				room.iRoomHotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+				if ((roomQuality.selectedItem as HotelRoomWithBedTypesObjectVO).oRoomQuality.bIsUsedStandalone)
+				room.iRoomRTypeId = (roomQuality.selectedItem as HotelRoomWithBedTypesObjectVO).flx_oRoomStandalone.iId;
+				else				
+				room.iRoomRTypeId = (hotelRoomType.selectedItem as HotelRoomTypeObjectVO).iId;//(bedTypes.selectedItem as HotelRoomTypeObjectVO).oRoomType.iId;
+				room.aRoomSetting = rsList;
+				room.iRoomStageId =  model.hotelsModule.currStage.iStageId;
+				
+				
+				
+				if ((first.text!="")&&(numberOfRooms.text!="")&&(incr.text!="")&&(first.text!="0")&&(numberOfRooms.text!="0")&&(numberOfRooms.text!="1"))
+				{
+					var evt:AddRoomListEvent = new AddRoomListEvent( AppController.ADD_ROOM_LIST_EVENT );
+					evt.room = room;
+					evt.firstNumber = int(first.text);
+					evt.lastNumber =int(first.text) + (int(numberOfRooms.text)-1)*int(incr.text);
+					evt.increment = int(incr.text);
+					CairngormEventDispatcher.getInstance().dispatchEvent( evt );
+				}
+				else
+				{
+					var evt2:AddRoomEvent = new AddRoomEvent( AppController.ADD_ROOM_EVENT );
+					evt2.room = room;
+					CairngormEventDispatcher.getInstance().dispatchEvent( evt2 );	
+				}	
+				
+				
+				
+				/* closeWindow(); */
+				var evt3:GetHotelStageListEvent = new GetHotelStageListEvent( AppController.GET_HOTEL_STAGES );
+				evt3.callBack = closePop;
+				CairngormEventDispatcher.getInstance().dispatchEvent( evt3 );	
+			}
+			/**
+			 * 	Close Window.
+			*/
+			private function closePop():void
+			{
+				var closeEvt:CloseEvent = new CloseEvent(CloseEvent.CLOSE);
+				dispatchEvent(closeEvt);
+				closeWindow();
+			}
+			/**
+			 * 	Close Window.
+			*/
+			private function closeWindow():void
+			{				
+				PopUpManagerExt.removePopUp( this );
+			}
+			/**
+			 * 	Get label for Room Settings List.
+			*/
+			private function getSettingsLabel(item:Object):String
+			{
+				var evtItem:RoomSettingObjectVO = item as RoomSettingObjectVO;
+				
+				return evtItem.sRsettingCode;
+			}
+			/**
+			 * 	Get label for Bed Type List.
+			*/
+			private function getBedTypeLabel(item:Object):String
+			{
+				var evtItem:HotelRoomTypeObjectVO = item as HotelRoomTypeObjectVO;
+				
+				if(evtItem.oRoomType.oBedType == null) 
+				{
+					roomCapacity.value = evtItem.iRoomCapacity;
+					return "";
+				}
+				
+				return evtItem.oRoomType.oBedType.sTypeName;
+			}
+			/**
+			 * 	Get label for Room Settings List.
+			*/
+			private function getRoomTypeLabel(item:Object):String
+			{
+				var evtItem:HotelRoomWithBedTypesObjectVO = item as HotelRoomWithBedTypesObjectVO;
+				
+				return evtItem.oRoomQuality.sQualityName;
+			}
+			/**
+			 * 	Check: Is all required fields are filled.
+			*/
+			private function checkFillRequiredFields():void
+			{
+				if(roomName.text.length > 0) submitEnable = true;
+				else submitEnable = false;
+				   
+			}
+			/**
+			 * 	Add Hotel Room Settings to current room.
+			*/
+			private function handleAdd():void
+			{
+			}
+			/**
+			 * 	Delete Hotel Room Settings from current room.
+			*/
+			private function handleDelete():void
+			{
+				
+			}
+			
+			/**
+			 *	Get selected roomSetting for Room in Hotel configuration.
+			*/
+
+			public function updateSelectionRoomSetting(index:int,selected:Boolean):void
+			{
+				if (index == -1) return;
+				var tempSelect:Boolean = model.hotelsModule.hotelRoomSettings.getItemAt(index).bIsSelected;
+
+				if (tempSelect) tempSelect = false
+				else tempSelect = true;
+
+				model.hotelsModule.hotelRoomSettings[index].bIsSelected = tempSelect;
+				//model.hotelsModule.currRoom.aRoomSetting[i].bIsSelected = tempSelect;
+			}
+			
+			private function updateListBedType():void
+			{
+				hotelRoomType.dataProvider = (model.hotelsModule.hotelRoomTypes.getItemAt(roomQuality.selectedIndex) as HotelRoomWithBedTypesObjectVO).aRoomWithBedTypes;
+			}
+			
+			private function updateCapacity():void
+			{
+				if ((roomQuality.selectedItem as HotelRoomWithBedTypesObjectVO).oRoomQuality.bIsUsedStandalone)
+				{
+					roomCapacity.value = (roomQuality.selectedItem as HotelRoomWithBedTypesObjectVO).flx_oRoomStandalone.iRoomCapacity;
+				}
+				else
+				{
+					roomCapacity.value = (hotelRoomType.dataProvider[hotelRoomType.selectedIndex] as HotelRoomTypeObjectVO).iRoomCapacity;					
+				}				
+			}
+			
+			public function checkFields():void
+			{
+				if (Number(incr.text)==0)
+				{
+					incr.text = '1';
+				}
+			}			
+		]]>
+	</mx:Script>
+	
+	<mx:Form width="100%">
+		<mx:FormItem label="Room Number" required="true">
+			<mx:TextInput id="roomName" change="checkFillRequiredFields()" restrict="0-9" maxChars="{GlobalSettings.ROOM_NAME_LENGTH}"/>
+		</mx:FormItem>
+		<mx:FormItem label="Room Type" required="true" width="100%">
+			<mx:ComboBox id="roomQuality" dataProvider="{model.hotelsModule.hotelRoomTypes}" labelFunction="getRoomTypeLabel" change="updateListBedType()" width="100%"/>
+		</mx:FormItem>
+		<mx:FormItem label="Bed Type" required="true" width="100%">
+			<mx:ComboBox id="hotelRoomType" selectedIndex="0" dataProvider="{(model.hotelsModule.hotelRoomTypes.getItemAt(roomQuality.selectedIndex) as HotelRoomWithBedTypesObjectVO).aRoomWithBedTypes}" 
+				labelFunction="getBedTypeLabel" change="updateCapacity()" width="100%"/>
+		</mx:FormItem>
+		<mx:FormItem label="Room Capacity" >
+			<mx:NumericStepper id="roomCapacity" change="checkFillRequiredFields()" enabled="false"
+				value="{(hotelRoomType.dataProvider.getItemAt(hotelRoomType.selectedIndex) as HotelRoomTypeObjectVO).iRoomCapacity}"/>
+		</mx:FormItem>
+		<mx:FormItem label="{model.locale.Profiles_Individual_Popups_Update_Profile_Additional_Smoker}:"  
+						width="100%" > 
+						<control:ComboBoxEx 
+							id="cmbSmoker"  
+							dataProvider="{GlobalStorage.smokerField}" 
+							labelField="sName" 
+							width="200"/>
+		</mx:FormItem> 
+		<mx:FormItem  visible="false" label="Room Settings" required="true" direction="horizontal">		
+				<mx:RadioButton id="smoker" label="Smoker" groupName="smoker"/>
+				<mx:RadioButton id="non_smoker" label="Non Smoker" groupName="smoker" selected="true"/>					
+		</mx:FormItem> 
+		
+		<mx:FormItem label="" required="true" direction="horizontal">	
+				<mx:RadioButton id="disabled" label="Disabled" groupName="disabled"/>
+				<mx:RadioButton id="non_disabled" label="Non Disabled" groupName="disabled" selected="true"/>	
+		</mx:FormItem>
+		<mx:FormItem label="">
+		<mx:List id="roomSettingList" dataProvider="{model.hotelsModule.hotelRoomSettings}" width="130" height="100%" >
+			<mx:itemRenderer >
+				<mx:Component>
+					<mx:CheckBox width="110"
+						label="{data.sRsettingDesctiptionLocale}" 
+						selected="{data.bIsSelected}"
+						change="{outerDocument.updateSelectionRoomSetting( outerDocument.roomSettingList.selectedIndex, this.selected)}"/>
+				</mx:Component>
+			</mx:itemRenderer>
+		</mx:List>
+			</mx:FormItem>
+		<mx:FormItem />	
+		
+		<mx:Form id="roomGenerator">
+			<mx:Label text="Room Generator" fontWeight="bold"/>
+			<mx:FormItem label="Number of rooms">
+				<mx:TextInput id="numberOfRooms" 
+					restrict="0-9" 
+					text="1" 
+					change="{checkFields()}"/>
+			</mx:FormItem>
+			<mx:FormItem label="Step">
+				<mx:TextInput id="incr" 
+					restrict="0-9" 
+					text="1" 
+					change="{checkFields()}"/>
+			</mx:FormItem>
+			<mx:FormItem label="Starting from">
+				<mx:TextInput id="first" 
+					restrict="0-9" 
+					text="{roomName.text}"/>
+			</mx:FormItem>
+		</mx:Form>
+			
+	</mx:Form>
+	
+	
+	<mx:HBox width="100%" horizontalAlign="left">
+		<mx:Button label="Save" click="handleCreateRoom()"/>
+		<mx:Spacer width="100%" />
+		<mx:Button label="Cancel" click="closeWindow()"/>
+	</mx:HBox>
+</popup:DataPopupView>

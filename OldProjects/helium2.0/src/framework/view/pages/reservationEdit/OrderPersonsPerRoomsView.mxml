@@ -1,0 +1,329 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox xmlns:mx="http://www.adobe.com/2006/mxml"
+	width="100%"
+	height="100%"
+	creationComplete="handleInit()"
+	xmlns:frontend="framework.view.pages.*">
+
+	<mx:Script>
+		<![CDATA[
+			import services.vo.profiles.ProfileCallerVO;
+			import services.vo.profiles.company.CompanyCallerVO;
+			import framework.view.pages.reservationCreate.popups.FindProfilesPopupViewForReservation;
+			import framework.view.pages.reservationCreate.personslist.editors.CompanySearchColumnView;
+			import services.vo.profiles.CompanyProfileVO;
+			import framework.view.pages.reservationCreate.caller.FindCompanyProfilesPopupView;
+			import framework.view.pages.reservationCreate.events.SearchCompanyGuestEvent;
+			import framework.view.pages.reservationCreate.personslist.editors.ProfileSearchColumnView;
+			import mx.managers.PopUpManagerChildList;
+			import h2olib.control.enum.MessageShowType;
+			import h2olib.control.enum.MessageKind;
+			import services.events.MsgEvent;
+			import services.vo.reservation.OrderVO;
+			import mx.controls.TextInput;
+			import services.vo.common.ContactVO;
+			import mx.events.DataGridEvent;
+			import framework.view.pages.reservationCreate.popups.FindProfilesPopupView;
+			import services.vo.profiles.ProfilePersonalVO;
+			import framework.view.pages.reservationCreate.events.RemoveCallerFromRoomEvent;
+			import framework.view.pages.reservationCreate.events.RemovePersonFromRoomEvent;
+			import mx.core.Application;
+			import framework.managers.PopUpManagerExt;
+			import framework.view.pages.reservationCreate.events.ShowProfilesFinder;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.controller.AppController;
+			import services.events.frontend.LoginEvent;
+			import mx.controls.Alert;
+			import services.vo.frontend.ReservationOrderVO;
+			import services.vo.GlobalFunctions;
+			import mx.collections.ArrayCollection;
+			import framework.model.AppModelLocator;
+
+			[Bindable]
+			private var model:AppModelLocator = AppModelLocator.getInstance();
+			
+			[Bindable]
+			public var capacity:int = 0;
+			[Bindable]
+			public var order:OrderVO;
+			[Bindable]
+			public var caller:ProfileCallerVO;
+			[Bindable]
+			public var callerFirstName:String;
+			[Bindable]
+			public var callerLastName:String;
+			[Bindable]
+			public var callerTel:String;
+			[Bindable]
+			public var callerCompany:CompanyProfileVO;
+			[Bindable]
+			public var callerIsGuest:Boolean;
+			[Bindable]
+			public var persons:Array;//ProfilePersonalVO
+
+			public var  msgEvent:MsgEvent;
+
+			override public function set data(value:Object):void
+			{
+				super.data = value;
+			}
+
+			private function handleInit():void
+			{
+				dgPersonsData.addEventListener(ShowProfilesFinder.SHOW_PROFILES_FINDER_EVENT, handleShowProfilesFinder);
+				dgPersonsData.addEventListener(RemovePersonFromRoomEvent.REMOVE_PERSON, handleRemovePersonFromRoom);
+				dgPersonsData.addEventListener(SearchCompanyGuestEvent.SEARCH_COMPANY_EVENT,searchCompanyHandler);
+			}
+
+			private function handleShowProfilesFinder(evt:ShowProfilesFinder):void
+			{
+				var pop:FindProfilesPopupView = PopUpManagerExt.createPopUp(this, FindProfilesPopupView) as FindProfilesPopupView;
+				//pop.startDate = (data as OrderVO).sStartDate;
+				//pop.endDate = (data as OrderVO).sEndDate;
+				pop.callBack = updateFindedProfile;
+				PopUpManagerExt.centerPopUp( pop );
+			}
+
+			private function searchCompanyHandler(event:SearchCompanyGuestEvent):void {
+				var pop:FindCompanyProfilesPopupView = PopUpManagerExt.createPopUp(this, FindCompanyProfilesPopupView) as FindCompanyProfilesPopupView;
+				pop.callBack = setGuestCompany;
+				PopUpManagerExt.centerPopUp(pop);
+			}
+
+			private function setGuestCompany(company:CompanyProfileVO):void {
+				(dgPersonsData.selectedItem as ProfilePersonalVO).sCompanyName = company.sName;
+				(dgPersonsData.selectedItem as ProfilePersonalVO).lCompanyId = company.lMainId;
+			}
+
+			public function updateFindedProfile(profile:ProfilePersonalVO):void
+			{
+				profile.bIsUnknown = false;
+				persons.setItemAt(profile, dgPersonsData.selectedIndex);
+				dgPersonsData.dataProvider = persons;
+			}
+
+			private function handleRemovePersonFromRoom():void
+			{
+				if((dgPersonsData.selectedItem as ProfilePersonalVO).bIsCaller)
+				{
+					callerIsGuest = false;
+				}
+				persons.splice(dgPersonsData.selectedIndex,1);
+				order.iCurrentAdults--;
+				dgPersonsData.dataProvider = persons;
+				
+				dispatchEvent(new Event("addCallerStateChanged"));
+			}
+
+			public function handleAddPerson(typePerson:String):void
+			{
+				//if(order.iCurrentAdults == order.iTotalAdults)
+				if(capacity == persons.length)
+				{
+					new MsgEvent(MessageKind.WARNING,
+											"Warning",
+											"All possible guests have been allready added! ",
+											MessageShowType.UNKNOWN).dispatch();
+					return;
+				}
+
+				var profile:ProfilePersonalVO = new ProfilePersonalVO();
+				if(typePerson == 'caller') {
+					caller.oProfile.bIsCaller = true;
+					caller.oProfile.bIsUnknown = false;
+					callerIsGuest = true;
+					if(caller.oProfile.lId == 0)
+					{
+						profile.bIsCaller = true;
+						profile.bIsUnknown = false;
+						profile.sName = callerFirstName;
+						profile.sSurname = callerLastName;
+						profile.phone = callerTel;
+
+						callerCompany.sName = caller.sCompanyName;
+						profile.sCompanyName = callerCompany.sName;
+
+
+					}
+					else
+					{
+						profile = caller.oProfile;
+					}
+				}
+				persons.push(profile);
+				order.iCurrentAdults++;
+				dgPersonsData.dataProvider = persons;
+				
+				dispatchEvent(new Event("addCallerStateChanged"));
+			}
+
+			public function personDataEditEnd(event:DataGridEvent):void {
+				//var currIndex:int = dgPersonsData.selectedIndex;
+				//var indexProfile:int = persongetItemIndex(dgPersonsData.selectedItem as ProfilePersonalVO);
+
+				for(var i:int=0; i<persons.length; i++)
+				{
+					var person:ProfilePersonalVO = persons[i] as ProfilePersonalVO;
+
+					if(person.lId == (dgPersonsData.selectedItem as ProfilePersonalVO).lId)
+					{
+						if(event.dataField == "sSurname")
+		                {
+							person.sSurname = (dgPersonsData.editedItemRenderer.data as ProfilePersonalVO).sSurname;
+							break;
+		                }
+
+		                if(event.dataField == "sCompanyName")
+		                {
+
+		                	break;
+		                }
+					}
+				}
+
+
+
+
+					/*
+					(persons.ge(dgPersonsData.selectedIndex) as ProfilePersonalVO).sSurname = ProfileSearchColumnView(DataGrid(event.target).itemEditorInstance).lastName.text;
+					if(dgPersonsData.editedItemRenderer.data.sSurname != "" || dgPersonsData.editedItemRenderer.data.lId != 0) {
+						dgPersonsData.editedItemRenderer.data.bIsUnknown = false;
+						if(!(dgPersonsData.selectedItem as ProfilePersonalVO).bIsUnknown && indexProfile == -1) {
+                			reservationProfiles.addItem(dgPersonsData.selectedItem as ProfilePersonalVO);
+                		}
+					}
+					else {
+						dgPersonsData.editedItemRenderer.data.bIsUnknown = true;
+						if(indexProfile != -1 && (dgPersonsData.selectedItem as ProfilePersonalVO).bIsUnknown) {
+                			reservationProfiles.removeItemAt(indexProfile);
+                		}
+					}
+					dgPersonsData.destroyItemEditor();
+                	dgPersonsData.dataProvider = persons;
+                }
+                if(event.dataField == "sCompanyName")
+                {
+                	event.preventDefault();
+                	(persons.getItemAt(dgPersonsData.selectedIndex) as ProfilePersonalVO).sCompanyName = CompanySearchColumnView(DataGrid(event.target).itemEditorInstance).txtCompany.text;
+                	dgPersonsData.destroyItemEditor();
+                	dgPersonsData.dataProvider = persons;
+                }
+                dgPersonsData.selectedIndex = currIndex;*/
+			}
+			
+			[Bindable(event="addCallerStateChanged")]
+			private function get isAddCallerEnabled():Boolean
+			{
+				if (capacity == persons.length) return false;
+				
+				for each(var profile:ProfilePersonalVO in persons)
+				{
+					if (profile.bIsCaller) return false;
+				}
+				
+				return true;
+			}
+		]]>
+	</mx:Script>
+
+	<mx:HBox width="100%"
+		horizontalAlign="left">
+		
+		<!--mx:Button
+			label="Add Person"
+			enabled="false"
+			click="handleAddPerson('unknown')"/>
+		<mx:Button
+			id="btnRemove"
+			enabled="false"
+			label="Remove Person"
+			click="handleRemovePersonFromRoom()"
+			enabled="{dgPersonsData.selectedItem}"/>
+		<mx:Button
+			id="btnAddCaller"
+			enabled="false"
+			label="Add Caller"
+			click="handleAddPerson('caller')"
+			enabled="{isAddCallerEnabled}"/-->
+		<mx:Button
+			label="Add Person"
+			enabled="false"
+			/>
+		<mx:Button
+			id="btnRemove"
+			enabled="false"
+			label="Remove Person"
+			click="handleRemovePersonFromRoom()"
+			/>
+		<mx:Button
+			id="btnAddCaller"
+			enabled="false"
+			label="Add Caller"
+			click="handleAddPerson('caller')"
+			/>
+	</mx:HBox>
+	
+	<mx:DataGrid id="dgPersonsData"
+		height="100%"
+		sortableColumns="false"
+		width="100%"
+		dataProvider="{persons}"
+		rowHeight="30" rowCount="3"
+		editable="false"
+		verticalGridLines="false"
+		itemEditEnd="personDataEditEnd(event)">
+		<mx:columns>
+			<mx:DataGridColumn
+				headerText="Unknown"
+				dataField="bIsUnknown"
+				itemRenderer="framework.view.pages.reservationCreate.personslist.renderers.ProfileUnknownColumnView"
+				editable="false"
+				width="60"/>
+			<mx:DataGridColumn
+				headerText="Caller"
+				dataField="bIsCaller"
+				itemRenderer="framework.view.pages.reservationCreate.personslist.renderers.ProfileCallerColumnView"
+				editable="false"
+				width="60"/>
+			<mx:DataGridColumn
+				headerText="Name"
+				dataField="sSurname"
+				editorDataField="sSurname"
+				editable="true"
+				itemEditor="framework.view.pages.reservationCreate.personslist.editors.ProfileSearchColumnView"/>
+			<mx:DataGridColumn
+				headerText="First Name"
+				dataField="sName"/>
+			<mx:DataGridColumn
+				headerText="Company"
+				dataField="sCompanyName"
+				editorDataField="sCompanyName"
+				editable="true"
+				itemEditor="framework.view.pages.reservationCreate.personslist.editors.CompanySearchColumnView"/>
+			<mx:DataGridColumn
+				headerText="Email"
+				dataField="email"/>
+			<mx:DataGridColumn
+				headerText="Phone"
+				dataField="phone"/>
+			<mx:DataGridColumn
+				headerText="Special Wishes"
+				itemRenderer="framework.view.pages.reservationCreate.personslist.renderers.ProfileWishesColumnView"
+				width="120"
+				editable="false"/>
+			<mx:DataGridColumn
+				headerText="Smoker"
+				dataField="bIsSmoking"
+				itemRenderer="framework.view.pages.reservationCreate.personslist.renderers.ProfileSmokerColumnView"
+				width="90"
+				editable="false"/>
+			<mx:DataGridColumn
+				headerText="Disabled"
+				dataField="bIsDisabled"
+				itemRenderer="framework.view.pages.reservationCreate.personslist.renderers.ProfileDisabledColumnView"
+				width="60"
+				editable="false"/>
+		</mx:columns>
+	</mx:DataGrid>
+
+</mx:VBox>

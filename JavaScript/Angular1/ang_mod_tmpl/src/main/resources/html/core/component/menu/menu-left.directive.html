@@ -1,0 +1,5 @@
+<div ng-init="menuLeftVm.init()">
+    <div ng-repeat="item in menuLeftVm.mnuItems">
+        <a ng-href="{{item.link}}" ng-bind="item.label"></a>
+    </div>
+</div>

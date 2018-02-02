@@ -1,0 +1,280 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:HBox 
+	xmlns:mx="http://www.adobe.com/2006/mxml" 
+	xmlns:control="h2olib.control.*"
+	horizontalGap="0" verticalGap="0"
+	horizontalScrollPolicy="off"
+	verticalScrollPolicy="off"
+	width="100%">
+	
+	<mx:Metadata>
+		[Event(name="change", type="mx.events.ListEvent")]
+	</mx:Metadata>
+	
+	<mx:Script>
+		<![CDATA[
+			import mx.events.ListEvent;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.vo.GlobalImageAssets;
+			
+			import services.controller.AppController;
+			import services.events.backend.AddCityEvent;
+			import services.vo.GlobalImageAssets;
+			import services.vo.common.CityVO;
+			
+			import mx.collections.ArrayCollection;
+			import framework.module.CommonModule;
+			
+			public static const ADD_CITY_STATE:String = "addCity";
+			public static const SELECT_CITY_STATE:String = "";
+			
+			// ================================================================= //
+			//                           VARIABLES                               //
+			// ================================================================= //
+			/**
+			 *  This proeprty contain cities as CityVO.
+			 *  
+			 *  @default new ArrayCollection()
+			 *  
+			 *  @see services.vo.common.CityVO
+			 */
+			private var _dataProvider:/* CityVO */ArrayCollection = new ArrayCollection();
+			/**
+			 *  This property is ID of current selected city.
+			 *  
+			 *  @default 0
+			 */
+			private var _cityID:int = 0;
+			
+			[Bindable]
+			public var labelField:String = "label";
+			[Bindable]
+			public var text:String = "";
+			/**
+			 *  This property is current selected city.
+			 *  
+			 *  @default null
+			 */
+			private var _selectedItem:Object = null;
+			
+			[Bindable]
+			public var selectedIndex:int;
+			/**
+			 *  This property is id of region for new adding city.
+			 */
+			private var _regionID:int;
+			
+			// ================================================================= //
+			//                       FUNCTIONS AND METHODS                       //
+			// ================================================================= //
+			/**
+			 *  Change state from selecting city in the list to state to add new
+			 *  city. For convenience, focus set to input text field (for adding
+			 *  state).
+			 *  
+			 *  @param state - state of view for add or select city.
+			 *  @param newCity - data of city for saving.
+			 */
+			protected function changeView(state:String, newCity:CityVO = null):void
+			{
+				if (state == ADD_CITY_STATE)
+				{
+					this.currentState = ADD_CITY_STATE;
+					txtNewCityName.setFocus();
+					return;
+				}
+				
+				this.currentState = SELECT_CITY_STATE;
+			}
+			/**
+			 *  The handler to add new city by current selected region.
+			 */
+			protected function addCity():void 
+			{
+				var newCity:CityVO = new CityVO();
+				newCity.sCityName = txtNewCityName.text;
+				newCity.lRegionId = regionID;
+				
+				var event:AddCityEvent = new AddCityEvent(AppController.ADD_CITY_EVENT);
+				event.city = newCity;
+				event.addCityComplete = addCityComplete;
+				event.addCityError = addCityError;
+				CairngormEventDispatcher.getInstance().dispatchEvent(event);
+			}
+			/**
+			 *  The handler to complete adding new city normaly.
+			 *  
+			 *  @param newCity - data of city for saving.
+			 */
+			private function addCityComplete(newCity:CityVO):void
+			{
+				changeView(SELECT_CITY_STATE);
+				
+				dataProvider.addItem(newCity);
+				cmbCity.selectedItem = newCity;
+				//add already added city to the cache
+				CommonModule.addCity(newCity);
+				selectedItem = newCity;
+			}
+			
+			private function addCityError():void 
+			{
+				
+			}
+			
+			//------------------
+			public function setItemByField(field:String,value:Object):void
+			{
+				cmbCity.setItemByField(field,value);
+				selectedItem = cmbCity.selectedItem;
+			}
+			public function selectItemByID(value:int):void
+			{
+				cmbCity.setItemByField("lId", value);
+				selectedItem = cmbCity.selectedItem;
+			}
+			// ================================================================= //
+			//                       GETTERS AND SETTERS                         //
+			// ================================================================= //
+			[Bindable]
+			/**
+			 *  The set of items as this component displays. This property is of
+			 *  type CityVO. 
+			 */
+			public function get dataProvider():ArrayCollection
+			{
+				return _dataProvider;
+			}
+			/**
+			 *  @private
+			 */
+			public function set dataProvider(value:ArrayCollection):void
+			{
+				_dataProvider = value;
+				cmbCity.dataProvider = _dataProvider;
+				if(_cityID == 0)
+				{
+					if(dataProvider.length > 0)
+					{
+						cmbCity.selectedItem = dataProvider.getItemAt(0);
+						selectedItem = dataProvider.getItemAt(0);
+					}
+					else 
+					{
+						cmbCity.selectedIndex = -1;
+						selectedItem = null;
+					}
+				}
+				else
+				{
+					cmbCity.setItemByField("lId", _cityID);
+					selectedItem = cmbCity.selectedItem;
+				}
+			}
+			
+			/**
+			 *  ID of current selected city.
+			 */
+			public function get cityID():int
+			{
+				return !_selectedItem ? 0 : (_selectedItem as CityVO).lId;
+			}
+			/**
+			 *  @private
+			 */
+			public function set cityID(value:int):void 
+			{
+				_cityID = value;
+				
+				cmbCity.setItemByField("lId", _cityID);
+			}
+			
+			[Bindable(event="regionIdChanged")]
+			/**
+			 *  ID of region for new city.
+			 */
+			public function get regionID():int
+			{
+				return _regionID;
+			}
+			/**
+			 *  @private
+			 */
+			public function set regionID(value:int):void 
+			{
+				_regionID = value;
+				
+				dispatchEvent(new Event("regionIdChanged"));
+			}
+			
+			[Bindable(event="selectedItemChanged")]
+			/**
+			 *  Current selected city.
+			 */
+			public function get selectedItem():Object
+			{
+				return _selectedItem;
+			}
+			/**
+			 *  @private
+			 */
+			public function set selectedItem(value:Object):void
+			{
+				_selectedItem = value;
+				
+				dispatchEvent(new Event("selectedItemChanged"));
+				dispatchEvent(new ListEvent(ListEvent.CHANGE));
+			}
+			
+			public function change(e:ListEvent):void
+			{
+				selectedItem = cmbCity.selectedItem;
+				
+				dispatchEvent(e.clone());
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:states>
+		<mx:State name="{ADD_CITY_STATE}">
+			<mx:RemoveChild target="{cmbCity}"/>
+			<mx:RemoveChild target="{lbtNewCity}"/>
+			<mx:AddChild position="firstChild">
+				<mx:TextInput id="txtNewCityName"
+					maxChars="50"
+					width="100%"/>
+			</mx:AddChild>
+			<mx:SetProperty target="{txtNewCityName}" name="text" value=""/>
+			<mx:AddChild position="lastChild">
+				<mx:LinkButton id="lbAddCity"
+					icon="@Embed(source='/assets/assets.swf', symbol='AcceptIcon')"
+					click="{addCity()}"
+					toolTip="Save new city"
+					enabled="{txtNewCityName.text.length != 0}"
+					width="23"/>
+			</mx:AddChild>
+			<mx:AddChild position="lastChild">
+				<mx:LinkButton id="lbtCancel"
+					icon="{GlobalImageAssets.getInstance().cancelIcon}"
+					click="{this.currentState = ''}"
+					toolTip="Cancel"
+					width="23"/>
+			</mx:AddChild>
+		</mx:State>
+	</mx:states>
+	
+	<control:ComboBoxEx id="cmbCity"
+		dataProvider="{dataProvider}"
+		labelField="{labelField}"
+		text="{text}"
+		change="change(event)"
+		selectedIndex="{selectedIndex}"
+		width="{width - lbtNewCity.width}"
+		height="24"/>
+	<mx:LinkButton id="lbtNewCity"
+		icon="@Embed(source='/assets/assets.swf', symbol='AddIcon')"
+		click="{changeView(ADD_CITY_STATE)}"
+		toolTip="Add new city"
+		width="23">
+	</mx:LinkButton>
+</mx:HBox>

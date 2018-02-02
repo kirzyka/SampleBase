@@ -1,0 +1,413 @@
+<?xml version="1.0" encoding="utf-8"?>
+<BaseWindow
+	xmlns="framework.core.view.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:control="h2olib.control.*"
+	xmlns:controls="framework.view.components.controls.*"
+	
+	creationComplete="{handleInit()}"  
+	styleName="PageBigWithTopPadding">
+<mx:Script>
+	<![CDATA[
+		import framework.view.pages.businessDay.popups.DoubleSecurityPopupView;
+		import framework.view.pages.businessDay.data.BusinessDayConstants;
+		import mx.controls.advancedDataGridClasses.AdvancedDataGridColumn;
+		import mx.controls.dataGridClasses.DataGridColumn;
+		import services.vo.reports.CorrectionsOfTheDayReportVO;
+		import services.events.reports.GetReportEvent;
+		import services.vo.reports.ManagerReportVO;
+		import services.vo.reports.TransactionCodeReportVO;
+		import services.vo.reports.PaymentOfTheDayVO;
+		import services.vo.reports.NoShowsReportVO;
+		import services.vo.GlobalFunctions;
+		import services.vo.reports.ArrivalReportVO;
+		import services.vo.backend.ReportVO;
+		import mx.controls.AdvancedDataGrid;
+		import services.vo.businessDay.AnnomalyPersonVO;
+		import services.vo.cashShift.BusinessDayVO;
+		import services.vo.checkOut.itemRouting.ItemCheckOutVO;
+		import services.events.BDC.GetAnnomalyPersonEvent;
+		import mx.managers.PopUpManager;
+		import mx.managers.PopUpManagerChildList;
+		import framework.managers.PopUpManagerExt;
+		import services.events.cashShift.StartNewBusinessDayEvent;
+		import services.command.cashShift.StartNewBusinessDayCommand;
+		import framework.core.utils.UtilsMXML;
+		import services.events.cashShift.CloseShiftEvent;
+		import services.events.cashShift.OpenNextShiftEvent;
+		import services.vo.cashShift.CashierVO;
+		import services.vo.cashShift.CashierPaymentVO;
+		import services.events.cashShift.GetShiftPaymentListEvent;
+		import services.events.cashShift.GetDayShiftListEvent;
+		import services.vo.GlobalSettings;
+		import com.adobe.cairngorm.control.CairngormEventDispatcher;
+		import services.controller.AppController;
+		import services.events.cashShift.GetLastOpenShiftEvent;
+
+		[Bindable]
+		private var totalCredit:Number = 0;
+		
+		
+		override public function show():void
+		{	
+			if (isCreated)
+			{
+				getAnnomalyPerson();
+			}		
+		}
+		/**
+		 * Request to server - get annomaly person
+		 */ 
+		private function getAnnomalyPerson():void
+		{
+			var evt:GetAnnomalyPersonEvent = new GetAnnomalyPersonEvent();
+			evt.sDate = DateField.dateToString(dfBusinessDay.selectedDate, GlobalSettings.DATE_SERVER_FORMAT);
+			CairngormEventDispatcher.getInstance().dispatchEvent(evt);
+		}		
+		
+		private function refreshGuestList():void
+		{
+			dfBusinessDay.selectedDate = model.businessDate;
+			getAnnomalyPerson();
+		}
+		
+		/**
+		 * initialize before creation complete
+		 */ 
+		private function handleInit():void
+		{
+			dfBusinessDay.selectedDate = model.businessDate;
+			//getAnnomalyPerson();	
+		}
+		
+		/**
+		 * create pop up for check user
+		 */ 		
+		private function businessDayClose():void
+		{			
+			var pop:DoubleSecurityPopupView = PopUpManagerExt.createPopUp(this, DoubleSecurityPopupView) as DoubleSecurityPopupView;
+			pop.callBack = handleInit;
+			pop.callBack = refreshGuestList;
+			PopUpManagerExt.centerPopUp(pop);
+		}
+		
+		
+		///////////label functions////////////////////////////////////////////////////////
+		private function createLabelLastOpenShift(item:CashierVO):String
+	   {	  
+	   	  return 'pusto';
+	   } 
+		
+		
+		private function createFullName(item:CashierPaymentVO, column:AdvancedDataGrid):String
+	   {
+	   		 return 'pusto';
+	   }
+	   
+	   /**
+			 *  Colorize function for make disable state to added items
+			 *  data grid.
+			 *  
+			 *  @param item:Object
+			 *  @param rowIndex:int
+			 *  @param dataIndex:int
+			 *  @param color:uint
+			 *  
+			 *  @return color as RGB of row
+			 */
+			private function calcRowColor(item:Object, rowIndex:int,
+				dataIndex:int, color:uint):uint
+			{
+				//return ((item as AnnomalyPersonVO).sStatus == 'Not checked out') ? 0xcccccc : color;
+				if (item && item.sStatus)
+				{
+				if (item.sStatus == 'Not checked out') return 0xfbe7e9;
+				if (item.sStatus == 'Not checked in') return 0xdcfafc;
+				}
+				return 0xcccccc;
+			} 
+			
+			
+			/**
+			 *	Create list of report map
+			*/
+			private function handleCreateReportList():void
+			{				
+				if (all.selected)
+				{
+					var report:ReportVO = new ReportVO();							
+				}
+				else
+				{  	
+					if (rbtc.selected)
+					{
+						report = new ReportVO();
+						report.iHotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+						report.sDateReport = DateField.dateToString(dfBusinessDay.selectedDate, GlobalSettings.DATE_SERVER_FORMAT);
+						
+						var transactionCodeReport:TransactionCodeReportVO = new TransactionCodeReportVO();
+						transactionCodeReport.bShowLastYear = false;				
+								
+						report.iReportType = BusinessDayConstants.REVENUE_TRANSACT;
+						report.oReportParameters = transactionCodeReport;				
+						model.reportsList.push(report);	
+					}
+					if (obih.selected)
+					{
+						report = new ReportVO();
+						report.iHotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+						report.sDateReport = DateField.dateToString(dfBusinessDay.selectedDate, GlobalSettings.DATE_SERVER_FORMAT);
+								
+						report.iReportType = BusinessDayConstants.OPEN_BALANCE_IN_HOUSE;
+						report.oReportParameters = null;				
+						model.reportsList.push(report);	
+					}
+					if (jd.selected)
+					{
+						/* report = new ReportVO();
+						report.iHotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+						report.sDateReport = DateField.dateToString(model.businessDate, GlobalSettings.DATE_SERVER_FORMAT);
+						report.iReportType = CASH_SHIFT_CREDIT_CARD;
+						report.oReportParameters = cashId;				
+						model.reportsList.push(report);	 */
+					}
+					if (jcc.selected)
+					{
+						
+					}
+					if (cs.selected)
+					{
+						
+					}
+					if (cotd.selected)
+					{
+						report = new ReportVO();
+						report.iHotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+						report.sDateReport = DateField.dateToString(dfBusinessDay.selectedDate, GlobalSettings.DATE_SERVER_FORMAT);
+						
+						var correctionOfTheDayReport:CorrectionsOfTheDayReportVO = new CorrectionsOfTheDayReportVO();
+
+						correctionOfTheDayReport.sDateFrom = report.sDateReport;
+								
+						report.iReportType = BusinessDayConstants.CORRECTIONS_OF_THE_DAY_REPORT;
+						report.oReportParameters = correctionOfTheDayReport;				
+						model.reportsList.push(report);	
+					}
+					if (mr.selected)
+					{
+						
+						report = new ReportVO();
+						report.iHotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+						report.sDateReport = DateField.dateToString(dfBusinessDay.selectedDate, GlobalSettings.DATE_SERVER_FORMAT);
+						
+						var managerReport:ManagerReportVO = new ManagerReportVO();
+
+						managerReport.bLastYear = true;
+						managerReport.bNet = true;
+								
+						report.iReportType = BusinessDayConstants.MANAGER_REPORT;
+						report.oReportParameters = managerReport;				
+						model.reportsList.push(report);	
+					}
+					if (ar.selected)
+					{
+						report = new ReportVO();
+						report.iHotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+						report.sDateReport = DateField.dateToString(dfBusinessDay.selectedDate, GlobalSettings.DATE_SERVER_FORMAT);
+						
+						report.iReportType = BusinessDayConstants.ACCOUNTS_RECEIVABLE;
+						report.oReportParameters = null;				
+						model.reportsList.push(report);	
+					}
+					if (ns.selected)
+					{	
+						report = new ReportVO();
+						report.iHotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+						report.sDateReport = DateField.dateToString(dfBusinessDay.selectedDate, GlobalSettings.DATE_SERVER_FORMAT);
+						
+						var noShowsReport:NoShowsReportVO = new NoShowsReportVO();
+
+						noShowsReport.iDateFrom = 0;
+						noShowsReport.iDateTo = 0;
+						noShowsReport.sArrivalFrom = report.sDateReport;
+						noShowsReport.sArrivalTo = report.sDateReport;
+								
+						report.iReportType = BusinessDayConstants.NO_SHOWS;
+						report.oReportParameters = noShowsReport;				
+						model.reportsList.push(report);		
+					}
+					
+					if (potd.selected)
+					{
+						report = new ReportVO();
+						report.iHotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+						report.sDateReport = DateField.dateToString(dfBusinessDay.selectedDate, GlobalSettings.DATE_SERVER_FORMAT);
+						
+						var pdReport:PaymentOfTheDayVO = new PaymentOfTheDayVO();				
+								
+						report.iReportType = BusinessDayConstants.PAYMENT_OF_DAY;
+						report.oReportParameters = pdReport;				
+						model.reportsList.push(report);	
+					}
+					
+					if (yo.selected)
+					{
+						
+					}
+					if (arl.selected)
+					{
+						
+					}
+					if (al.selected)
+					{
+						report = new ReportVO();
+						report.iHotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+						report.sDateReport = DateField.dateToString(dfBusinessDay.selectedDate, GlobalSettings.DATE_SERVER_FORMAT);
+						
+						var arrivalReport:ArrivalReportVO = new ArrivalReportVO();		
+						arrivalReport.sArrivalFrom =report.sDateReport;
+						arrivalReport.sArrivalTo = report.sDateReport;
+						arrivalReport.bCheckIn = true;
+						arrivalReport.iSortOrder = BusinessDayConstants.SORT_ORDER_ROOM_NO;									
+		
+						report.iReportType = BusinessDayConstants.ARRIVALS;
+						report.oReportParameters = arrivalReport;				
+						model.reportsList.push(report);						
+					}
+				} 
+				getAllReports();
+			}
+			
+			/**
+			 *	Get reports
+			*/
+			private function getAllReports():void
+			{	
+				var evt:GetReportEvent = new GetReportEvent( AppController.GET_ARRIVAL_REPORT_EVENT );
+				evt.report = model.reportsList.shift();
+				if (model.reportsList.length != 0)
+				evt.callBack = getAllReports;				
+				CairngormEventDispatcher.getInstance().dispatchEvent( evt );
+			}
+			
+			/**
+			 * Button enabled = true if select minimum one radiobutton 
+			 */ 
+			private function selectButtonPrint(item:CheckBox):void
+			{
+				if (item.selected)
+				{
+					buttonPrint.enabled = true;
+				}
+				else if (!rbtc.selected && !obih.selected && !cotd.selected && !mr.selected && !ar.selected && !ns.selected && !potd.selected && !al.selected)
+				{
+					buttonPrint.enabled = false;
+				}				
+			}
+			
+			/**
+			 * Label function of arrival date
+			 */ 
+			private function labelFunctionArrivalDate(item:Object, col:AdvancedDataGridColumn):String
+			{
+				return GlobalFunctions.dateConvert(item.sArrivalDate);
+			}
+			
+			/**
+			 * Label function of departure date
+			 */ 
+			private function labelFunctionDepartureDate(item:Object, col:AdvancedDataGridColumn):String
+			{
+				return GlobalFunctions.dateConvert(item.sDepartureDate);
+			}
+
+	]]>
+</mx:Script>
+<mx:VBox styleName="panel">
+	<mx:Label text="{model.locale.BusinessDay_List_Label_OpenBDC + ' ' +  
+	DateField.dateToString( model.businessDate, GlobalSettings.DATE_FORMAT)}"  
+	fontSize="15" color="#0914F1"/>
+	<mx:HBox styleName="formChildrenGroup1">
+		<mx:DateField id="dfBusinessDay" width="{GlobalSettings.WIDTH_DATE_FIELD}" 
+			selectedDate="{model.businessDate}" formatString="{GlobalSettings.DATE_FORMAT}" 
+			change="{getAnnomalyPerson()}"/>		
+		<mx:Button id="btnCloseShift"
+			label="{model.locale.BusinessDay_List_ButtonBar_CloseBusinessDay}"
+			click="{businessDayClose()}"
+			enabled="{model.cashShiftModule.currOpenShift.sCashierStatusCode == 'BD_STATUS_OPEN'}}"/>
+	</mx:HBox>	
+</mx:VBox>
+<controls:ColoredAdvancedDataGrid id="dgShifts"
+	width="100%" height="100%" 
+	dataProvider="{model.BDCModule.listPerson}"
+	rowColorFunction="calcRowColor" 
+	sortableColumns="false" 
+	rowHeight="33" headerHeight="22" 
+	sortExpertMode="true"
+	styleName="grid">
+	<controls:columns>
+		<mx:AdvancedDataGridColumn
+			headerText="{model.locale.BusinessDay_List_Columns_Status}"
+			dataField="sStatus"/>
+		<mx:AdvancedDataGridColumn
+			headerText="{model.locale.BusinessDay_List_Columns_Room}"
+			dataField="sRoom"/>
+		<mx:AdvancedDataGridColumn
+			headerText="{model.locale.BusinessDay_List_Columns_Name}"
+			dataField="sName"/>
+		<mx:AdvancedDataGridColumn
+			headerText="{model.locale.BusinessDay_List_Columns_ArrDate}"
+			labelFunction="labelFunctionArrivalDate"/>	
+		<mx:AdvancedDataGridColumn
+			headerText="{model.locale.BusinessDay_List_Columns_DepDate}"
+			labelFunction="labelFunctionDepartureDate"/>
+		<mx:AdvancedDataGridColumn
+			headerText="{model.locale.BusinessDay_List_Columns_Company}"
+			dataField="sCompany"/>
+		<mx:AdvancedDataGridColumn
+			headerText="{model.locale.BusinessDay_List_Columns_Phone}"
+			dataField="sPhone"/>
+		<mx:AdvancedDataGridColumn
+			headerText="{model.locale.BusinessDay_List_Columns_Email}"
+			dataField="sEmail"/>
+		<mx:AdvancedDataGridColumn
+			headerText="{model.locale.BusinessDay_List_Columns_Balance}"
+			dataField="fBalance"/>
+	</controls:columns>
+</controls:ColoredAdvancedDataGrid>
+
+<mx:Form label="Print reports:">
+	<mx:HBox>
+		<mx:FormItem>
+			<mx:CheckBox id="all" enabled="false" label="{model.locale.BusinessDay_List_Reports_All}"/>
+			<mx:CheckBox id="rbtc" change="{selectButtonPrint(rbtc)}" label="{model.locale.BusinessDay_List_Reports_Rbtc}"/>
+			<mx:CheckBox id="obih"  enabled="false" label="{model.locale.BusinessDay_List_Reports_Obih}"/>
+			<mx:CheckBox id="jd"  enabled="false" label="{model.locale.BusinessDay_List_Reports_Jd}"/>
+		</mx:FormItem>
+		<mx:FormItem>
+			<mx:CheckBox id="jcc"  enabled="false" label="{model.locale.BusinessDay_List_Reports_Jcc}"/>
+			<mx:CheckBox id="cs" enabled="false" label="{model.locale.BusinessDay_List_Reports_Cs}"/>
+			<mx:CheckBox id="cotd" enabled="false" change="{selectButtonPrint(cotd)}" label="{model.locale.BusinessDay_List_Reports_Cotd}"/>
+			<mx:CheckBox id="mr" change="{selectButtonPrint(mr)}" label="{model.locale.BusinessDay_List_Reports_Mr}"/>
+		</mx:FormItem>
+		<mx:FormItem>
+			<mx:CheckBox id="ar" change="{selectButtonPrint(ar)}" label="{model.locale.BusinessDay_List_Reports_Ar}"/>
+			<mx:CheckBox id="ns" change="{selectButtonPrint(ns)}" label="{model.locale.BusinessDay_List_Reports_Ns}"/>
+			<mx:CheckBox id="potd" change="{selectButtonPrint(potd)}" label="{model.locale.BusinessDay_List_Reports_Potd}"/>
+			<mx:CheckBox id="yo" enabled="false" label="{model.locale.BusinessDay_List_Reports_Yo}"/>
+		</mx:FormItem>
+		<mx:FormItem>			
+			<mx:CheckBox id="arl" enabled="false" label="{model.locale.BusinessDay_List_Reports_Arl}"/>
+			<mx:CheckBox id="al" change="{selectButtonPrint(al)}" label="{model.locale.BusinessDay_List_Reports_Al}"/>
+		</mx:FormItem>
+	</mx:HBox>
+</mx:Form>
+<mx:HBox width="100%" textAlign="right">
+	<mx:Button id="buttonPrint"
+		label="Print"
+		enabled="false"
+		click="{handleCreateReportList()}"
+		width="150"/>
+</mx:HBox>
+
+</BaseWindow>

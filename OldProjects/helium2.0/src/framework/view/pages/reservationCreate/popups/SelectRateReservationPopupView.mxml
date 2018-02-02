@@ -1,0 +1,423 @@
+<?xml version="1.0" encoding="utf-8"?>
+<BasePopupView xmlns="framework.view.components.popups.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:pager="h2olib.control.pager.*"
+	xmlns:controls="framework.view.components.controls.*" 
+	xmlns:control="h2olib.control.*"
+	xmlns:renderer="framework.view.pages.reservationCreate.renderer.*"
+	
+	width="750"
+	height="500"
+	title="Select Alternative {vsRates.selectedIndex  == 2 ? '(Package)' : vsRates.selectedIndex  == 1 ? '(Company Rate)' : '(BAR)'}"
+	creationComplete="onCreationComplete()"
+	>
+
+	<mx:Script>
+		<![CDATA[
+			import framework.module.ReservationModule;
+			import mx.controls.Alert;
+			import h2olib.utils.DateUtils;
+			import services.business.inHouse.InHouseDelegate;
+			import services.events.inHouse.GetPackagesEvent;
+			import services.vo.GlobalSettings;
+			import services.vo.rates.companyRates.CompanyRateObjectVO;
+			import framework.module.ReservationModule;
+			import services.vo.rates.bar.BarPriceVO;
+			import mx.controls.DateField;
+			import services.events.rates.bar.GetHotelBarPriceEvent;
+			import services.vo.backend.PackageVO;
+			import mx.controls.dataGridClasses.DataGridColumn;
+			import com.adobe.cairngorm.model.ModelLocator;
+			import mx.collections.ArrayCollection;
+			import services.events.reservation.GetPackagesRatesForReservationEvent;
+			import services.vo.rates.companyRates.CompanyRatesRequestVO;
+			import services.controller.AppController;
+			import services.events.reservation.GetCompanyRatesForReservationEvent;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.vo.backend.PackageRequestVO;
+			import framework.managers.PopUpManagerExt;
+			import flash.events.KeyboardEvent;
+
+
+			public static const COMPANY_RATES_PAGE:int = 0;
+			public static const PACKAGE_RATES_PAGE:int = 1;
+
+			public static const TABS_STATE:String = "tabsState";
+			
+			public var rateType:int = 0;	
+			public var selectedCompanyRates:ArrayCollection = new ArrayCollection();
+			public var selectedPackageRates:ArrayCollection = new ArrayCollection();	
+			
+			[Bindable]
+			public var ratePage:int = 0;
+
+			[Bindable]
+			public var bar:BarPriceVO = new BarPriceVO();
+			[Bindable]
+			public var isForReservationEdit:Boolean = false;
+			[Bindable]
+			public var isInHouse:Boolean = false;
+
+			public var dateFrom:String;
+			public var dateTo:String;
+			public var roomQualityId:int;
+			public var companyId:Number = 0;
+			private  var companyRateBuffer:ArrayCollection; 
+			//public var bedTypeId:int;
+
+			private var companyRequest:CompanyRatesRequestVO = new CompanyRatesRequestVO();
+			private var packageRequest:PackageRequestVO = new PackageRequestVO();
+
+
+			private function onCreationComplete():void 
+			{
+				rateType = ReservationModule.BAR;
+				selectedCompanyRates = new ArrayCollection();
+				selectedPackageRates = new ArrayCollection();
+
+				loadBAR();
+				loadCompanyRates();
+				loadPackages();
+			}
+
+			private function loadBAR():void
+			{
+				var getHotelBarPriceEvent:GetHotelBarPriceEvent = new GetHotelBarPriceEvent();
+				getHotelBarPriceEvent.iHotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+				getHotelBarPriceEvent.iRoomQualityId = roomQualityId;
+				getHotelBarPriceEvent.sStartDate = dateFrom;
+				getHotelBarPriceEvent.sEndDate = dateTo;
+				getHotelBarPriceEvent.callBack = doAfterBARLoaded;
+				CairngormEventDispatcher.getInstance().dispatchEvent(getHotelBarPriceEvent);
+			}
+
+			private function loadCompanyRates():void
+			{
+				companyRequest.aHotelIds[0] = model.hotelsModule.hotelTotalInfo.iHotelId;
+				companyRequest.iRoomQualityId = roomQualityId;//bedTypeId;
+				companyRequest.iCompanyId = companyId;
+				companyRequest.sDateFrom = dateFrom;
+				companyRequest.sDateTo = dateTo;
+
+				var companyEvent:GetCompanyRatesForReservationEvent = new GetCompanyRatesForReservationEvent();
+				companyEvent.companyRequest = companyRequest;
+				companyEvent.dispatch();
+			}
+ 
+			private function loadPackages():void
+			{
+				if (!isInHouse)
+				{
+					packageRequest.iHotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+					packageRequest.iRoomQualityId = roomQualityId;
+					packageRequest.sDateStart = dateFrom;
+					packageRequest.sDateEnd = dateTo;
+
+					var packageEvent:GetPackagesRatesForReservationEvent = new GetPackagesRatesForReservationEvent();
+					packageEvent.packageRequest = packageRequest;
+					packageEvent.dispatch();
+				}
+			}
+
+			private function doAfterBARLoaded():void
+			{
+				bar = model.ratesModule.barModule.barsForPackage[dateFrom] as BarPriceVO;
+			}
+
+			private function onShowRate(value:String):void {
+				switch (value) {
+					case 'BAR' :
+						selectedCompanyRates = new ArrayCollection();
+						selectedPackageRates = new ArrayCollection();
+						deselectRates(model.reservationModule.companyRates);
+						deselectRates(model.reservationModule.packagesRates);
+						rateType = ReservationModule.BAR;
+						break;
+					case 'company' :
+						if(selectedPackageRates.length > 0 && selectedCompanyRates.length > 0){
+							selectedCompanyRates = new ArrayCollection();
+							deselectRates(model.reservationModule.companyRates);
+						}
+						break;
+
+					case 'package' :
+						if(selectedCompanyRates.length > 0 && selectedPackageRates.length > 0){
+							selectedPackageRates = new ArrayCollection();
+							deselectRates(model.reservationModule.packagesRates);
+						}
+						break;
+				}
+			}
+
+			private function deselectRates(rateCollection:ArrayCollection):void {
+				for each(var item:* in rateCollection) {
+					item.bIsSelected = false;
+				}
+			}
+
+			private function btnApplyClick():void
+			{
+				var pckg:PackageVO;
+				if(!isForReservationEdit)
+				{
+					if(selectedCompanyRates.length > 0)
+					{
+						rateType = ReservationModule.COMPANY_RATE;
+					}
+
+					if(selectedPackageRates.length > 0)
+					{
+						rateType = ReservationModule.PACKAGE_RATE;
+
+						for each(pckg in selectedPackageRates)
+						{
+							if(pckg.bPriceIsRelative)
+							{
+								pckg.fPriceOneAdult = bar.fPriceOneAdult / 100 * pckg.fPriceOneAdult;
+								pckg.fPriceTwoAdults = bar.fPriceTwoAdults / 100 * pckg.fPriceTwoAdults;
+								pckg.fPriceExtraAdult = bar.fPriceExtraAdult / 100 * pckg.fPriceExtraAdult;
+
+								pckg.fPriceChildBelow = bar.fPriceChildBefore / 100 * pckg.fPriceChildBelow;
+								pckg.fPriceChildMiddle = bar.fPriceChildMiddle / 100 * pckg.fPriceChildMiddle;
+								pckg.fPriceChildAbove = bar.fPriceChildAbove / 100 * pckg.fPriceChildAbove;
+							}
+						}
+
+					}
+				} else {
+					if(vsRates.selectedIndex  == 0)
+					{
+						rateType = ReservationModule.BAR;
+					}
+					if(vsRates.selectedIndex  == 1)
+					{
+						if(dgCompany.selectedItem != null)
+						{
+							rateType = ReservationModule.COMPANY_RATE;
+							selectedCompanyRates.removeAll();
+							selectedCompanyRates.addItem(dgCompany.selectedItem as CompanyRateObjectVO);
+						}
+
+					}
+					if(vsRates.selectedIndex == 2)
+					{
+						if(dgPackage.selectedItem != null)
+						{
+							rateType = ReservationModule.PACKAGE_RATE;
+							selectedPackageRates.removeAll();
+							selectedPackageRates.addItem(dgPackage.selectedItem as PackageVO);
+
+							for each(pckg in selectedPackageRates)
+							{
+								if(pckg.bPriceIsRelative)
+								{
+									pckg.fPriceOneAdult = bar.fPriceOneAdult / 100 * pckg.fPriceOneAdult;
+									pckg.fPriceTwoAdults = bar.fPriceTwoAdults / 100 * pckg.fPriceTwoAdults;
+									pckg.fPriceExtraAdult = bar.fPriceExtraAdult / 100 * pckg.fPriceExtraAdult;
+
+									pckg.fPriceChildBelow = bar.fPriceChildBefore / 100 * pckg.fPriceChildBelow;
+									pckg.fPriceChildMiddle = bar.fPriceChildMiddle / 100 * pckg.fPriceChildMiddle;
+									pckg.fPriceChildAbove = bar.fPriceChildAbove / 100 * pckg.fPriceChildAbove;
+								}
+							}
+						}
+					}
+				}
+				// this block used in InHouse module for room reassigment
+				if (isInHouse)
+				{
+					switch(vsRates.selectedIndex)
+					{
+						case 0:
+							rateType = ReservationModule.BAR;
+							break;
+						case 1:
+							rateType = ReservationModule.COMPANY_RATE;
+							model.reservationModule.companyRate = dgCompany.selectedItem as CompanyRateObjectVO;
+							break;
+						case 2:
+							rateType = ReservationModule.PACKAGE_RATE;
+							model.reservationModule.packageRate = dgPackage.selectedItem as PackageVO;
+							break;
+					}
+				}
+
+				completeCall();
+			}
+
+			private function pckgPricePerLabelFunction(item:PackageVO, column:DataGridColumn):String
+			{
+				var result:String = "";
+				if(item.bPriceIsPerStay)
+				{
+					result = "Stay";
+				}else{
+					result = "Night";
+				}
+				return result;
+			}
+
+			private function dateFromLabelFunction(item:CompanyRateObjectVO, column:DataGridColumn):String
+			{
+				return DateField.dateToString(DateField.stringToDate(item.sDateFrom,GlobalSettings.DATE_SERVER_FORMAT), GlobalSettings.DATE_FORMAT);
+			}
+
+			private function dateToLabelFunction(item:CompanyRateObjectVO, column:DataGridColumn):String
+			{
+				return DateField.dateToString(DateField.stringToDate(item.sDateTo,GlobalSettings.DATE_SERVER_FORMAT), GlobalSettings.DATE_FORMAT);
+			}
+
+
+			public function set departureDate(value:String):void
+			{
+				packageRequest.iHotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+				packageRequest.iRoomQualityId = roomQualityId;
+				packageRequest.sDateStart = dateFrom;
+				packageRequest.sDateEnd = dateTo;
+
+				var event:GetPackagesEvent = new GetPackagesEvent(InHouseDelegate.GET_PACKAGES);;
+				event.packageRequest = packageRequest;
+				event.departureDate = value;
+				CairngormEventDispatcher.getInstance().dispatchEvent(event);
+			}
+
+			private function pcksDateStartLabelFunction(item:PackageVO, column:DataGridColumn):String
+			{
+				return DateField.dateToString(DateField.stringToDate(item.sDateStart,GlobalSettings.DATE_SERVER_FORMAT),DateUtils.DATE_CLIENT_FORMAT);
+			}
+			private function pcksDateEndLabelFunction(item:PackageVO, column:DataGridColumn):String
+			{
+				return DateField.dateToString(DateField.stringToDate(item.sDateEnd,GlobalSettings.DATE_SERVER_FORMAT),DateUtils.DATE_CLIENT_FORMAT);
+			}
+
+			]]>
+	</mx:Script>
+<states>
+	<mx:State name="{TABS_STATE}">
+		<mx:AddChild  relativeTo="{mainContainer}" position="firstChild">
+			<mx:LinkBar id="lnkbrRates" dataProvider="{vsRates}"/>
+		</mx:AddChild>
+	</mx:State>
+</states>
+	<mx:VBox id="mainContainer"
+		width="100%"
+		height="100%"
+		borderStyle="solid"
+		borderThickness="1"
+		paddingBottom="10"
+		paddingLeft="10"
+		paddingRight="10"
+		paddingTop="10">
+
+
+
+		<mx:ViewStack id="vsRates"
+			width="100%"
+			height="100%"
+			selectedIndex="{ratePage}">
+			<mx:VBox id="vbBAR"
+				show="onShowRate('BAR')"
+				label="BAR"
+				width="100%"
+				height="100%">
+				<control:MultiLineLabel
+					text="The Best Available Rate for the selected room type will be selected. Please click 'Apply' to proceed"/>
+			</mx:VBox>
+			<mx:VBox id="vbCompany"
+				show="onShowRate('company')"
+				label="Company Rates"
+				width="100%"
+				height="100%">
+				<mx:HBox id="hbSearchCompany" width="100%" styleName="formChildrenGroup1">
+					<controls:AutoCompleteComboBox id="aucmbCompanyRates"
+						dataProvider="{model.reservationModule.companyRates}"
+						close="aucmbCompanyRates.typedText = aucmbCompanyRates.text;"				
+						labelField="{cmbTypeCompanySearch.selectedIndex == 0 ? 'sCompanyName' : 'sName'}"						
+						width="40%"/>
+					<mx:FormItem label="Search By:">
+						<mx:ComboBox id="cmbTypeCompanySearch"
+							dataProvider="{model.reservationModule.typeCompanySearch}"
+							labelField="label"/>
+					</mx:FormItem>
+				</mx:HBox>
+				<mx:DataGrid id="dgCompany"
+					dataProvider="{model.reservationModule.companyRates}"
+					width="100%"
+					height="100%" rowHeight="33" headerHeight="22" styleName="grid">
+					<mx:columns>
+						<mx:DataGridColumn width="{30 * int(!isInHouse)}"
+							visible="{!isForReservationEdit}">
+							<mx:itemRenderer>
+								<mx:Component>
+									<renderer:SelectedRateRenderer parentView="{outerDocument}"/>
+								</mx:Component>
+							</mx:itemRenderer>
+						</mx:DataGridColumn>
+						<mx:DataGridColumn headerText="Company" dataField="sCompanyName" dataTipField="sCompanyName"/>
+						<mx:DataGridColumn headerText="Rate Name" dataField="sName"/>
+						<mx:DataGridColumn headerText="From"
+							labelFunction="dateFromLabelFunction"
+							/>
+						<mx:DataGridColumn headerText="To"
+							labelFunction="dateToLabelFunction"
+							/>
+						<mx:DataGridColumn headerText="Price for 1 Adult" dataField="fPriceOneAdult"/>
+						<mx:DataGridColumn headerText="Breakfast Price" dataField="fBreakfastPrice"/>
+						<mx:DataGridColumn headerText="Incl." dataField="bBreakfastIncluded"/>
+					</mx:columns>
+				</mx:DataGrid>
+				<mx:HBox horizontalAlign="right"
+					width="100%">
+					<pager:Pager/>
+				</mx:HBox>
+			</mx:VBox>
+
+			<mx:VBox id="vbPackage"
+				show="onShowRate('package')"
+				label="Packages Rates"
+				width="100%"
+				height="100%">
+				<mx:HBox id="hbSearchPackage"
+					width="100%">
+					<controls:AutoCompleteComboBox id="aucmbPackageRates"
+						dataProvider="{model.reservationModule.packagesRates}"
+						labelField="sPackageName"
+						width="40%"/>
+				</mx:HBox>
+				<mx:DataGrid id="dgPackage"
+					dataProvider="{model.reservationModule.packagesRates}"
+					width="100%"
+					height="100%" rowHeight="33" headerHeight="22" styleName="grid">
+					<mx:columns>
+						<mx:DataGridColumn width="{30 * int(!isInHouse)}"
+							visible="{!isForReservationEdit}">
+							<mx:itemRenderer>
+								<mx:Component>
+									<renderer:SelectedRateRenderer parentView="{outerDocument}"/>
+								</mx:Component>
+							</mx:itemRenderer>
+						</mx:DataGridColumn>
+						<mx:DataGridColumn headerText="Package Name" dataField="sPackageName"/>
+						<mx:DataGridColumn headerText="From" labelFunction="pcksDateStartLabelFunction"/>
+						<mx:DataGridColumn headerText="To" labelFunction="pcksDateEndLabelFunction" />
+						<mx:DataGridColumn headerText="Price" dataField="fPriceOneAdult"/>
+						<mx:DataGridColumn headerText="Price per" labelFunction="pckgPricePerLabelFunction"/>
+						<mx:DataGridColumn headerText="Min. Stay" dataField="iMinStay"/>
+						<mx:DataGridColumn headerText="Max. Stay" dataField="iMaxStay"/>
+					</mx:columns>
+				</mx:DataGrid>
+				<mx:HBox horizontalAlign="right"
+					width="100%">
+					<pager:Pager/>
+				</mx:HBox>
+			</mx:VBox>
+
+		</mx:ViewStack>
+	</mx:VBox>
+	<mx:HBox horizontalAlign="right"
+		width="100%">
+		<mx:Button id="btnApply"
+			label="Apply"
+			click="btnApplyClick()"/>
+	</mx:HBox>
+</BasePopupView>

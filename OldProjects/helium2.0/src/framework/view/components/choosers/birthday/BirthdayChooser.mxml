@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:HBox
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:control="h2olib.control.*"
+	creationComplete="init()">
+	
+	<mx:Script>
+		<![CDATA[
+			import framework.view.components.choosers.birthday.data.DateData;
+			import framework.components.DateUtils;
+			import framework.model.AppModelLocator;
+			import mx.collections.ArrayCollection;
+			
+			
+			private var _days:ArrayCollection = new ArrayCollection();
+			private var _months:ArrayCollection = new ArrayCollection();
+			[Bindable]
+			private var _years:ArrayCollection = new ArrayCollection();
+			
+			/**
+			 *  
+			 */
+			private var _day:DateData = new DateData();
+			private var _month:DateData = new DateData();
+			private var _year:DateData = new DateData();
+			
+			/**
+			 *  This property is current selected date.
+			 *  
+			 *  @default null
+			 */
+			private var _selectedDate:Date = null;
+			
+			private function init():void
+			{
+				var now:Date = new Date();
+				//months = new ArrayCollection(AppModelLocator.getInstance().months);
+				for(var i:int = 0; i < 12; i++)
+				{
+					var month:DateData = new DateData(i, "month  " + (i + 1));
+					months.addItem(month);
+				}
+				months.addItemAt(new DateData(-1, "----"), 0);
+				
+				for(var year:int = now.fullYear; year > (now.fullYear - 100); year--)
+				{
+					_years.addItem(year);
+				}
+				_years.addItemAt("----", 0);
+				
+				var ddd:String = (new Date(-1, -1, -1)).toDateString();
+			}
+			
+			private function onDaySelected():void
+			{
+				_day
+			}
+			
+			
+			private function handleMonthChange():void
+			{
+				// var date:Date = new Date(
+				//var dayInMonyh:Number = DateUtils.daysInMonth(
+			}
+			
+			private function updateViewDate():void
+			{
+				cmbDay.setItemByField("id", _day.id);
+				cmbMonth.setItemByField("id", _month.id);
+				cmbYear.setItemByField("id", _year.id);
+			}
+			
+			
+			
+			
+			
+			[Bindable(event="daysChanged")]
+			protected function get days():ArrayCollection
+			{
+				return _days;
+			}
+			
+			protected function set days(value:ArrayCollection):void
+			{
+				_days = value;
+				
+				
+				
+				dispatchEvent(new Event("daysChanged"));
+			}
+			
+			[Bindable(event="monthsChanged")]
+			protected function get months():ArrayCollection
+			{
+				return _months;
+			}
+			
+			protected function set months(value:ArrayCollection):void
+			{
+				_months = value;
+				_months.addItem("---");
+				
+				
+				
+				
+				dispatchEvent(new Event("monthsChanged"));
+			}
+			
+			/**
+			 *  Current selected date.
+			 */
+			public function get selectedDate():Date
+			{
+				return _selectedDate;
+			}
+			/**
+			 *  @private 
+			 */
+			public function set selectedDate(value:Date):void
+			{
+				_selectedDate = value;
+				
+				if (!_selectedDate) return;
+				// update params in chooser such as day, month and year
+				_day = new DateData(selectedDate.date, selectedDate.date.toString());
+				_month = new DateData(selectedDate.month, selectedDate.month.toString());
+				_year = new DateData(selectedDate.fullYear, selectedDate.fullYear.toString());
+				// update view selected date
+				updateViewDate();
+			}
+		]]>
+	</mx:Script>
+	
+	<control:ComboBoxEx id="cmbDay"
+		dataProvider="{days}"
+		labelField="name"
+		change="onDaySelected()"
+		width="55"/>
+	<control:ComboBoxEx id="cmbMonth"
+		dataProvider="{months}"
+		labelField="name"
+		change="handleMonthChange()"/>
+	<control:ComboBoxEx id="cmbYear"
+		dataProvider="{_years}"
+		labelField="name"
+		change="handleMonthChange()"
+		width="80"/>
+</mx:HBox>

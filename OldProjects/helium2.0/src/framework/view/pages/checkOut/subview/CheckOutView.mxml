@@ -1,0 +1,692 @@
+<?xml version="1.0" encoding="utf-8"?>
+<page:VSubWindow
+	xmlns:page="framework.core.view.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:stacktrace="framework.view.components.stacktrace.*"
+	xmlns:searchBox="h2olib.control.searchBox.*"
+	xmlns:pager="h2olib.control.pager.*"
+	creationComplete="handleInit()"
+	width="100%" height="100%">
+	
+	<mx:Script>
+		<![CDATA[
+			import mx.controls.advancedDataGridClasses.AdvancedDataGridColumn;
+			import mx.collections.HierarchicalData;
+			import mx.utils.ObjectUtil;
+			import framework.core.utils.UtilsMXML;
+			import services.vo.inHouse.InHouseViewVO;
+			import framework.module.CheckOutModule;
+			import services.events.checkOut.GetCheckoutStateEvent;
+			import services.vo.checkOut.CheckOutGuestListVO;
+			import services.vo.profiles.ProfilePersonalVO;
+			import mx.controls.dataGridClasses.DataGridColumn;
+			import services.vo.GlobalStorage;
+			import services.vo.checkOut.CheckOutSearchVO;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.events.checkOut.GetGuestListEvent;
+			import services.controller.AppController;
+			import services.vo.GlobalSettings;
+			import h2olib.control.pager.event.PagerEvent;
+			import services.vo.response.ResponseVO;
+			import flash.utils.getQualifiedClassName;
+			import mx.core.IFlexDisplayObject;
+			import services.vo.GlobalImageAssets;
+			import framework.model.AppModelLocator;
+			import services.business.checkOut.CheckOutDelegate;
+			import framework.managers.PopUpManagerExt;
+			import mx.controls.DateField;
+			
+			[Bindable]
+			public var visibleIndividualRowCount:int; 
+			[Bindable]
+			public var visibleGroupRowCount:int;
+			
+			
+			[Bindable]
+			public var msgKind:uint;
+			[Bindable]
+			public var msgTitle:String;
+			[Bindable]
+			public var msgMessage:String;
+			public var onCloseEventCallback:Function;
+			
+			private const HEIGHT:Number = 150;
+			private const WIDTH:Number = 700;
+			
+			private const ADVANCED:String = 'Advanced Search';
+			
+			private const SIMPLE:String = 'Simple Search';
+			
+			/**
+			 *  This property contain state of seacr type.
+			 *  If property is <code>true</code>, type of search is Advanced Search. 
+			 *  If <code>false</code> - Simple Search.
+			 *  
+			 *  @default false
+			 */
+			[Bindable]
+			private var isOpen:Boolean = false;
+			[Bindable]
+			private var assets:GlobalImageAssets = GlobalImageAssets.getInstance();
+			
+			private var firstEnterFlag:Boolean = false;
+			
+			/**
+			 *  @override
+			 */
+			override public function update():void
+			{
+				
+				// check statement of type checkout state - choose guest to
+				// check out or make items routing by "In House" check out 
+				if (model.inHouseModule.isCheckOut)
+				{
+					model.checkOutModule.currPage = CheckOutModule.CHECKOUT_ITEMS_ROUTING;
+				}
+				else
+				{
+				    var dateStr:String = DateField.dateToString(model.businessDate, GlobalSettings.DATE_SERVER_FORMAT);
+				    dateOfDeparture.selectedDate = DateField.stringToDate(dateStr, GlobalSettings.DATE_SERVER_FORMAT);
+				    if(model.checkOutModule.needGuestListUpdate)
+				    {
+				    	handleSearchUniversal();
+				    	model.checkOutModule.needGuestListUpdate = false;
+				    }
+					/*var dateStr:String = DateField.dateToString(model.businessDate, GlobalSettings.DATE_SERVER_FORMAT);
+					var event:GetGuestListEvent = new GetGuestListEvent(AppController.CHECK_OUT_GET_GUEST_LIST_EVENT);
+					dateOfDeparture.selectedDate = DateField.stringToDate(dateStr, GlobalSettings.DATE_SERVER_FORMAT);
+					event.checkOutSearch = fillSearchObject();
+					event.checkOutSearch.sDepartureDate = dateStr;
+					event.currentPage = 1;
+					event.countOnPage = pager.pageViewCount;
+					event.searchType = isOpen;
+					CairngormEventDispatcher.getInstance().dispatchEvent(event);*/
+				}
+				btCheckOut.enabled = false;
+			}
+			
+
+			public function handleInit():void
+			{
+				btCheckOut.enabled = false;
+			}
+			
+			/**
+			 * Fill search object
+			 */
+			public function fillSearchObject():CheckOutSearchVO
+			{
+				var tempSearchObject:CheckOutSearchVO = new CheckOutSearchVO();
+				if (isOpen)// advanced search
+				{
+					tempSearchObject.sCity = city.text;
+					tempSearchObject.sCompanyName = company.text;
+					tempSearchObject.sDepartureDate = DateField.dateToString(dateOfDeparture.selectedDate, GlobalSettings.DATE_SERVER_FORMAT);
+					tempSearchObject.sGuestName = firstName.text;
+					tempSearchObject.sGuestSurName = lastName.text;
+					tempSearchObject.sRoomNumber = roomNumber.text;
+					tempSearchObject.sStreet = street.text;
+					tempSearchObject.sTAName = '';
+					tempSearchObject.sZip = zipCode.text;
+				}
+				else // simple search
+				{
+					var pattern:String = (searchField != null) ? searchField.text : "";
+					tempSearchObject.sRoomNumber = pattern;
+					tempSearchObject.sGuestName = pattern;
+					tempSearchObject.sGuestSurName = pattern;
+					tempSearchObject.sCompanyName = pattern;
+					tempSearchObject.sDepartureDate = DateField.dateToString(dateOfDeparture.selectedDate, GlobalSettings.DATE_SERVER_FORMAT);
+				}
+				tempSearchObject.bIsGroupReservation = tnSearch.selectedIndex == 1;
+				return tempSearchObject;
+			}
+			
+			private function checkDate():Boolean
+			{
+				var endDate:String = (dgClientsIndividualList.selectedItem as CheckOutGuestListVO).sEndDate;
+				var departure:Date = DateField.stringToDate(endDate, GlobalSettings.DATE_SERVER_FORMAT);
+				return Boolean(!ObjectUtil.dateCompare(departure, model.businessDate));
+			}
+			
+			/**
+			 *  The handle of search button in simple search.
+			 */
+			private function handleSearchUniversal():void
+			{
+				btCheckOut.enabled = false;
+				var event:GetGuestListEvent = new GetGuestListEvent(AppController.CHECK_OUT_GET_GUEST_LIST_EVENT);
+				event.checkOutSearch = fillSearchObject();
+				event.currentPage = 1;	
+				
+				//event.countOnPage = pagerIndividual.itemPerPageCount;
+				if(pagerIndividual != null)
+				{			
+					event.countOnPage = pagerIndividual.itemPerPageCount;
+				}
+				else
+				{
+					event.countOnPage = 10;
+				}
+				
+				event.callBack = updateGridsDP;
+				event.searchType = isOpen;
+				event.dispatch();
+			}
+			
+			private function updateGridsDP():void
+			{
+				
+				if(tnSearch.selectedIndex == 0)
+				{
+					dgClientsIndividualList.dataProvider = model.checkOutModule.guestIndividualList;
+				}
+				else
+				{
+					dgClientsGroupList.dataProvider = new HierarchicalData(model.checkOutModule.guestGroupList);
+				}
+				firstEnterFlag = true;
+			}
+			
+			/**
+			 *  The handle of close or open Advanced Search.
+			 */
+			private function handleShowFullSearch():void
+			{
+				if(this.currentState == 'FullSearch')
+				{
+					currentState = '';
+					contract.play();
+					isOpen = false;
+				}
+				else {
+					currentState = 'FullSearch';
+					expand.play();
+					isOpen = true;
+				}
+			}
+
+			
+			private function changeView():void
+			{
+				model.checkOutModule.attachedItemsView = new Dictionary(true);
+				model.checkOutModule.currPage = CheckOutModule.CHECKOUT_ITEMS_ROUTING;
+			}
+
+	
+
+
+			// =========================================================
+			//					INDIVIDUAL
+			// =========================================================	
+			
+			/**
+			 *  The handle check out client.
+			 */
+			private function handleIndividualCheckOut():void
+			{
+				if (!btCheckOut.enabled) return;
+				
+				model.checkOutModule.guest = (dgClientsIndividualList.selectedItem as CheckOutGuestListVO).aProfilePersonal[0] as ProfilePersonalVO;
+				model.checkOutModule.iOrderId = (dgClientsIndividualList.selectedItem as CheckOutGuestListVO).iOrderId;
+				//model.checkOutModule.reservationId = (dgClientsIndividualList.selectedItem as CheckOutGuestListVO).iReservationId;
+				model.checkOutModule.roomType = InHouseViewVO.TYPE_NORMAL;
+				model.checkOutModule.roomId = 0;
+				model.checkOutModule.attachedItemsView = new Dictionary(true);
+				
+				var event:GetCheckoutStateEvent = new GetCheckoutStateEvent();
+				event.iOrderId = model.checkOutModule.iOrderId;// .hotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+				//event.iReservationId =model.checkOutModule.reservationId;
+
+				event.callBack = changeView;
+				event.dispatch();				
+			}	
+
+			
+			/**
+			 * Get clients of select page
+			 */
+			private function handleIndividualGetGuestPage(e:PagerEvent):void
+			{
+				if(firstEnterFlag)
+				{
+					var dateStr:String = DateField.dateToString(model.businessDate, GlobalSettings.DATE_SERVER_FORMAT)
+					var event:GetGuestListEvent = new GetGuestListEvent(AppController.CHECK_OUT_GET_GUEST_LIST_EVENT);
+					event.checkOutSearch = fillSearchObject();
+					event.checkOutSearch.sDepartureDate = dateStr;
+					event.currentPage = e.index;
+					event.countOnPage = pagerIndividual.itemPerPageCount;
+					event.searchType = isOpen;
+					CairngormEventDispatcher.getInstance().dispatchEvent(event);
+				}
+			}
+
+			/**
+			 *  Calculate visible rows in grid with living guests.
+			 *  This calculation nedd to make fit of pager system.
+			 */
+			private function calcIndividualVisibleRow():void
+			{
+				visibleIndividualRowCount = Math.round((dgClientsIndividualList.height - dgClientsIndividualList.headerHeight - 16) / dgClientsIndividualList.rowHeight);
+			}	
+			
+
+			
+			private function rnIndividualLabelFunction(item:Object, column:DataGridColumn):String
+			{
+				if ((item as CheckOutGuestListVO).bFirst)
+				{
+					return 	(item as CheckOutGuestListVO).sRoomNumber;
+				}
+				return "";
+			}
+			
+			private function otherIndividualLabelFunction(item:CheckOutGuestListVO, column:DataGridColumn):String
+			{
+				if(column.dataField == "firstName")
+				{
+					return item.aProfilePersonal[0].sName;
+				}
+				if(column.dataField == "lastName")
+				{
+					return item.aProfilePersonal[0].sSurname;
+				}
+				if(column.dataField == "company")
+				{
+					return item.aProfilePersonal[0].sCompanyName;
+				}	
+				if(column.dataField == "startDate")
+				{
+					return item.sStartDate;
+				} 
+				if(column.dataField == "endDate")
+				{
+					return item.sEndDate;
+				}
+				if(column.dataField == "groupName")
+				{
+					return item.sGroupName;
+				}
+				return "";
+			}
+			
+			private function otherGroupLabelFunction(item:CheckOutGuestListVO, column:AdvancedDataGridColumn):String
+			{
+				if(column.dataField == "company")
+				{
+					return item.sCompanyName;
+				}
+				if(column.dataField == "sTAName")
+				{
+					return item.sTAName;
+				}	
+				if(item.sRoomNumber != null)
+				{
+					if(column.dataField == "firstName")
+					{
+						return item.aProfilePersonal[0].sName;
+					}
+					if(column.dataField == "lastName")
+					{
+						return item.aProfilePersonal[0].sSurname;
+					}
+					
+					if(column.dataField == "groupName")
+					{
+						return item.sGroupName;
+					}
+					
+				}
+				
+				
+				
+				return "";
+			}
+			
+			/**
+			 *  Label function for view departure date by dd/mm/yyyy format.
+			 *  
+			 *  @param item:Object - item of dataprovider for caller table.
+			 *  @param column:DataGridColumn - column in grid.
+			 *  
+			 *  @result formated date as String.
+			 */
+			private function funcDepartureDateIndividualView(item:Object, column:DataGridColumn):String
+			{
+				var date:Date = DateField.stringToDate((item as CheckOutGuestListVO).sEndDate, GlobalSettings.DATE_SERVER_FORMAT);
+				return DateField.dateToString(date, GlobalSettings.DATE_FORMAT);
+			}
+			
+			private function funcDepartureDateGroupView(item:Object, column:AdvancedDataGridColumn):String
+			{
+				var date:Date = DateField.stringToDate((item as CheckOutGuestListVO).sEndDate, GlobalSettings.DATE_SERVER_FORMAT);
+				return DateField.dateToString(date, GlobalSettings.DATE_FORMAT);
+			}
+			/**
+			 *  Label function for view arrival date by dd/mm/yyyy format.
+			 *  
+			 *  @param item:Object - item of dataprovider for caller table.
+			 *  @param column:DataGridColumn - column in grid.
+			 *  
+			 *  @result formated date as String.
+			 */
+			private function funcArrivalDateIndividualView(item:Object, column:DataGridColumn):String
+			{
+				var date:Date = DateField.stringToDate((item as CheckOutGuestListVO).sStartDate, GlobalSettings.DATE_SERVER_FORMAT);
+				return DateField.dateToString(date, GlobalSettings.DATE_FORMAT);
+			}
+			
+			private function funcArrivalDateGroupView(item:Object, column:AdvancedDataGridColumn):String
+			{
+				var date:Date = DateField.stringToDate((item as CheckOutGuestListVO).sStartDate, GlobalSettings.DATE_SERVER_FORMAT);
+				return DateField.dateToString(date, GlobalSettings.DATE_FORMAT);
+			}
+			
+			// =========================================================
+			//					GROUP
+			// =========================================================	
+			
+			private function handleGroupCheckOut():void
+			{
+				if(dgClientsGroupList.selectedItem != null)
+				{
+					var event:GetCheckoutStateEvent = new GetCheckoutStateEvent();
+					if((dgClientsGroupList.selectedItem as CheckOutGuestListVO).sRoomNumber == null)
+					{
+						model.checkOutModule.reservationId = (dgClientsGroupList.selectedItem as CheckOutGuestListVO).iReservationId;
+						model.checkOutModule.roomType = InHouseViewVO.TYPE_GROUP;
+						//model.checkOutModule.iOrderId = (dgClientsGroupList.selectedItem as CheckOutGuestListVO).iOrderId;
+						model.checkOutModule.iOrderId = 0;
+						event.iReservationId =model.checkOutModule.reservationId;
+						//event.iOrderId = model.checkOutModule.iOrderId;		
+					}	
+					else
+					{
+						model.checkOutModule.guest = (dgClientsGroupList.selectedItem as CheckOutGuestListVO).aProfilePersonal[0] as ProfilePersonalVO;
+						model.checkOutModule.iOrderId = (dgClientsGroupList.selectedItem as CheckOutGuestListVO).iOrderId;
+						//model.checkOutModule.reservationId = (dgClientsGroupList.selectedItem as CheckOutGuestListVO).iReservationId;
+						model.checkOutModule.reservationId = 0;
+						model.checkOutModule.roomType = InHouseViewVO.TYPE_NORMAL;
+						model.checkOutModule.roomId = 0;
+						model.checkOutModule.attachedItemsView = new Dictionary(true);
+				
+						
+						event.iOrderId = model.checkOutModule.iOrderId;// .hotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+						event.iReservationId =model.checkOutModule.reservationId;
+
+						
+					}
+					
+					event.callBack = changeView;
+					event.dispatch();	
+				}
+			}
+			
+			
+			/**
+			 * Get clients of select page
+			 */
+			private function handleGroupGetGuestPage(e:PagerEvent):void
+			{
+				var dateStr:String = DateField.dateToString(model.businessDate, GlobalSettings.DATE_SERVER_FORMAT)
+				var event:GetGuestListEvent = new GetGuestListEvent(AppController.CHECK_OUT_GET_GUEST_LIST_EVENT);
+				event.checkOutSearch = fillSearchObject();
+				event.checkOutSearch.sDepartureDate = dateStr;
+				event.currentPage = e.index;
+				event.countOnPage = pagerIndividual.itemPerPageCount;
+				event.searchType = isOpen;
+				CairngormEventDispatcher.getInstance().dispatchEvent(event);
+			}
+
+
+			/**
+			 *  Calculate visible rows in grid with living guests.
+			 *  This calculation nedd to make fit of pager system.
+			 */
+			private function calcGroupVisibleRow():void
+			{
+				visibleGroupRowCount = Math.round((dgClientsGroupList.height - dgClientsGroupList.headerHeight - 16) / dgClientsGroupList.rowHeight);
+			}	
+						
+				
+			private function updateGuestGrid():void
+			{
+				
+			}	
+			
+			private function manageCheckOutBtn():void
+			{
+				btCheckOut.enabled = false;
+				if(tnSearch.selectedIndex == 0)
+				{
+					if(dgClientsIndividualList.selectedItem)
+					{
+						btCheckOut.enabled = true;
+					}
+				} 
+				else
+				{
+					if(dgClientsGroupList.selectedItem)
+					{
+						btCheckOut.enabled = true;
+					}
+				}					
+			}	
+		]]>
+	</mx:Script>
+	
+	<mx:Resize id="expand"
+		target="{iaia1}"
+		heightTo="135"
+		duration="200"/>
+	<mx:Resize id="contract"
+		target="{iaia1}"
+		heightTo="27"
+		duration="200"/>
+	
+	<!-- Define one view state, in addition to the base state.-->
+	<page:states>
+		<mx:State name="FullSearch">
+			<mx:RemoveChild target="{search}"/>
+			<mx:AddChild relativeTo="{searchButton}" position="before" creationPolicy="all">
+				<mx:HBox>
+					<mx:Form paddingTop="0" paddingBottom="0">
+						<mx:FormItem label="Room number:">
+							<mx:TextInput id="roomNumber"
+								restrict="0-9"
+								maxChars="10"/>
+						</mx:FormItem>
+						<mx:FormItem label="Name:">
+							<mx:TextInput id="lastName"
+								restrict="a-zA-ZAaBbßβÄäÖöÜü"
+								maxChars="25"
+								width="200"/>
+						</mx:FormItem>
+						<mx:FormItem label="First Name:">
+							<mx:TextInput id="firstName"
+								restrict="a-zA-ZAaBbßβÄäÖöÜü"
+								maxChars="25"
+								width="200"/>
+						</mx:FormItem>
+						<mx:FormItem label="Company:">
+							<mx:TextInput id="company"
+								maxChars="25"
+								width="200"/>
+						</mx:FormItem>
+					</mx:Form>
+					<mx:Form paddingTop="0" paddingBottom="0">
+						<mx:FormItem label="City:">
+							<mx:TextInput id="city"
+								maxChars="30"
+								width="200"/>
+						</mx:FormItem>
+						<mx:FormItem label="Street:">
+							<mx:TextInput id="street"
+								maxChars="30"
+								width="200"/>
+						</mx:FormItem>
+						<mx:FormItem label="ZIP code:">
+							<mx:TextInput id="zipCode"
+								maxChars="6"
+								restrict="A-Za-z0-9"									
+								width="89"/>
+						</mx:FormItem>
+						<mx:FormItem label="Date of Departure:">
+							<mx:DateField id="dateOfDeparture" restrict="0-9" 
+								formatString="{GlobalSettings.DATE_FORMAT}" 
+								width="{GlobalSettings.WIDTH_DATE_FIELD}"/>
+						</mx:FormItem>
+					</mx:Form>
+				</mx:HBox>
+			</mx:AddChild>
+		</mx:State>
+	</page:states>
+	
+	<mx:VBox id="view" width="100%" height="100%">
+		<mx:HBox id="iaia1" width="100%" height="24">
+			<mx:HBox id="search" styleName="panel">
+				<mx:FormItem label="Search for:">
+					<searchBox:SearchBox id="searchField"
+						label="Room Number, Guest or Company Name"
+						enter="handleSearchUniversal()"
+						width="250"/>
+				</mx:FormItem>
+			</mx:HBox>
+			<mx:Button id="searchButton"
+				label="Find"
+				click="{handleSearchUniversal()}"/>
+			<mx:LinkButton id="typeOfSearch"
+				label="{!isOpen ? 'Advanced search': 'Simple search'}"
+				click="handleShowFullSearch()"/>
+		</mx:HBox>
+		
+		<mx:TabNavigator id="tnSearch" change="handleSearchUniversal()" width="100%" height="100%">
+		
+			<!--	INDIVIDUAL	-->
+			
+			<mx:VBox label="Individual" width="100%" height="100%">				
+				<mx:DataGrid id="dgClientsIndividualList"
+					itemClick="{manageCheckOutBtn()}"
+					sortableColumns="false"
+					dataProvider="{model.checkOutModule.guestIndividualList}"
+					doubleClickEnabled="true"
+					doubleClick="{handleIndividualCheckOut()}"
+					creationComplete="{calcIndividualVisibleRow()}"
+					width="100%" height="100%">
+					<mx:columns>
+					<mx:DataGridColumn
+							headerText="Name"
+							dataField="lastName"					
+							labelFunction="otherIndividualLabelFunction"/>
+						<mx:DataGridColumn
+							headerText="Room number"
+							dataField="sRoomNumber"
+							labelFunction="rnIndividualLabelFunction"/>
+						
+						<mx:DataGridColumn
+							headerText="First name"
+							dataField="firstName"
+							labelFunction="otherIndividualLabelFunction"/>
+						<mx:DataGridColumn
+							headerText="Company"
+							dataField="company"
+							labelFunction="otherIndividualLabelFunction"/>
+						<mx:DataGridColumn
+							headerText="Travel Agency"
+							dataField="sTAName"/>
+						<mx:DataGridColumn
+							headerText="Group name"
+							dataField="groupName"
+							labelFunction="otherIndividualLabelFunction"/>
+						<mx:DataGridColumn
+							headerText="Arrival date"
+							labelFunction="funcArrivalDateIndividualView"/>
+						<mx:DataGridColumn
+							headerText="Departure date"
+							labelFunction="funcDepartureDateIndividualView"/>
+						<mx:DataGridColumn
+							headerText="Balance, euro"
+							dataField="fBalance"/>
+					</mx:columns>
+				</mx:DataGrid>		
+			</mx:VBox>
+			
+			<!--	GROUP	-->		
+			
+			<mx:VBox label="Group" width="100%" height="100%">
+				<mx:AdvancedDataGrid id="dgClientsGroupList" 
+					itemClick="{manageCheckOutBtn()}"
+					doubleClickEnabled="true"
+					sortableColumns="false"
+					doubleClick="handleGroupCheckOut()"
+					width="100%" height="100%">					
+					<mx:columns>
+						<mx:AdvancedDataGridColumn
+							headerText="Name"
+							dataField="label"					
+							/>						
+						<mx:AdvancedDataGridColumn  
+							headerText="Room number"
+							dataField="sRoomNumber"
+							/>
+						
+						<mx:AdvancedDataGridColumn
+							headerText="First name"
+							dataField="firstName"
+							labelFunction="otherGroupLabelFunction"
+							/>
+						<mx:AdvancedDataGridColumn
+							headerText="Company"
+							dataField="company"
+							labelFunction="otherGroupLabelFunction"
+							/>
+						<mx:AdvancedDataGridColumn
+							headerText="Travel Agency"
+							dataField="sTAName"
+							labelFunction="otherGroupLabelFunction"
+							/>
+						<mx:AdvancedDataGridColumn
+							headerText="Group name"
+							dataField="groupName"
+							labelFunction="otherGroupLabelFunction"
+							/>
+						<mx:AdvancedDataGridColumn
+							headerText="Arrival date"
+							labelFunction="funcArrivalDateGroupView"/>
+						<mx:AdvancedDataGridColumn
+							headerText="Departure date"
+							labelFunction="funcDepartureDateGroupView"/>
+						<mx:AdvancedDataGridColumn
+							headerText="Balance, euro"
+							dataField="fBalance"/>						
+					</mx:columns>
+				</mx:AdvancedDataGrid>
+			</mx:VBox>			
+		</mx:TabNavigator>		
+		
+		
+		
+		<mx:HBox width="100%" horizontalAlign="left">
+			<mx:Button id="btCheckOut"
+				label="Check out"
+				click="{tnSearch.selectedIndex == 0 ? handleIndividualCheckOut() : handleGroupCheckOut()}"
+				enabled="{UtilsMXML.or(UtilsMXML.and(tnSearch.selectedIndex == 0, dgClientsIndividualList.selectedItem),
+									   UtilsMXML.and(tnSearch.selectedIndex == 1, dgClientsGroupList.selectedItem))	}"
+				fontWeight="bold" width="150"/>
+			<mx:Spacer width="100%"/>
+			<pager:Pager id="pagerIndividual"
+				visible="{tnSearch.selectedIndex == 0}"
+				includeInLayout="{tnSearch.selectedIndex == 0}"
+				pageChange="handleIndividualGetGuestPage(event)" 
+				count="{model.checkOutModule.totalPageIndividual}"
+				fit="{visibleIndividualRowCount}"/>
+			<pager:Pager id="pagerGroup"
+				visible="{tnSearch.selectedIndex == 1}"
+				includeInLayout="{tnSearch.selectedIndex == 1}"
+				pageChange="handleGroupGetGuestPage(event)" 
+				count="{model.checkOutModule.totalPageGroup}"
+				fit="{visibleGroupRowCount}"/>				
+				
+		</mx:HBox>
+	</mx:VBox>
+</page:VSubWindow>

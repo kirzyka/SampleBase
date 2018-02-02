@@ -1,0 +1,447 @@
+<?xml version="1.0" encoding="utf-8"?>
+<VSubWindow
+	xmlns="framework.core.view.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:control="h2olib.control.*"
+	xmlns:controls="framework.view.components.controls.*"
+	xmlns:payment="framework.view.pages.checkOut.control.*"
+
+	label="{model.locale.CheckOut_Payment_OtherPayment_Title}"
+	width="100%" height="100%">
+	
+	<mx:Script>
+		<![CDATA[
+			import framework.core.utils.UtilsGolobal;
+			import framework.core.utils.UtilsMXML;
+			import services.events.checkOut.PrintActualReportEvent;
+			import framework.view.components.popups.events.PopupEvent;
+			import framework.view.components.popups.ConfirmationPopupView;
+			import mx.events.CloseEvent;
+			import mx.controls.Alert;
+			import services.vo.inHouse.CheckOutReportsListVO;
+			import services.vo.inHouse.InHouseViewVO;
+			import services.vo.checkOut.payment.CheckoutPaymentVO;
+			import mx.managers.PopUpManagerChildList;
+			import framework.view.pages.checkOut.popups.ReportsPrintPopupView;
+			import framework.managers.PopUpManagerExt;
+			import framework.module.CheckOutModule;
+			import services.vo.checkOut.itemRouting.PaymentVO;
+			import framework.view.pages.checkOut.data.PaymentData;
+			import framework.view.pages.checkOut.renders.DebitorGridItemRenderer;
+			import mx.controls.DateField;
+			import services.events.checkOut.AcceptPaymentsEvent;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.business.checkOut.CheckOutDelegate;
+			import services.events.checkOut.SplitItemEvent;
+			import mx.collections.ArrayCollection;
+			import services.vo.checkOut.itemRouting.ItemCheckOutVO;
+			import services.vo.checkOut.payment.DebitorPaymentVO;
+			import framework.view.pages.checkOut.control.AttachedItemsToAccountView;
+			import framework.view.pages.checkOut.control.DebitorPaymentView;
+			import services.vo.GlobalSettings;
+			
+			[Bindable]
+			private var otherPayment:ArrayCollection = new ArrayCollection();
+			[Bindable]
+			private var _totalItem:DebitorPaymentVO = new DebitorPaymentVO();
+			// other payments items
+			[Bindable]
+			private var _paymentItems:Array = [];
+			
+			/**
+			 *  This property is list with payments applied to other payments.
+			 *  
+			 *  @default []
+			 */
+			 [ArrayElementType("PaymentVO")]
+			private var _splitedPayments:/*PaymentVO*/Array = [];
+			
+			
+			override public function update():void
+			{
+				model.checkOutModule.paymentItemsView = new Dictionary(true);
+				vbDebitorContainer.removeAllChildren();
+				otherPayment.removeAll();
+				
+				_splitedPayments = [];
+				
+				var item:ItemCheckOutVO;
+				var cell:DebitorPaymentVO;
+				
+				for each(var view:AttachedItemsToAccountView in model.checkOutModule.attachedItemsView)
+				{
+					if (!view) continue;
+					
+					var debitorView:DebitorPaymentView = new DebitorPaymentView();
+					
+					debitorView.title = view.title;
+					debitorView.vat = view.vat;
+					debitorView.paymentId = view.paymentId;
+					
+					debitorView.payments = [];
+					// apply routed payments
+					for each(var debitorPayment:CheckoutPaymentVO in model.checkOutModule.routedPaymentItems)
+					{
+						if (debitorPayment.lAppliedPayment == debitorView.paymentId)
+						{
+							debitorView.payments.push(debitorPayment);
+						}
+					}
+					
+					var dataProvider:ArrayCollection = new ArrayCollection();
+					for each(item in view.dataProvider)
+					{
+						cell = new DebitorPaymentVO();
+						cell.lId = item.lId;
+						cell.dDate = item.dDate;
+						cell.sDescription = item.sTransName;
+						cell.lDebit = item.fPrice;
+						cell.lVatId = item.lVatId;
+						cell.iVatValue = item.iVatValue;
+						dataProvider.addItem(cell);
+					}
+					debitorView.dataProvider = dataProvider;
+					debitorView.paymentId = view.paymentId;
+					
+					model.checkOutModule.paymentItemsView[debitorView.paymentId] = debitorView;
+					
+					vbDebitorContainer.addChild(debitorView);
+				}
+				
+				for each(item in model.checkOutModule.routingItems)
+				{
+					if ((!item.bIsChecked) || (item.bIsChecked && item.bIsPayment))
+					{
+						cell = new DebitorPaymentVO();
+						cell.lId = item.lId;
+						cell.dDate = item.dDate;
+						cell.sDescription = item.sTransName;
+						if (item.bIsPayment)
+						{
+							cell.iPaymentType = item.iPaymentType;
+							cell.lCredit = item.fPrice;
+						}
+						else
+						{
+							cell.lDebit = item.fPrice;
+						}
+						// check need add item to other payments
+						if (item.lAppliedPayment == 0)
+						{
+							otherPayment.addItem(cell);
+						}
+					}
+					
+					otherPayment.refresh();
+				}
+				
+				// make special global items for payments from PaymentChooser
+				for(var i:int = 0; i < CheckOutModule.paymentTypes.length; i++)
+				{
+					var type:PaymentData = (CheckOutModule.paymentTypes.getItemAt(i) as PaymentData);
+					var globalItem:DebitorPaymentVO = new DebitorPaymentVO();
+					globalItem.lId = -i;
+					globalItem.iPaymentType = type.type;
+					globalItem.sDescription = type.name;
+					
+					_paymentItems[i] = globalItem;
+					otherPayment.addItem(globalItem);
+				}
+				
+				normalizeOtherPayments();
+				
+				updateTotalItem();
+				
+				cPaymentChooser.clear();
+			}
+			/**
+			 *  Normalize all not routed items by payments and items.
+			 */
+			private function normalizeOtherPayments():void
+			{
+				var i:int;
+				var j:int;
+				var cell:DebitorPaymentVO;
+				var payment:DebitorPaymentVO;
+				// check not routed items
+				for(i = 0; i < otherPayment.length; i++)
+				{
+					// check item to payment
+					cell = otherPayment.getItemAt(i) as DebitorPaymentVO;
+					//for(j = 0; j < _paymentItems.length; j++)
+					for each(payment in _paymentItems)
+					{
+						//payment = _paymentItems[j] as DebitorPaymentVO;
+						if ((cell.iPaymentType != 0) && (payment.iPaymentType == cell.iPaymentType) && (cell.lId > 0))
+						{
+							//_paymentItems[j].lCredit += cell.lCredit;
+							payment.lCredit += cell.lCredit;
+							otherPayment.removeItemAt(i);
+							i--;
+							break;
+						}
+					}
+				}
+				// TODO :: have to it
+				for(i = 0; i < otherPayment.length; i++)
+				{
+					cell = otherPayment.getItemAt(i) as DebitorPaymentVO;
+					for each(payment in _paymentItems)
+					{
+						if (cell.iPaymentType == payment.iPaymentType)
+						{
+							cell.lCredit = payment.lCredit;
+							cell.lDebit = payment.lDebit;
+							otherPayment.setItemAt(cell, i);
+						}
+					}
+				}
+				
+				// apply changes
+				otherPayment.refresh();
+			}
+			
+			
+			private function updateTotalItem():void
+			{
+				var totalCredit:Number = 0;
+				var totalDebit:Number = 0;
+				
+				for(var i:int = 0; i < otherPayment.length; i++)
+				{
+					var item:DebitorPaymentVO = otherPayment.getItemAt(i) as DebitorPaymentVO;
+					totalDebit += item.lDebit * 100;
+					totalCredit += item.lCredit * 100;
+				}
+				
+				// change total item
+				_totalItem = new DebitorPaymentVO();
+				_totalItem.dDate = "";
+				_totalItem.sDescription = "Total";
+				_totalItem.lCredit = totalCredit / 100;
+				_totalItem.lDebit = totalDebit / 100;
+			}
+			
+			/**
+			 *  Label function for view date by dd/mm/yyyy format.
+			 *  
+			 *  @param item:Object - item of dataprovider for caller table.
+			 *  @param column:DataGridColumn - column in grid.
+			 *  
+			 *  @result formated date as String.
+			 */
+			private function funcDateView(item:Object, column:DataGridColumn):String
+			{
+				if ((item as DebitorPaymentVO).dDate)
+				{
+					var date:Date = DateField.stringToDate((item as DebitorPaymentVO).dDate, GlobalSettings.DATE_SERVER_FORMAT);
+					return DateField.dateToString(date, GlobalSettings.DATE_FORMAT);
+				}
+				return "";
+			}
+			
+			private function handleSplit():void
+			{
+				var index:int = cPaymentChooser.cmbPaymentType.selectedIndex;
+				_paymentItems[index].lCredit += Number(cPaymentChooser.ntiAmount.text);
+				
+				updateTotalItem();
+				
+				_splitedPayments.push(cPaymentChooser.payment);
+				
+				cPaymentChooser.clear();
+			}
+			
+			private function handleAcceptPayment():void
+			{
+				var pop:ConfirmationPopupView = PopUpManagerExt.createPopUp(this, ConfirmationPopupView) as ConfirmationPopupView;
+				pop.description = "Are you sure to check out guest?"
+				pop.callBack = tryAcceptPayment;
+			}
+			
+			private function tryAcceptPayment():void
+			{
+				if (_splitedPayments.length > 0)
+				{
+					var event:AddPaymentsEvent = new AddPaymentsEvent(CheckOutDelegate.ADD_PAYMENTS);
+					event.hotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+					event.payments = _splitedPayments;
+					event.callBack = acceptPayment;
+					CairngormEventDispatcher.getInstance().dispatchEvent(event);
+				}
+				else
+				{
+					acceptPayment();
+				}
+			}
+			
+			private function acceptPayment():void
+			{
+				var diff:Number = (UtilsGolobal.round(_totalItem.lCredit,2) - UtilsGolobal.round(_totalItem.lDebit,2));
+				var event:AcceptPaymentsEvent = new AcceptPaymentsEvent(CheckOutDelegate.ACCEPT_PAYMENTS);
+				event.hotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+				event.paymentLineId = model.checkOutModule.paymentLineId;
+				event.isTryToCloseLine = !Boolean(diff);
+				event.departureDate = model.checkOutModule.reservationSummary.dDepartureDate;
+				event.roomId = model.checkOutModule.reservationSummary.lRoomId;
+				event.bIsConference = model.checkOutModule.roomType == InHouseViewVO.TYPE_CONFERENCE;
+				
+				for each(var item:DebitorPaymentView in model.checkOutModule.paymentItemsView)
+				{
+					event.paymentsIds.push(item.paymentId);
+				}
+				event.callBack = completeCheckOut;
+				CairngormEventDispatcher.getInstance().dispatchEvent(event);
+				//model.checkOutModule.needGuestListUpdate = true;
+				_splitedPayments = [];
+			}
+			
+			private function completeCheckOut():void
+			{
+				var isCloseLine:Boolean = !Boolean(UtilsGolobal.round(_totalItem.lCredit,2) - UtilsGolobal.round(_totalItem.lDebit,2));
+				
+				var paymentData:CheckOutReportsListVO = model.checkOutModule.acceptPaymentData;
+				if ((paymentData.aCheckOutReports.length != 0) || (paymentData.sActualReport != null))
+				{
+					var pop:ReportsPrintPopupView = PopUpManagerExt.createPopUp(this, ReportsPrintPopupView) as ReportsPrintPopupView;
+					pop.isTryToCloseLine = isCloseLine;
+					//clear debitor payments
+					model.checkOutModule.attachedItemsView = new Dictionary(true);
+					pop.callBack = backViewGuest;
+				}
+				else
+				{
+					if (model.lastResponse.aMessageStack.length == 0)
+					{
+						var message:String = (isCloseLine) ? "CheckOut is complete!" : "Payments are accepted!";
+						Alert.show(message, "Complete", Alert.YES, null, backViewGuest);
+					}
+					else
+					{
+						CairngormEventDispatcher.getInstance().addEventListener("message_ok", backViewGuest);
+					}
+				}
+			}
+			
+			private function backViewGuest(e:Event = null):void
+			{
+				CairngormEventDispatcher.getInstance().removeEventListener("message_ok", backViewGuest);
+				model.checkOutModule.needGuestListUpdate = true;
+				model.checkOutModule.currPage = CheckOutModule.CHECKOUT_GUESTS_VIEW;
+				
+				cPaymentChooser.clear();
+			}	
+			
+			private function createActualReport():void
+			{
+				var event:PrintActualReportEvent = new PrintActualReportEvent(CheckOutDelegate.PRINT_ACTUAL_REPORT);
+				event.paymentLineId = model.checkOutModule.paymentLineId;
+				event.hotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+				event.isConference = (model.checkOutModule.roomType == InHouseViewVO.TYPE_CONFERENCE);
+				event.roomId = model.checkOutModule.reservationSummary.lRoomId;
+				event.aVirtualPayments = _splitedPayments;
+				event.callBack = showReport;
+				CairngormEventDispatcher.getInstance().dispatchEvent(event);
+			}
+			
+			private function showReport():void
+			{
+				if (model.checkOutModule.invoiceURL)
+				{
+					navigateToURL(new URLRequest(model.checkOutModule.invoiceURL));	
+				}
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:HBox width="100%" height="100%">
+		<control:Frame id="ifDebitor"
+			label="{model.locale.CheckOut_Payment_DebitorPayments_Title}"
+			horizontalScrollPolicy="off"
+			width="100%" height="100%">
+			<mx:VBox id="vbDebitorContainer"
+				width="100%" height="{ifDebitor.height - 40}"/>
+		</control:Frame>
+		
+		<control:Frame
+			label="{model.locale.CheckOut_Payment_OtherPayment_Title}"
+			width="100%" height="100%">
+			<controls:ColoredDataGrid id="cdgOtherPayment"
+				dataProvider="{otherPayment}"
+				allowMultipleSelection="true"
+				draggableColumns="false"
+				resizableColumns="false"
+				width="100%" height="100%">
+				<controls:columns>
+					<mx:DataGridColumn
+						headerText="{model.locale.CheckOut_Payment_Columns_Date}"
+						labelFunction="funcDateView"
+						itemRenderer="{new ClassFactory(DebitorGridItemRenderer)}"
+						width="120"/>
+					<mx:DataGridColumn
+						headerText="{model.locale.CheckOut_Payment_Columns_Description}"
+						dataField="sDescription"
+						itemRenderer="{new ClassFactory(DebitorGridItemRenderer)}"/>
+					<mx:DataGridColumn
+						headerText="{model.locale.CheckOut_Payment_Columns_Debit}"
+						dataField="lDebit"
+						itemRenderer="{new ClassFactory(DebitorGridItemRenderer)}"
+						width="60"/>
+					<mx:DataGridColumn
+						headerText="{model.locale.CheckOut_Payment_Columns_Credit}"
+						dataField="lCredit"
+						itemRenderer="{new ClassFactory(DebitorGridItemRenderer)}"
+						width="60"/>
+				</controls:columns>
+			</controls:ColoredDataGrid>
+			
+			<mx:VBox
+				horizontalAlign="right"
+				verticalGap="0"
+				width="100%">
+				<mx:HBox width="200">
+					<mx:Label
+						text="Total:"
+						fontWeight="bold"/>
+					<mx:Label
+						text="{UtilsGolobal.convertTo2DecimalPlaces((UtilsGolobal.round(_totalItem.lDebit,2) - UtilsGolobal.round(_totalItem.lCredit,2)).toString())}"
+						fontWeight="bold"/>
+				</mx:HBox>
+				<payment:PaymentChooser id="cPaymentChooser"
+					width="400"/>
+			</mx:VBox>
+			
+			<mx:HBox width="100%" horizontalAlign="right">
+				<mx:Button id="btPrintActualReport"
+					label="{model.locale.CheckOut_Buttons_PrintActualReport}"
+					click="createActualReport()"/>
+				<mx:Button id="btSplit"
+					label="{model.locale.CheckOut_Payment_Buttons_Split}"
+					enabled="{cPaymentChooser.valid}"
+					click="handleSplit()"
+					width="{GlobalSettings.BUTTON_WIDTH}"/>
+			</mx:HBox>
+		</control:Frame>
+	</mx:HBox>
+	
+	<mx:HBox width="100%" horizontalAlign="right">
+		<mx:Button
+			label="{model.locale.Global_Button_Back}"
+			click="{model.checkOutModule.currPage = CheckOutModule.CHECKOUT_ITEMS_ROUTING}"
+			width="{GlobalSettings.BUTTON_WIDTH_APPLY}"/>
+		<mx:Button id="btAcceptPayment"
+			label="{model.locale.CheckOut_Buttons_AcceptPayment}"
+			click="handleAcceptPayment()"
+			width="{GlobalSettings.BUTTON_WIDTH_APPLY}"/>
+	</mx:HBox>
+	
+	<mx:NumberFormatter id="nfAmount"
+		precision="2"
+		useThousandsSeparator="false"
+		rounding="none"/>
+	
+	<mx:NumberValidator id="nvAmount"
+		source="{cPaymentChooser.ntiAmount}"
+		property="text" 
+		domain="real"/>
+</VSubWindow>

@@ -1,0 +1,231 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:HBox  xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:control="h2olib.control.*"
+	width="100%" horizontalGap="0"
+	horizontalScrollPolicy="off" verticalScrollPolicy="off" 
+	xmlns:ui="h2olib.control.itemRenderer.treeCheckbox.sepy.ui.*">
+	<!--
+	/*
+	* 3StateTreeView.mxml
+	*
+	* @author Viktor Potapov / Ramada
+	*
+	* @version $Revision 1.0 $ $Date: 2009-10-12 10:00:03 +0300 (Пн, 12 окт 2009) $
+	*
+	*/
+	Description: we must to have elements which will contain the following fields: 
+	sLabel, children, middle, selected, iParentId. For example TreeItemVO.
+	-->
+
+
+	<mx:Script >
+		<![CDATA[
+			import mx.events.ListEvent;
+			import mx.events.ItemClickEvent;
+			import mx.charts.chartClasses.DualStyleObject;
+			import mx.core.Application;
+			import mx.containers.ViewStack;
+			import mx.collections.ArrayCollection;
+
+			/**
+			 *  Indent between the levels in tree.
+			 */
+			[Bindable]
+			public var indent:int = 12;
+			
+			[Bindable]
+			/**
+			 *  Width of tree.
+			 */
+			public var treeWidth:int = 500;
+			/**
+			 *  Data provider.
+			 */
+			private var _treeDataProvider:Array = [];
+			[Bindable (event = "treeDataProviderChange")]
+			public function get treeDataProvider():Array
+			{
+			 return _treeDataProvider;
+			}
+			public function set treeDataProvider(value:Array):void
+			{
+				 _treeDataProvider = value;
+			  dispatchEvent(new Event("treeDataProviderChange"));
+			}
+			/**
+			 *  The handle of selecting item in list of the groups.
+			 */
+			
+			 public function handleSelectItem(item:Object):void
+			{
+			 // set possible open or close selected item
+			 var tree:Tree = myTree as Tree;
+			 tree.expandItem(item, !tree.isItemOpen(item), true, true);		 
+			}
+		
+			/**
+			 *  Calculate checks in tree.
+			 */
+			public function calculateChecksInTree(item:Object, tree:Array):void
+			{
+				  	item.middle = false;
+				 item.selected = !item.selected;	
+					recChild(item);	
+				 recPar(item, tree);
+				 
+				 myTree.validateNow();
+			}
+			
+			private function recChild(item:Object):void
+			{
+				var childrenLength:int = 0;
+				if (item.children != null)
+				{
+					if (item.selected)
+					{
+						childrenLength = item.children.length;
+						for (var i:int = 0; i < childrenLength; i++)
+						{
+							(item.children[i]).selected = true;
+							recChild(item.children[i]);
+						}
+					}
+					else
+					{
+						childrenLength = item.children.length;
+						for (i = 0; i < item.children.length; i++)
+						{
+							(item.children[i]).selected = false;
+							recChild(item.children[i]);
+						}
+					}
+				}
+			}
+			
+			private function recPar(item:Object, tree:Array):void
+			{
+				var tempItemLength:int
+				var tempItem:Object = new Object();
+				var i:int = 0;
+				if (item.iParentId)
+				{
+					if (item.selected)	
+					{
+						tempItem = searchItemInTree(item.iParentId, tree);
+						tempItem = searchItemInTree(item.iParentId, treeDataProvider);
+						tempItem.middle = false;
+						tempItem.selected = true;
+						tempItemLength = tempItem.children.length;
+						if (tempItem.children)
+						{
+							for (i = 0; i < tempItemLength; i++)
+							{
+								if (!tempItem.children[i].selected || tempItem.children[i].middle)
+								{								
+									tempItem.selected = false;
+									tempItem.middle = true;
+								}
+							}
+						}
+						recPar(tempItem, tree);
+					}
+					else if (item.middle == true)
+					{
+						tempItem = searchItemInTree(item.iParentId, tree);
+						tempItem.middle = true;
+						tempItem.selected = false;
+						recPar(tempItem, tree);
+					}
+					else	
+					{
+						tempItem = searchItemInTree(item.iParentId, tree);
+						tempItem.middle = false;
+						tempItem.selected = false;
+						if (tempItem.children)
+						{
+							tempItemLength = tempItem.children.length;
+							for (i = 0; i < tempItemLength; i++)
+							{
+								if (tempItem.children[i].selected || tempItem.children[i].middle)
+								{
+									tempItem.selected = false;
+									tempItem.middle = true;
+								}
+							}
+						}
+						recPar(tempItem, tree);
+					}
+				}
+		}
+		
+		public function calculatePadding(item:Object, padding:int, tree:Array):int
+		{
+				 if (item.iParentId)
+				{
+					if (searchItemInTree(item.iParentId, tree).iParentId)
+					{
+						return 2*padding;
+					}
+					else
+					{
+						return padding;
+					}
+				} 
+				return 0;
+		}
+		
+		public function searchItemInTree(id:Number, tree:Array):Object
+		{
+			var temp:Object;
+			var tempArray:Array = [];
+			var treeLength:int = tree.length;
+					
+			for (var i:int = 0; i < treeLength; i++)
+			{
+				if (tree[i].iId == id)
+				{
+					temp = tree[i];
+					return temp;
+				}
+			}
+			
+			for (i = 0; i < treeLength; i++)
+			{
+				if (tree[i].children)
+				{
+				tempArray = tree[i].children;
+				temp = searchItemInTree(id, tempArray);
+				if (temp)
+					return temp;
+				}
+			}
+			return null;
+		}
+		]]>
+	</mx:Script>
+
+
+
+	<mx:Tree id="myTree"
+		paddingLeft="15" 
+		textAlign="left"
+		height="100%" 
+		width="{treeWidth}"
+		showRoot="false"
+		shadowDistance="50"
+		dataProvider="{treeDataProvider}">
+ 		<mx:itemRenderer>
+			<mx:Component>
+				<mx:HBox horizontalGap="-8">
+					<ui:CheckBoxExtended
+						label=""
+						paddingLeft="{outerDocument.calculatePadding(data, outerDocument.indent, outerDocument.treeDataProvider)}"
+						click="{outerDocument.calculateChecksInTree(data, outerDocument.treeDataProvider)}"
+						selected="{data.selected}"
+						middle="{data.middle}"/>
+					<mx:Text text="{data.sLabel}" click="outerDocument.handleSelectItem(data)" selectable="false"/>
+				</mx:HBox>
+			</mx:Component>
+		</mx:itemRenderer>
+	</mx:Tree>
+</mx:HBox>

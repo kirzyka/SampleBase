@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<view:HSubWindow
+	xmlns:view="framework.core.view.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	textAlign="center"
+	horizontalScrollPolicy="off"
+	paddingLeft="15"
+	height="100%" width="100%">
+	
+	<mx:Script>
+		<![CDATA[
+			import services.vo.backend.RoomSettingObjectVO;
+		]]>
+	</mx:Script>
+	
+	<mx:Image
+		visible="{RoomSettingObjectVO(data).bIsSpwish == true}"
+		source="@Embed(source='/assets/assets.swf', symbol='CheckIcon')"/>
+</view:HSubWindow>

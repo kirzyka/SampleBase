@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="utf-8"?>
+<BasePopupView 
+	xmlns="framework.view.components.popups.*" 
+	xmlns:mx="http://www.adobe.com/2006/mxml" 
+	xmlns:control="h2olib.control.*"
+	
+	width="500" height="400"
+	
+	creationComplete="onCreationComplete()"
+	
+	title="From {profile.sSurname + ' ' + profile.sName}" >
+
+<mx:Script>
+	<![CDATA[
+		import framework.core.utils.UtilsGolobal;
+		import mx.utils.ObjectUtil;
+		import mx.events.CollectionEvent;
+		import services.vo.reservation.OrderVO;
+		import framework.core.utils.UtilsMXML;
+		import framework.view.pages.reservationCreate.data.RoomingListItem;
+		import mx.collections.ArrayCollection;
+	
+		import services.vo.profiles.ProfilePersonalVO;
+		
+		[Bindable]
+		public var orderId:int;
+		[Bindable]
+		public var profile:ProfilePersonalVO = new ProfilePersonalVO();
+		
+		[Bindable]
+		private var aTargetList:ArrayCollection = new ArrayCollection(); //RoomingListItem
+		[Bindable]
+		private var bIsAllSelected:Boolean;
+		[Bindable]
+		private var bIsAllUnselected:Boolean = true;
+		
+		
+		
+		private function onCreationComplete():void
+		{
+			aTargetList.addEventListener(CollectionEvent.COLLECTION_CHANGE, checkSelection);
+			createTargetList();
+		}
+		
+		private function createTargetList():void
+		{
+
+			for each(var item:RoomingListItem in model.reservationModule.aRoomingList)
+			{
+				if(item.oProfile != profile && item.iOrderId != orderId)
+				{
+					aTargetList.addItem(item);
+				}
+			}
+			lstTargetList.dataProvider = aTargetList;
+		}
+		
+		private function onSelectAllChange():void
+		{
+			for each(var item:RoomingListItem in aTargetList)
+			{
+				item.bIsSelected = chkSelectAll.selected;
+			}
+		}
+		
+		private function onApply():void
+		{			
+			for each(var orderItem:OrderVO in model.reservationModule.currentGroupReservation.oMapReservation.aOrders)
+			{
+				for each(var profileItem:ProfilePersonalVO in orderItem.aProfileList)
+				{
+					for each(var roomingListItem:RoomingListItem in aTargetList)
+					{
+						if(	roomingListItem.bIsSelected && 
+							roomingListItem.oProfile.lId == profileItem.lId &&
+							roomingListItem.iOrderId == orderItem.iOrderId)
+						{
+							if(chkSpecialWishes.selected)
+							{
+								profileItem.aSettingsWishes = UtilsGolobal.clone(profile.aSettingsWishes) as Array;
+								profileItem.aItemsWishes = UtilsGolobal.clone(profile.aItemsWishes) as Array;
+							}
+							
+							if(chkPaymentInstructions.selected)
+							{
+							
+							}								
+						}
+					}
+				}
+			}			
+			completeCall();
+		}
+		
+		private function checkSelection(event:CollectionEvent):void
+		{
+			var _bIsAllSelected:Boolean = true; 
+			var _bIsAllUnselected:Boolean = true;
+			
+			var item:RoomingListItem;
+			for each(item in aTargetList)
+			{
+				if(item.bIsSelected == false)
+				{
+					_bIsAllSelected = false;
+					break;
+				}	
+			}
+			for each(item in aTargetList)
+			{
+				if(item.bIsSelected == true)
+				{
+					_bIsAllUnselected = false;
+					break;
+				}	
+			}
+			bIsAllSelected = _bIsAllSelected;
+			bIsAllUnselected = _bIsAllUnselected;						
+		}
+		
+	
+
+		
+		
+	]]>
+</mx:Script>
+
+	
+	<mx:HBox width="100%" height="100%">
+		<control:Frame id="frCopy" 
+			width="100%" height="100%"
+			label="Copy">
+			<mx:VBox width="100%" height="100%"
+				paddingLeft="5" paddingRight="5" paddingTop="5" paddingBottom="5">
+				<mx:CheckBox id="chkSpecialWishes"
+					label="Special Wishes"/>
+				<mx:CheckBox id="chkPaymentInstructions"
+					label="Payment Instructions"/>				
+			</mx:VBox>	
+		</control:Frame>
+		<control:Frame id="frTo"
+			width="100%" height="100%" 
+			label="To">
+			<mx:VBox width="100%" height="100%"
+				paddingLeft="5" paddingRight="5" paddingTop="5" paddingBottom="5"
+				verticalGap="0">				
+				<mx:CheckBox id="chkSelectAll"
+					label="All"
+					selected="{bIsAllSelected}"
+					change="{onSelectAllChange()}"/>
+				<mx:HRule width="100%"/>				
+				<mx:List id="lstTargetList"
+					itemRenderer="framework.view.pages.reservationCreate.renderer.CopyRoomingListDataRenderer"
+					height="100%" width="100%"/>
+			</mx:VBox>							
+		</control:Frame>	
+		
+	</mx:HBox>
+	<mx:ApplicationControlBar width="100%"
+		horizontalAlign="right">
+		<mx:Button id="btnApply"
+			label="{model.locale.Global_Button_Apply}"
+			click="{onApply()}"
+			enabled="{UtilsMXML.and(!bIsAllUnselected,
+									UtilsMXML.or(chkSpecialWishes.selected,
+									 			 chkPaymentInstructions.selected))}"
+			
+			/>
+		<mx:Button id="btnClose"
+			label="{model.locale.Global_Button_Close}"
+			click="{close()}"/>				
+	</mx:ApplicationControlBar>
+</BasePopupView>

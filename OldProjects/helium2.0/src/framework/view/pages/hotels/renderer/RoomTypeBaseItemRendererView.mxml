@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:HBox xmlns:mx="http://www.adobe.com/2006/mxml" width="100%" horizontalAlign="center" verticalAlign="middle">
+	
+	<mx:Script>
+		<![CDATA[
+			import services.vo.hotels.HotelRoomTypeObjectVO;
+			import services.vo.hotels.HotelRoomWithBedTypesObjectVO;
+			import framework.view.pages.hotels.events.HotelBaseClickEvent;
+			import services.vo.GlobalImageAssets;
+			import services.controller.AppController;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import framework.model.AppModelLocator;
+			import services.vo.backend.BedTypeObjectVO;
+			
+			private var model:AppModelLocator = AppModelLocator.getInstance();
+			
+			private function handleSelect():void
+			{				
+				var evt:HotelBaseClickEvent = new HotelBaseClickEvent(HotelBaseClickEvent.BASE_CLICK);
+				evt.qualityId = data.oRoomQuality.lQualityId;				
+				owner.dispatchEvent( evt );
+
+			}
+			
+			override public function set data(value:Object):void
+			{
+				super.data = value;												
+			}
+			
+			private function rbSelected(value:Object):Boolean
+			{
+				if ((value as HotelRoomWithBedTypesObjectVO).oRoomQuality.bIsUsedStandalone)
+					return (value as HotelRoomWithBedTypesObjectVO).flx_oRoomStandalone.bDefaultRoomType;
+				else
+					return ((value as HotelRoomWithBedTypesObjectVO).aRoomWithBedTypes[0] as HotelRoomTypeObjectVO).bDefaultRoomType;
+			}
+		]]>
+	</mx:Script>
+	
+	<!--<mx:Button id="del" click="handleDelete()" label="Delete" width="70"/>-->
+	<mx:RadioButton  id="base" selected="{rbSelected(data)}" visible="{data as HotelRoomWithBedTypesObjectVO}" click="handleSelect()" />
+</mx:HBox>

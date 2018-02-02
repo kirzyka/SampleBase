@@ -1,0 +1,289 @@
+<?xml version="1.0" encoding="utf-8"?>
+<VSubWindow
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:control="h2olib.control.*"
+	xmlns="framework.core.view.*"
+	width="100%" height="100%"
+	horizontalAlign="left" verticalAlign="middle" 
+	creationComplete="{onCreationComplete()}">
+	<mx:Script>
+		<![CDATA[
+			import mx.controls.DateField;
+			import mx.collections.ArrayCollection;
+			import services.vo.reservation.CreditCardTypeVO;
+			import mx.formatters.SwitchSymbolFormatter;
+			import services.vo.reservation.GuaratneeVO;
+			import services.vo.GlobalStorage;
+			import services.vo.GlobalSettings;
+			import framework.model.AppModelLocator;
+
+			[Bindable]
+			private var years:ArrayCollection = new ArrayCollection();
+			private var paidByRefreshFlag:Boolean = false;
+			
+			private const months:ArrayCollection = new ArrayCollection(["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"]);
+				
+			[Bindable]
+			public var isGuaranteeMandatory:Boolean = false ;
+			
+			private var _isGuaranted:Boolean;
+			[Bindable]
+			public function get isGuaranted():Boolean
+			{
+				return _isGuaranted;
+			}
+			public function set isGuaranted(value:Boolean):void
+			{
+				if(isGuaranteeMandatory)
+				{
+					_isGuaranted = true;
+				}
+				else
+				{
+					_isGuaranted = value;
+				}
+			}			
+			
+			
+
+			private var _guarantee:GuaratneeVO = new GuaratneeVO();
+			[Bindable]
+			public function get guarantee():GuaratneeVO
+			{
+				return _guarantee;
+			}
+			public function set guarantee(value:GuaratneeVO):void
+			{
+				_guarantee = value;
+				if(_guarantee != null)
+				{
+					rbGuarantee.selected = true;
+					switch (_guarantee.iGuaranteeType)
+					{
+						case GuaratneeVO.GUARANTEE_COMPANY:
+							if(_guarantee.iCompanyId != 0)
+							{
+								paidByRefreshFlag = true;
+								cmbCompanyPaidBy.selectedIndex = _guarantee.bPayedByUser ? 2:1;
+
+								cmbGuaranteeType.selectedIndex = 1;													
+
+							}
+						break;
+						case GuaratneeVO.GUARANTEE_TRAVEL_AGENCY:
+							if(_guarantee.iCompanyId != 0)
+							{
+								cmbGuaranteeType.selectedIndex = 2;
+								cmbTAPaidBy.selectedIndex = _guarantee.bPayedByUser ? 2:1;
+							}
+						break;
+						case GuaratneeVO.GUARANTEE_DEPOSIT:
+							cmbGuaranteeType.selectedIndex = 3;
+							cmbGuestGuaranteeType.selectedIndex = 0;
+							if(_guarantee.oDeposit != null)
+							{
+								txtAmount.text = _guarantee.oDeposit.rValue.toString();
+								txtPersentage.text = _guarantee.oDeposit.iPresentage.toString();
+								//set Date
+								if(DateField.stringToDate(_guarantee.oDeposit.sDue,GlobalSettings.DATE_SERVER_FORMAT) != null)
+								{
+									var expDD:Date = DateField.stringToDate(_guarantee.oDeposit.sDue,GlobalSettings.DATE_SERVER_FORMAT);									
+									cmbDepositExpYear.selectedItem = expDD.fullYear;
+									cmbDepositExpMonth.selectedIndex = expDD.month;
+								}
+							}
+						break;
+						case GuaratneeVO.GUARANTEE_CREDIT_CARD:
+							cmbGuaranteeType.selectedIndex = 3;
+							cmbGuestGuaranteeType.selectedIndex = 1;
+							if(_guarantee.oCreditCard != null)
+							{
+								cmbCreditType.setItemByField("lId",_guarantee.oCreditCard.iType);
+								txtCreditCardNumber.text = _guarantee.oCreditCard.sCardNumber;
+								//set Date
+								if(DateField.stringToDate(_guarantee.oCreditCard.sExpDate,GlobalSettings.DATE_SERVER_FORMAT) != null)
+								{
+									var expDCC:Date = DateField.stringToDate(_guarantee.oCreditCard.sExpDate,GlobalSettings.DATE_SERVER_FORMAT);									
+									cmbCardExpYear.selectedItem = expDCC.fullYear;
+									cmbCardExpMonth.selectedIndex = expDCC.month;
+								}								
+								txtCreditCardOf.text = _guarantee.oCreditCard.sOwnerName;
+							}
+						break;
+
+					}
+				}
+				else
+				{
+					rbNonGuarantee.selected = true;
+				}					
+			}
+
+			private function onCreationComplete():void
+			{				
+				for(var i:int = model.date.fullYear; i < model.date.fullYear + 10; i++)
+				{
+					years.addItem(i);
+				}
+				
+				clearForm();				
+
+			}
+
+
+
+			private function onGuaranteeTypeChange(event:Event):void
+			{
+				if(cmbGuaranteeType.selectedIndex == 1)
+				{
+					if(paidByRefreshFlag)
+					{
+						paidByRefreshFlag = false;
+					}
+					else
+					{
+						cmbCompanyPaidBy.selectedIndex = 0;
+					}		
+
+				}
+				if(cmbGuaranteeType.selectedIndex == 2)
+				{
+					cmbTAPaidBy.selectedIndex = 0;
+				}				
+			}
+
+			private function onGuaranteeStateChange(event:Event):void 
+			{
+				if(rbNonGuarantee.selected)
+				{
+					isGuaranted = false;
+					cmbGuaranteeType.selectedIndex = 0;
+				}
+			}
+
+			public function clearForm():void
+			{
+				rbGuarantee.selected = false;
+				rbNonGuarantee.selected = true;
+				cmbGuaranteeType.selectedIndex = 0;
+				cmbCreditType.selectedIndex = 0;
+				cmbCompanyPaidBy.selectedItem = 0;
+				cmbTAPaidBy.selectedIndex = 0;				
+				cmbDepositExpYear.selectedIndex = 0;
+				cmbDepositExpMonth.selectedIndex = 0;
+				cmbCardExpYear.selectedIndex = 0;
+				cmbCardExpMonth.selectedIndex = 0;
+				txtAmount.text = "";
+				txtCreditCardNumber.text = "";
+				txtCreditCardOf.text = "";
+				txtPersentage.text = "";
+			}
+
+
+		]]>
+	</mx:Script>	
+	<mx:HBox width="100%">
+		<mx:RadioButton id="rbGuarantee"
+			label="Guarantee"
+			groupName="gurantee"
+			selected="{isGuaranted}"/>
+		<mx:RadioButton id="rbNonGuarantee"
+			label="Non Guarantee"
+			groupName="gurantee"
+			selected="{!isGuaranted}"
+			enabled="{!isGuaranteeMandatory}"
+			change="{onGuaranteeStateChange(event)}"/>
+	</mx:HBox>	
+	
+	<mx:FormItem label="Guarantee By:" width="100%" labelWidth="120">		
+		<mx:ComboBox id="cmbGuaranteeType"
+			enabled="{rbGuarantee.selected}"
+			dataProvider="{model.reservationModule.guaranteeType}"/>		
+	</mx:FormItem>
+	
+
+	<mx:ViewStack selectedIndex="{cmbGuaranteeType.selectedIndex}"
+		change="{onGuaranteeTypeChange(event)}"
+		width="100%" height="100%">
+		
+		<mx:VBox id="boxNoneGuarantee" width="100%" height="100%"/>	
+		
+		<mx:VBox id="boxGuaranteeByCompany" width="100%" height="100%">
+			<mx:FormItem label="Paid by:" width="100%" labelWidth="120">
+				<mx:ComboBox id="cmbCompanyPaidBy"					
+					selectedIndex="0"
+					dataProvider="{model.reservationModule.paidTypeCompany}"/>				
+			</mx:FormItem>	
+		</mx:VBox>
+		
+		<mx:VBox id="boxGuaranteeByTA" width="100%" height="100%">
+			<mx:FormItem label="Paid by:" width="100%" labelWidth="120">
+				<mx:ComboBox id="cmbTAPaidBy"
+					selectedIndex="0"
+					dataProvider="{model.reservationModule.paidTypeTA}"/>				
+			</mx:FormItem>	
+		</mx:VBox>		
+
+		<mx:VBox id="boxGuaranteeByGuest" width="100%" height="100%">
+			<mx:FormItem  label="Paid by:" width="100%" labelWidth="120">
+				<mx:ComboBox id="cmbGuestGuaranteeType"
+					dataProvider="{model.reservationModule.guaranteeGuestType}"
+					selectedIndex="0"/>				
+			</mx:FormItem>
+			<mx:ViewStack selectedIndex="{cmbGuestGuaranteeType.selectedIndex}" 
+				width="100%" height="100%">
+				
+				<mx:VBox id="boxGuaranteeByGuestDeposit" width="100%" height="100%">
+					<mx:FormItem label="Amount:" width="100%" labelWidth="120">
+						<control:NumericTextInput id="txtAmount"/>						
+					</mx:FormItem>
+					<mx:FormItem label="Percentage:" width="100%" labelWidth="120">
+						<mx:TextInput id="txtPersentage"
+							restrict="[0-9.]"
+							maxChars="3"/>						
+					</mx:FormItem>
+					<mx:FormItem label="Deposite due:" width="100%" labelWidth="120">
+						<mx:HBox>
+							<mx:ComboBox id="cmbDepositExpYear"
+								dataProvider="{years}"
+								selectedIndex="0"
+								width="70"/>
+							<mx:ComboBox id="cmbDepositExpMonth"
+								dataProvider="{months}"
+								selectedIndex="0"/>
+						</mx:HBox>						
+					</mx:FormItem>
+				</mx:VBox>					
+
+				<mx:VBox id="boxGuaranteeByGuestCreditCard" width="100%" height="100%">
+					<mx:FormItem label="Credit Card Type:" width="100%" labelWidth="120">
+						<control:ComboBoxEx	id="cmbCreditType"
+								dataProvider="{GlobalStorage.creditType}"
+								labelField="sName"/>						
+					</mx:FormItem>
+					<mx:FormItem label="Credit Card Number:" width="100%" labelWidth="120">
+						<mx:TextInput id="txtCreditCardNumber"
+							restrict="0-9"/>						
+					</mx:FormItem>							
+					<mx:FormItem label="Expiration Date:" width="100%" labelWidth="120">
+						<mx:HBox width="100%">
+							<mx:ComboBox id="cmbCardExpYear"
+								dataProvider="{years}"
+								selectedIndex="0"
+								width="70"/>
+							<mx:ComboBox id="cmbCardExpMonth"
+								dataProvider="{months}"
+								selectedIndex="0"/>
+						</mx:HBox>						
+					</mx:FormItem>							
+					<mx:FormItem label="Credit Card of:" width="100%" labelWidth="120">
+						<mx:TextInput id="txtCreditCardOf"
+							maxChars="50"
+						    toolTip="{txtCreditCardOf.text}"/>											
+					</mx:FormItem>																								
+				</mx:VBox>				
+						
+			</mx:ViewStack>
+		</mx:VBox>
+	</mx:ViewStack>
+</VSubWindow>

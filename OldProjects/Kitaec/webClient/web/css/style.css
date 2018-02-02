@@ -1,0 +1,1067 @@
+@import url('css_modules/basket.css');
+
+
+/*
+brown 5A4125 6D4E2C 241A0F
+green 2A953E
+
+
+label orange AD7425
+label green 288F3B
+*/
+
+.green-bg { background-color: #2A953E; }
+.brown-bg { background-color: #241A0F; }
+.brown-bg-2 { background-color: #5A4125; }
+.orange-bg { background-color: #f49303; }
+.ultra-orange-bg {background-color: #F45A03;}
+
+.white { color: #FFF; }
+.black { color: #000; }
+.green { color: #2A953E; }
+.brown { color: #241A0F; }
+.brown-2 { color: #5A4125; }
+.orange { color: #f49303; }
+.ultra-orange {color:#F45A03;}
+
+@font-face {
+    font-family: 'Lobster';
+}
+@font-face {
+    font-family: 'pt-sans';
+    src: url('http://kitaec-avaprojects.rhcloud.com/css/fonts/ptc75f-webfont.eot');
+    src: url('http://kitaec-avaprojects.rhcloud.com/css/fonts/ptc75f-webfont.eot?#iefix') format('embedded-opentype'),
+         url('http://kitaec-avaprojects.rhcloud.com/css/fonts/ptc75f-webfont.woff') format('woff'),
+         url('http://kitaec-avaprojects.rhcloud.com/css/fonts/ptc75f-webfont.ttf') format('truetype'),
+         url('http://kitaec-avaprojects.rhcloud.com/css/fonts/ptc75f-webfont.svg#pt_sans_captionbold') format('svg');
+    font-weight: normal;
+    font-style: normal;
+}
+
+* { margin: 0; padding: 0; outline: 0; }
+
+body, html { height: 100%; }
+
+body { font-size: 12px; line-height: 22px; font-family: 'pt-sans', sans-serif, arial; color: #828282; min-width: 100%;}
+
+a { color: #72ae13; text-decoration: none; cursor: pointer; }
+a:hover { text-decoration: underline; }
+a img { border: 0; }
+a.more { background: url(http://kitaec-avaprojects.rhcloud.com/css/images/green-arr.png) no-repeat 0 5px; padding-left: 11px; color: #72ae13; text-decoration: underline; font-size: 12px; }
+a.more:hover { text-decoration: none;  }
+
+/*font-family: 'Coda', cursive;*/
+/*font-family: 'Jura', sans-serif;*/
+
+article, aside, details, footer, header, menu, nav, section { display: block; }
+input, textarea, select { font-size: 12px; font-family: arial, sans-serif; }
+textarea { overflow: auto; }
+
+.cl { display: block; height: 0; font-size: 0; line-height: 0; text-indent: -4000px; clear: both; }
+.notext { font-size: 0; line-height: 0; text-indent: -4000px; }
+.left, .alignleft { float: left; display: inline; }
+.right, .alignright { float: right; display: inline; }
+.wait { width: 48px; height: 48px; background: url("http://kitaec-avaprojects.rhcloud.com/css/images/wait.gif"); margin: 0 auto;}
+
+.button{
+    text-align: center;
+    height: 10px;
+    cursor: pointer;
+    border:1px solid #34740e; -webkit-border-radius: 3px; -moz-border-radius: 3px;border-radius: 3px;font-size:12px;font-family:arial, helvetica, sans-serif; padding: 10px 10px 10px 10px; text-decoration:none; display:inline-block;text-shadow: -1px -1px 0 rgba(0,0,0,0.3);font-weight:bold; color: #FFFFFF;
+    background-color: #4ba614; background-image: -webkit-gradient(linear, left top, left bottom, from(#4ba614), to(#008c00));
+    background-image: -webkit-linear-gradient(top, #4ba614, #008c00);
+    background-image: -moz-linear-gradient(top, #4ba614, #008c00);
+    background-image: -ms-linear-gradient(top, #4ba614, #008c00);
+    background-image: -o-linear-gradient(top, #4ba614, #008c00);
+    background-image: linear-gradient(to bottom, #4ba614, #008c00);filter:progid:DXImageTransform.Microsoft.gradient(GradientType=0,startColorstr=#4ba614, endColorstr=#008c00);
+}
+
+.button:hover{
+    border:1px solid #224b09;
+    background-color: #36780f; background-image: -webkit-gradient(linear, left top, left bottom, from(#36780f), to(#005900));
+    background-image: -webkit-linear-gradient(top, #36780f, #005900);
+    background-image: -moz-linear-gradient(top, #36780f, #005900);
+    background-image: -ms-linear-gradient(top, #36780f, #005900);
+    background-image: -o-linear-gradient(top, #36780f, #005900);
+    background-image: linear-gradient(to bottom, #36780f, #005900);filter:progid:DXImageTransform.Microsoft.gradient(GradientType=0,startColorstr=#36780f, endColorstr=#005900);
+}
+
+.button p {
+    line-height: 10px;
+}
+
+.shell { width: 980px; margin: 0 auto; }
+
+.overlay {display:none; position:fixed; z-index:999; opacity:0.5; filter:alpha(opacity=50); top:0; right:0; left:0; bottom:0; background:#000; }
+.popup-select {display:none; position:fixed; background:#fff; width:194px; top:50%; left:50%; margin:-100px 0 0 -100px; z-index:1000;}
+.popup-select ul {width: 100%; height: 100%;}
+.popup-select-item {display: block; position: relative; padding: 15px 20px; font-size: 16px; line-height: 20px; font-weight: 300; color: #fff; outline: none; list-style: none;}
+.popup-select ul li:hover {background: rgba(255,248,213,0.1);}
+.popup-select-item:hover {background-color: #e4eded; }
+
+.popup-date {display:none; position:fixed; background:#fff; width:306px; height: 306px; top:50%; left:50%; margin:-100px 0 0 -100px; z-index:1000;}
+
+
+.animate-popup-out {
+    -webkit-animation: PopUpAnimOut 0.4s;
+    -moz-animation: PopUpAnimOut 0.4s;
+    animation: PopUpAnimOut 0.4s;
+}
+@-webkit-keyframes PopUpAnimOut {
+    50% {
+        -webkit-transform: translateZ(-250px) rotateY(30deg);
+    }
+    75% {
+        -webkit-transform: translateZ(-372.5px) rotateY(15deg);
+        opacity: .5;
+    }
+    100% {
+        -webkit-transform: translateZ(-500px) rotateY(0deg);
+        opacity: 0;
+    }
+}
+@-moz-keyframes PopUpAnimOut {
+    50% {
+        -moz-transform: translateZ(-250px) rotateY(30deg);
+    }
+    75% {
+        -moz-transform: translateZ(-372.5px) rotateY(15deg);
+        opacity: .5;
+    }
+    100% {
+        -moz-transform: translateZ(-500px) rotateY(0deg);
+        opacity: 0;
+    }
+}
+@keyframes PopUpAnimOut {
+    50% {
+        transform: translateZ(-250px) rotateY(30deg);
+    }
+    75% {
+        transform: translateZ(-372.5px) rotateY(15deg);
+        opacity: .5;
+    }
+    100% {
+        transform: translateZ(-500px) rotateY(0deg);
+        opacity: 0;
+    }
+}
+.animate-popup-in {
+    -webkit-animation: PopUpAnimIn 0.3s;
+    -moz-animation: PopUpAnimIn 0.3s;
+    animation: PopUpAnimIn 0.3s;
+}
+@-webkit-keyframes PopUpAnimIn {
+    0% {
+        -webkit-transform: translateZ(-500px) rotateY(0deg);
+        opacity: 0;
+    }
+    20% {
+        -webkit-transform: translateZ(-250px) rotateY(30deg);
+        opacity: 0.5;
+    }
+    100% {
+        -webkit-transform: translateZ(0px) rotateY(0deg);
+        opacity: 1;
+    }
+}
+@-moz-keyframes PopUpAnimIn {
+    0% {
+        -moz-transform: translateZ(-500px) rotateY(0deg);
+        opacity: 0;
+    }
+    20% {
+        -moz-transform: translateZ(-250px) rotateY(30deg);
+        opacity: 0.5;
+    }
+    100% {
+        -moz-transform: translateZ(0px) rotateY(0deg);
+        opacity: 1;
+    }
+}
+@keyframes PopUpAnimIn {
+    0% {
+        transform: translateZ(-500px) rotateY(0deg);
+        opacity: 0;
+    }
+    20% {
+        transform: translateZ(-250px) rotateY(30deg);
+        opacity: 0.5;
+    }
+    100% {
+        transform: translateZ(0px) rotateY(0deg);
+        opacity: 1;
+    }
+}
+
+
+.header {  }
+.header .shell { padding: 0; width: 980px; background: #ccc; box-shadow: 0px -10px 9px rgba(0,0,0,0.7); -moz-box-shadow: 0px -10px 9px rgba(0,0,0,0.7); -webkit-box-shadow: 0px -10px 9px rgba(0,0,0,0.7); -o-box-shadow: 0px -3px 10px 9rgba(0,0,0,0.7) }
+.header-top { width: 100%; height: 60px; float: left; }
+.header-bottom { }
+.header .shell .main-block { padding-left: 32px; padding-right: 32px;  }
+.header .shell .main-block img { float: left; margin-right: 16px; width: 400px; }
+.header .shell .main-block .main-block-cnt { height: 100%; overflow: hidden; }
+
+.logo {width: 25px; height: 51px; float: left; display: block;  background: url("http://kitaec-avaprojects.rhcloud.com/css/images/logo.png") no-repeat; text-indent: -4000px;margin: 5px 5px 5px 20px;}
+.logo-label {float: left;margin: 19px 20px 19px 5px;font-size: 16pt;font-family: 'Lobster'}
+
+#navigation { float: left; padding-top: 10px; }
+#navigation ul { list-style: none; list-style-position: outside; font-size: 12px; margin: 10px 5px;}
+#navigation ul li { display: inline; padding-left: 34px; text-decoration: underline; color: #fff; }
+#navigation ul li a { color: #d5d4d4; }
+#navigation ul li a:hover,
+#navigation ul li.active { color: #fff; text-decoration: none; }
+
+/*------------------------------------*\
+	НАВИГАЦИЯ
+\*------------------------------------*/
+#nav{
+    float:left;
+    list-style:none;
+    font-weight:bold;
+    margin-bottom:10px;
+}
+#nav li{
+    float:left;
+    margin-right:10px;
+    position:relative;
+    display:block;
+}
+#nav li a {
+    width: 100px;
+    text-align: center;
+    height: 20px;
+    display: block;
+    padding: 12px;
+    background: #774E2E;
+    text-decoration: none;
+    text-shadow: 1px 1px 1px rgba(0,0,0,0.75);
+    font-size: 8pt;
+}
+#nav li a:hover{
+    color:#fff;
+    background: #80562f;
+    text-decoration:underline;
+}
+
+/*--- ВЫПАДАЮЩИЕ ПУНКТЫ ---*/
+#nav ul{
+    list-style:none;
+    position:absolute;
+    z-index: 1000;
+    left:-9999px; /* Скрываем за экраном, когда не нужно (данный метод лучше, чем display:none;) */
+    opacity:0; /* Устанавливаем начальное состояние прозрачности */
+    -webkit-transition:0.25s linear opacity; /* В Webkit выпадающие пункты будут проявляться */
+}
+#nav ul li{
+    float:none;
+}
+#nav ul a{
+    white-space:nowrap; /* Останавливаем перенос текста и создаем многострочный выпадающий пункт */
+    display:block;
+}
+#nav li:hover ul{ /* Выводим выпадающий пункт при наведении курсора */
+    left:0; /* Приносим его обратно на экран, когда нужно */
+    opacity:1; /* Делаем непрозрачным */
+}
+#nav li:hover a{ /* Устанавливаем стили для верхнего уровня, когда выводится выпадающий список */
+    background:#774E2E;
+    text-decoration:underline;
+}
+#nav li:hover ul a{ /* Изменяем некоторые стили верхнего уровня при выводе выпадающего пункта */
+    text-decoration:none;
+}
+#nav li:hover ul li a:hover{ /* Устанавливаем стили для выпадающих пунктов, когда курсор наводится на конкретный пункт */
+    background:#333;
+    text-decoration:underline;
+}
+#nav .nav-item{
+
+}
+
+
+#prev, #next { background: url(http://kitaec-avaprojects.rhcloud.com/css/images/direction-nav.png) no-repeat 0 0; display: block; width: 17px; height: 22px; position: absolute; bottom: 15px; z-index: 10; }
+#prev { left: 426px; }
+#next { right: 434px; background-position: right 0; }
+
+.pagination { position: absolute; bottom: 15px; left: 50%; margin-left: -44px; width: 88px; }
+.pagination a { background: url(http://kitaec-avaprojects.rhcloud.com/css/images/pagination.png) no-repeat 0 0; width: 20px; height: 20px; display: inline-block; font-size: 0; line-height: 0; text-indent: -4000px; cursor: default; }
+.pagination a.selected { background-position: 0 -20px; }
+
+.main { padding: 54px 0 20px 0; border-top: 1px solid #fff;  background: url(images/main.png) repeat-x 0 0; box-shadow: 0px -4px 10px rgba(0,0,0,0.4); -moz-box-shadow: 0px -4px 10px rgba(0,0,0,0.4); -webkit-box-shadow: 0px -4px 10px rgba(0,0,0,0.4); -o-box-shadow: 0px -4px 10px rgba(0,0,0,0.4);  }
+.main h2 { font-size: 22px; color: #000; font-family: 'Jura', sans-serif; font-weight: 700; padding-bottom: 10px; text-transform: uppercase;  }
+.main p a { text-decoration: underline; }
+.main p a:hover { text-decoration: none; }
+.main section { background: url(http://kitaec-avaprojects.rhcloud.com/css/images/section.png) no-repeat center bottom; padding-bottom: 50px; margin-bottom: 20px;  }
+
+.main .cols { padding-left: 32px; padding-right: 32px;  }
+.main .cols h2 { padding-bottom: 4px; }
+.main .cols .col { width: 277px; float: left; }
+.main .cols .col img { float: left; margin-right: 16px; width: 73px; }
+.main .cols .col .col-cnt { height: 100%; overflow: hidden; }
+
+.main .post { padding-left: 32px; padding-right: 32px; }
+.main .post img { float: left; margin-right: 18px; width: 432px; height: 288px; }
+.main .post-cnt { padding-top: 22px; }
+.main .post-cnt p { padding-bottom: 10px; }
+.main .post-cnt ul { list-style: none; list-style-position: outside; height: 100%; overflow: hidden; }
+.main .post-cnt ul li { padding-left: 11px; background: url(http://kitaec-avaprojects.rhcloud.com/css/images/green-arr.png) no-repeat 0 9px; padding-bottom: 7px;  }
+.main .post-cnt ul li a { text-decoration: underline; }
+.main .post-cnt ul li a:hover { text-decoration: none; }
+
+.main .content { padding-left: 32px; padding-right: 32px; margin-top: 25px;}
+.main .content span { text-decoration: underline; }
+
+.main #partners-slider { height: 90px; }
+
+.main .partners { padding: 0 70px 30px 70px; height: 100%;  position: relative; overflow: hidden; margin-top: -20px; z-index: 100; }
+.slider-holder2 { position: relative; overflow: hidden; }
+#partners-slider { overflow: hidden; position: relative; }
+#partners-slider img { margin: 0px 25px; float: left; height: 90px; }
+
+.slider-arr a.arr-btn { background: url(http://kitaec-avaprojects.rhcloud.com/css/images/slider-b-arr.png) no-repeat 0 0; width: 30px; height: 30px; display: block; position: absolute; top: 35px;}
+.slider-arr a.prev-arr { left: 32px; }
+.slider-arr a.prev-arr:hover { background-position: 0 -31px; }
+.slider-arr a.next-arr { right: 32px; background-position: right 0; }
+.slider-arr a.next-arr:hover { background-position: right -31px; }
+
+
+.socials { background: url(http://kitaec-avaprojects.rhcloud.com/css/images/socials-pattern.png) repeat 0 0; height: 50px; padding: 0 17px;  margin: 0 32px; border-radius: 4px; -moz-border-radius: 4px; -webkit-border-radius: 4px; -o-border-radius: 4px;
+	box-shadow: 0px 0px 7px rgba(0,0,0,0.2) inset; -moz-box-shadow: 0px 0px 7px rgba(0,0,0,0.2) inset; -webkit-box-shadow: 0px 0px 7px rgba(0,0,0,0.2) inset; -o-box-shadow: 0px 0px 7px rgba(0,0,0,0.2) inset; }
+
+.socials p { float: left; line-height: 50px; font-size: 12px; }
+.socials p a { text-decoration: none; }
+.socials p a:hover { text-decoration: underline; }
+.socials ul { list-style: none; list-style-position: outside; float: right; padding-top: 11px;  }
+.socials ul li { float: left; padding-left: 5px;  }
+.socials ul li a { display: block; background: url(http://kitaec-avaprojects.rhcloud.com/css/images/socials.png) no-repeat 0 0; width: 28px; height: 28px; font-size: 0; line-height: 0; text-indent: -4000px; }
+
+.socials ul li a.facebook-ico { background-position: 0 0; }
+.socials ul li a.twitter-ico { background-position: -35px 0; }
+.socials ul li a.skype-ico { background-position: -68px 0; }
+.socials ul li a.rss-ico { background-position: -102px 0; }
+
+#footer { }
+#footer .shell { background: #241A0F; padding: 26px 0; }
+#footer .footer-cols { padding: 0 32px 26px;  }
+#footer .col { width: 212px; float: left; }
+#footer h2 { font-size: 20px; margin-bottom:  10px; color: #fff; background: url(http://kitaec-avaprojects.rhcloud.com/css/images/footer-cols.png) repeat-x 0 bottom;  padding-bottom: 10px; text-shadow: rgba(0,0,0,0.9) 1px 1px 1px; font-family: 'Jura', sans-serif; font-weight: 700; text-transform: uppercase;  }
+
+#footer .col ul { list-style: none; list-style-position: outside; }
+#footer .col ul li { padding-left: 11px; background: url(http://kitaec-avaprojects.rhcloud.com/css/images/green-arr.png) no-repeat 0 8px; padding-bottom: 7px; font-size: 11px; }
+#footer .col p { font-size: 11px; color: #bebebe; } 
+
+#footer .footer-bottom { background: url(http://kitaec-avaprojects.rhcloud.com/css/images/footer-cols.png) repeat-x 0 0; padding: 15px 32px 0;  }
+
+#footer .footer-bottom p.copy { float: right; line-height: 11px; font-size: 11px; color: #717171; }
+#footer .footer-bottom p.copy span { padding: 0 8px; }
+#footer .footer-bottom p.copy a { color: #717171; text-decoration: underline; }
+#footer .footer-bottom p.copy a:hover { color: #fff; text-decoration: none; }
+
+#footer .footer-nav { float: left; }
+#footer .footer-nav ul { list-style: none; list-style-position: outside; line-height: 11px;  }
+#footer .footer-nav ul li { float: left; border-right: 1px solid #181818;  padding: 0 8px; text-shadow: rgba(0,0,0,0.7) 0px 1px 1px; }
+#footer .footer-nav ul li:first-child { padding-left: 0; }
+#footer .footer-nav ul li a { color: #717171; }
+#footer .footer-nav ul li a:hover { color: #fff; }
+
+#navigation a.nav-btn { display: none;  }
+
+
+
+
+
+
+
+
+.offerWrapper {
+    position: relative;
+    float: left;
+    width: 285px;
+    height: 350px;
+    margin: 10px;
+}
+
+
+
+.offer {
+    background: #fff;
+    position: relative;
+    width: 235px;
+    height: 275px;
+    padding: 5px 15px;
+    margin-top: -2px;
+    margin-left: -4px;
+    border: #444 dotted thin;
+
+    border-radius: 5px;
+    -moz-border-radius: 5px;
+    -webkit-border-radius: 5px;
+    -o-border-radius: 5px;
+
+    -webkit-box-shadow: 0px 0px 15px #6D4E2C;
+    -moz-box-shadow: 0px 0px 15px #6D4E2C;
+    box-shadow: 0px 0px 15px #6D4E2C;
+
+}
+
+.offer .title {
+    color: #2A953E;
+    font-size: 20px;
+    font-weight: bold;
+    text-align: center;
+    line-height: 25px;
+    padding: 10px;
+}
+
+.offer .button {
+    position: absolute;
+    float: right;
+    width: 70px;
+    height: 10px;
+    left: 75px;
+    bottom: 10px;
+    text-align: center;
+    text-decoration: none;
+    line-height: 30px;
+    opacity: 0.9;
+
+    transition: color .2s ease-in-out .2s;
+    -mozz-transition: color .2s ease-in-out .2s;
+    -webkit-transition: color .2s ease-in-out .2s;
+    -o-transition: color .2s ease-in-out .2s;
+}
+
+.offer a:hover {
+    opacity: 1;
+
+}
+
+.offer .description {
+    font-size: 12px;
+    color: #181818;
+}
+
+.offer ul {
+    list-style-position: inside;
+    margin: 15px;
+}
+.offerWrapper .price {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 50px;
+    height: 50px;
+    border-radius:25px;
+    font-size:10px;
+    color:#fff;
+    line-height:40px;
+    text-align:center;
+    background:#6D4E2C;
+}
+.offerWrapper .price .amount {
+    font-size:18px;
+    font-weight: bold;
+    margin-bottom: -24px;
+}
+/* Supplier Top
+-------------------------------------------------- */
+.supplier { display: block; list-style: none; width: 100%; }
+.supplier li {
+    display: block;
+    float: left;
+    padding: 5px 5px 15px 5px;
+    font-size: 14px;
+    width: 150px;
+    height: 25px;
+    position: relative;
+    text-align: center;
+    cursor: pointer;
+ }
+
+.supplier li p { opacity: 0.9; }
+.supplier .selected p { opacity: 1; font-weight: bold; }
+.supplier li p:hover { opacity: 1; font-weight: bold; }
+.supplier li span {
+    display: block;
+    float: left;
+    padding: 1px;
+    font-size: 10px;
+    font-weight: bold;
+    color: #fff;
+    position: absolute;
+    height: 15px;
+    right: 0;
+    left: 0;
+    bottom: 7px;
+    text-align: center;
+}
+
+/* Progress Bar
+-------------------------------------------------- */
+
+
+.progress-box .left {
+    float: left;
+}
+
+.progress-box .middle {
+    float: left;
+    width: 345px;
+    margin-top: 40px;
+}
+
+.progress-box .right {
+    float: left;
+    width: 224px;
+    text-align: center;
+    margin-top: 16px;
+}
+
+.progress-box .left  span {
+    text-align: center;
+    font-size: 14px;
+    line-height: 50px;
+}
+
+.progress-box .left p {
+    line-height: 20px;
+    text-align: center;
+}
+
+.progress-box .left a {
+    color: #000;
+    text-decoration: none;
+    border-bottom: 1px black dashed;
+}
+
+
+.progress-box {
+    position: relative;
+    width: 100%;
+}
+
+.progress-box .left .location {
+    float: left;
+    margin: auto 12px auto 0px;
+}
+
+.progress-box .left .location .office {
+    display: inline-block;
+    margin: 4px 35px;
+    width: 41px;
+    height: 65px;
+    background: url('images/location.png');
+}
+.progress-box .left .location .address {
+    width: 110px;
+}
+
+.progress-box .left .date {
+    float: left;
+    margin: auto 12px auto 0px;
+}
+
+.progress-box .left .date .day {
+    display: inline-block;
+    margin: 16px 24px;
+    width: 48px;
+    height: 48px;
+    background: url('http://kitaec-avaprojects.rhcloud.com/css/images/day.png');
+}
+
+.progress-box .left .date a {
+    display: block;
+    margin-top: 16px;
+    width: 70px;
+    margin-left: 13px;
+}
+
+.progress-box .left .time {
+    float: left;
+    margin: auto 12px auto 0px;
+}
+
+.progress-box .left .time .clock {
+    display: inline-block;
+    margin: 16px 24px;
+    width: 52px;
+    height: 52px;
+    background: url('http://kitaec-avaprojects.rhcloud.com/css/images/clock.png');
+}
+
+.progress-box .left .time p {
+    margin-top: -10px;
+}
+
+.progress-box .left .time a {
+    display: block;
+    margin-top: 15px;
+    width: 100px;
+}
+
+
+.progress-box .right .info {
+    display: inline-block;
+    margin: 0 auto;
+    width: 150px;
+    text-align: center;
+}
+
+.progress-box .right p {
+    color: #000;
+    font-size: 11px;
+    font-weight: bold;
+}
+
+.progress-box .right .price {
+    display: inline-block;
+    font-size: 20px;
+    font-weight: bold;
+    margin: auto 5px;
+    color: #2A953E;
+}
+
+.progress-box .right .currency {
+    display: inline-block;
+    font-size: 14px;
+    color: #000;
+}
+
+
+.progress-box .middle .time {
+    padding: 5px;
+    width: 40px;
+    text-align: center;
+    margin: 8px 0;
+    color: #000;
+}
+
+.progress-box .middle .msg {
+    text-align: center;
+    color: #887015;
+    font-size: 12px;
+}
+
+
+.progress-box .middle .progress-bar {
+    display: inline-block;
+    background-color: #1a1a1a;
+    height: 14px;
+    padding: 5px;
+    width: 320px;
+    margin: 5px;
+    -moz-border-radius: 5px;
+    -webkit-border-radius: 5px;
+    border-radius: 5px;
+    -moz-box-shadow: 0 1px 5px #000 inset, 0 1px 0 #444;
+    -webkit-box-shadow: 0 1px 5px #000 inset, 0 1px 0 #444;
+    box-shadow: 0 1px 5px #000 inset, 0 1px 0 #444;
+}
+
+.progress-box .middle .progress-bar span {
+    display: inline-block;
+    height: 15px;
+    width: 200px;
+    -moz-border-radius: 3px;
+    -webkit-border-radius: 3px;
+    border-radius: 3px;
+    -moz-box-shadow: 0 1px 0 rgba(255, 255, 255, .5) inset;
+    -webkit-box-shadow: 0 1px 0 rgba(255, 255, 255, .5) inset;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, .5) inset;
+    -webkit-transition: width .4s ease-in-out;
+    -moz-transition: width .4s ease-in-out;
+    -ms-transition: width .4s ease-in-out;
+    -o-transition: width .4s ease-in-out;
+    transition: width .4s ease-in-out;
+}
+
+
+.stripes span {
+    -webkit-background-size: 30px 30px;
+    -moz-background-size: 30px 30px;
+    background-size: 30px 30px;
+    background-image: -webkit-gradient(linear, left top, right bottom,
+    color-stop(.25, rgba(255, 255, 255, .15)), color-stop(.25, transparent),
+    color-stop(.5, transparent), color-stop(.5, rgba(255, 255, 255, .15)),
+    color-stop(.75, rgba(255, 255, 255, .15)), color-stop(.75, transparent),
+    to(transparent));
+    background-image: -webkit-linear-gradient(135deg, rgba(255, 255, 255, .15) 25%, transparent 25%,
+    transparent 50%, rgba(255, 255, 255, .15) 50%, rgba(255, 255, 255, .15) 75%,
+    transparent 75%, transparent);
+    background-image: -moz-linear-gradient(135deg, rgba(255, 255, 255, .15) 25%, transparent 25%,
+    transparent 50%, rgba(255, 255, 255, .15) 50%, rgba(255, 255, 255, .15) 75%,
+    transparent 75%, transparent);
+    background-image: -ms-linear-gradient(135deg, rgba(255, 255, 255, .15) 25%, transparent 25%,
+    transparent 50%, rgba(255, 255, 255, .15) 50%, rgba(255, 255, 255, .15) 75%,
+    transparent 75%, transparent);
+    background-image: -o-linear-gradient(135deg, rgba(255, 255, 255, .15) 25%, transparent 25%,
+    transparent 50%, rgba(255, 255, 255, .15) 50%, rgba(255, 255, 255, .15) 75%,
+    transparent 75%, transparent);
+    background-image: linear-gradient(135deg, rgba(255, 255, 255, .15) 25%, transparent 25%,
+    transparent 50%, rgba(255, 255, 255, .15) 50%, rgba(255, 255, 255, .15) 75%,
+    transparent 75%, transparent);
+
+    -webkit-animation: animate-stripes 3s linear infinite;
+    -moz-animation: animate-stripes 3s linear infinite;
+}
+
+@-webkit-keyframes animate-stripes {
+    0% {background-position: 0 0;} 100% {background-position: 60px 0;}
+}
+
+@-moz-keyframes animate-stripes {
+    0% {background-position: 0 0;} 100% {background-position: 60px 0;}
+}
+
+
+
+/* ---------------------
+    Order
+   --------------------- */
+
+#buildCart {
+    width: 100%;
+}
+
+
+.basket-content {
+    text-align: center;
+}
+
+.basket-content .basket-content-item {
+    display: inline-block;
+    width: 820px;
+    padding: 10px 5px;
+    border: #444 dotted thin;
+    margin-top: 10px;
+
+    border-radius: 5px;
+    -moz-border-radius: 5px;
+    -webkit-border-radius: 5px;
+    -o-border-radius: 5px;
+
+    -webkit-box-shadow: 5px 0px 20px 5px #CCC;
+    -moz-box-shadow: 5px 0px 20px 5px #CCC;
+    box-shadow: 5px 0px 20px 5px #CCC;
+}
+
+.basket-content .basket-content-item .title {
+    display: inline-block;
+    vertical-align: top;
+    text-align: center;
+    width: 150px;
+    font-weight: bold;
+    font-size: 10pt;
+}
+
+.basket-content .basket-content-item .title span {
+    width: 100px;
+    text-decoration: none;
+    border-bottom: 1px black dashed;
+    cursor: pointer;
+    font-size: 9pt;
+}
+
+.basket-content .basket-content-item .description {
+    display: inline-block;
+    vertical-align: top;
+    width: 400px;
+    height: 55px;
+    overflow-y: hidden;
+}
+
+.basket-content .basket-content-item .description p {
+    display: inline-block;
+    width: 325px;
+}
+
+.basket-content .basket-content-item .sum-and-count {
+    display: inline-block;
+    vertical-align: top;
+    width: 150px;
+}
+
+.basket-content .basket-content-item .info-icon {
+    display: inline-block;
+    width: 60px;
+    height: 60px;
+    text-align: center;
+    margin: 5px;
+}
+
+.basket-content .basket-content-item .info-icon p {
+    font-size: 18pt;
+    font-weight: bold;
+    margin-top: 12px;
+}
+.basket-content .basket-content-item .info-icon span {
+    display: block;
+    font-size: 10pt;
+    text-decoration: none;
+}
+
+.basket-content .basket-content-item .price {
+
+}
+
+.basket-content .basket-content-item .count {
+    border: 1px dashed #000;
+}
+
+.basket-content .basket-content-item .control {
+    display: inline-block;
+    vertical-align: top;
+    width: 100px;
+}
+
+.basket-content .basket-content-item .control .button {
+    margin-bottom: 10px;
+    width: 70px;
+}
+
+.basket-content .basket-content-item .control span {
+    width: 60px;
+    text-decoration: none;
+    border-bottom: 1px black dashed;
+    cursor: pointer;
+
+}
+
+.circle {
+    -moz-border-radius: 50%;
+    -webkit-border-radius: 50%;
+    border-radius: 50%;
+}
+
+.basket-content .total {
+    text-align: right;
+    margin-top: 10px;
+    margin-right: 55px;
+    font-size: 14pt;
+}
+.basket-content .total b {
+    font-weight: bold;
+    font-size: 14pt;
+}
+
+.basket-user {
+    text-align: center;
+}
+
+.basket-user-info {
+    display: inline-block;
+    width: 820px;
+    padding: 10px 5px;
+    border: #444 dotted thin;
+    margin-top: 10px;
+
+    border-radius: 5px;
+    -moz-border-radius: 5px;
+    -webkit-border-radius: 5px;
+    -o-border-radius: 5px;
+
+    -webkit-box-shadow: 5px 0px 20px 5px #CCC;
+    -moz-box-shadow: 5px 0px 20px 5px #CCC;
+    box-shadow: 5px 0px 20px 5px #CCC;
+}
+
+.basket-user-info .block-1 {
+    width: 120px;
+    float: left;
+}
+
+.basket-user-info .block-2, .block-3, .block-4 {
+    width: 200px;
+    float: left;
+    margin-left: 20px;
+}
+
+.basket-user-info .block-1 p {
+    text-align: center;
+    font-size: 14pt;
+    margin-top: 5px;
+}
+
+.basket-user-info .block-3 label {
+    font-size: 14pt;
+    width: 155px;
+    float: left;
+    text-align: center;
+}
+
+
+#basketUseEmail {
+    float: left;
+    margin-top: 16px;
+    width: 40px;
+}
+
+#basketEmail {
+    margin-top: 8px;
+}
+
+.basket-user-info input {
+    width: 200px;
+    font-size: 14pt;
+    margin-top: 5px;
+    border-radius: 5px;
+    -moz-border-radius: 5px;
+    -webkit-border-radius: 5px;
+    -o-border-radius: 5px;
+}
+
+.basket-user-info .control {
+    width: 100%;
+    text-align: right;
+}
+
+#checkout {
+    margin-top: 25px;
+}
+
+
+
+
+
+/* #Media Queries
+================================================== */
+
+/* ipad portrait */
+/*@media only screen and ( min-width: 768px) and ( max-width: 980px ) {
+	body { min-width: 768px; }
+	.shell { max-width: 748px; }
+	#navigation ul li { padding-left: 24px; font-size: 15px; }
+	.header .shell { padding: 21px 0px 0; width: 748px; background: #ccc; }
+	.header-top { padding-left: 20px; padding-right: 20px;  }
+    .header-bottom {padding-left: 20px; padding-right: 20px;  }
+
+	#prev { left: 290px; }
+	#next { right: 297px; }
+
+	.main section { background: url(images/t-section.png) no-repeat center bottom; padding-bottom: 50px; margin-bottom: 20px; }
+	.main .cols { padding-left: 20px; padding-right: 20px; }
+	.main .cols .col { width: 200px; }
+	.main .cols .col img { float: none; display: block; margin: 0 auto; width: 73px;  margin-bottom: 14px; }
+	.main .cols .col .col-cnt { float: none; display: block;  text-align: center; }
+	
+	.main .post { padding-left: 20px; padding-right: 20px; }
+	.main .post h2 { font-size: 21px;  }
+	.main .post img { width: 274px; height: 182px; }
+
+	.main .socials { height: 80px; padding-top: 16px;  margin: 0 20px; }
+	.main .socials p { display: block; float: none; line-height: 22px; }
+	.main .socials ul { display: block; float: none;  }
+	.main .content { padding-left: 20px; padding-right: 20px; }
+
+	#partners-slider img { margin: 0px 15px; float: left; height: 52px; }
+
+	#footer .footer-cols { padding-left: 20px; padding-right: 20px;  }
+	#footer .footer-cols .col { width: 165px; }
+	#footer .footer-bottom { padding-left: 20px; padding-right: 20px; }
+}*/
+	
+@media only screen and ( max-width: 767px) { 
+	body { min-width: 320px; }
+	.shell { max-width: 320px; }
+	.header .shell { padding: 0 0 0 0; background: #ccc; }
+	.header-top { height: 120px; }
+
+    #navigation ul li { padding-left: 16px; }
+    #nav {position: absolute; top: 120px; width: 320px;}
+    #nav li a {width: 296px; }
+
+    .basket {position: absolute; padding-left: 145px; width: 163px;}
+    .basket-icon{margin-left: 165px;
+        margin-top: 3px;
+        z-index: 100;}
+    #basketMsg {position: absolute;
+        width: 100px;
+        z-index: 100;
+        padding-top: 30px;
+        padding-left: 40px;}
+    #order {position: absolute;
+        display: block;
+        margin-left: 22px;
+        height: 30px;
+        width: 120px;
+        cursor: pointer;}
+    #order p {font-size: 12pt;
+        padding-left: 40px;}
+    #order, #basketMsg, #order p {
+        cursor: pointer;
+    }
+	#header { background: #ccc; height: 218px; width: 100%; }
+
+    .popup-date { margin-left: -154px;}
+
+	.pagination { bottom: 8px; left: 155px; }
+
+	.main section { background: url(http://kitaec-avaprojects.rhcloud.com/css/images/m-section.png) no-repeat center bottom; padding-bottom: 30px; margin-bottom: 20px;}
+	.main .cols { padding-left: 10px; padding-right: 10px; }
+	.main .cols .col { width: 100%; }
+	.main .cols .col img { float: none; display: block; margin: 0 auto; width: 73px;  margin-bottom: 14px; }
+	.main .cols .col .col-cnt { float: none; display: block;  text-align: center; }
+	
+	.main .post { padding-left: 20px; padding-right: 20px; margin-top: 110px; }
+	.main .post h2 { font-size: 21px;  }
+	.main .post img { width: 274px; height: 182px; }
+
+	.main .socials { height: 120px; padding-top: 16px;  margin: 0 10px; }
+	.main .socials p { display: block; float: none; line-height: 22px; }
+	.main .socials ul { display: block; float: none; }
+	.main .socials span { display: block;  }
+	.main .content { padding-left: 20px; padding-right: 20px;  margin-top: 125px; }
+
+	.main #partners-slider { height: 90px; }
+	.main .partners { padding: 0 40px 12px; position: relative; margin-top: -20px; } 
+	#partners-slider img { margin: 0px 10px; }
+	.slider-arr a.prev-arr { left: 10px; }
+	.slider-arr a.next-arr { right: 10px; background-position: right 0; }
+
+	#footer .footer-cols { padding-left: 10px; padding-right: 10px; }
+	#footer .footer-cols .col { width: 100%; float: none; display: block; padding-bottom: 20px; }
+	#footer .footer-cols .col + .col { padding-left: 0px; }
+
+	#footer .footer-bottom { padding-left: 10px; padding-right: 10px; }
+	#footer .footer-nav { float: none; display: block; padding-bottom: 12px; }
+	#footer .footer-nav ul { padding-bottom: 12px; }
+	#footer .footer-nav ul li { padding: 0 3px; border-right: 0; font-size: 11px; line-height: 11px; }
+	#footer .footer-bottom p.copy { float: none; display: block; clear: both; }
+
+    .progress-box .middle .progress-bar { width: 255px; }
+    .progress-box .left { width: 275px; }
+    .progress-box .left .location { width: 275px; height: 65px; }
+    .progress-box .left .location .office { position: absolute; margin-left: 0px; }
+    .progress-box .left .location .address { position: absolute; margin-top: 18px; margin-left: 50px; width: 125px; }
+    .progress-box .left .location .open-popup-location { position: absolute; margin-top: 25px; margin-left: 180px; }
+    .progress-box .left .date { width: 275px; height: 65px; }
+    .progress-box .left .date .day { position: absolute; margin-left: -3px; }
+    .progress-box .left .date .month { position: absolute; margin-top: 18px; margin-left: 50px; width: 125px; }
+    .progress-box .left .date .open-popup-date { position: absolute; margin-top: 25px; margin-left: 190px; }
+    .progress-box .left .time { width: 275px; height: 65px; }
+    .progress-box .left .time .clock { position: absolute; margin-left: -3px; }
+    .progress-box .left .time .value { position: absolute; margin-top: 18px; margin-left: 50px; width: 125px; }
+    .progress-box .left .time .open-popup-time { position: absolute; margin-top: 25px; margin-left: 180px; }
+
+    .progress-box .middle { width: 275px; }
+    .progress-box .right { width: 275px; text-align: left;}
+    .progress-box .right .info { width: 120px; }
+    .progress-box .right .info .status { position: absolute; margin-left: 130px; margin-top: -60px; }
+}
+/*
+
+@media only screen and ( max-width: 767px) and (-webkit-min-device-pixel-ratio: 1.5), only screen and (min--moz-device-pixel-ratio: 1.5), only screen and (min-resolution: 240dpi)  { 
+
+	#logo a { background: url(images/logo.png) no-repeat 0 0;   -webkit-background-size: 142px 57px; -moz-background-size: 142px 57px; background-size: 142px 57px; }
+	#navigation { background: url(images/navigation@2x.png) no-repeat 0 0;  -webkit-background-size: 298px 32px; -moz-background-size: 298px 32px; background-size: 298px 32px;  }
+	#navigation a.nav-btn span { background: url(images/nav-arr@2x.png) no-repeat 0 0; -webkit-background-size: 10px 15px; -moz-background-size: 10px 15px; background-size: 10px 15px; }
+	.pagination a { background: url(images/pagination@2x.png) no-repeat 0 1px; -webkit-background-size: 18px 40px; -moz-background-size: 18px 40px; background-size: 18px 40px; }
+	.main section { background: url(images/section@2x.png) no-repeat center bottom; -webkit-background-size: 300px 10px; -moz-background-size: 300px 10px; background-size: 300px 10px;  }
+
+    .progress-box .middle .progress-bar { width: 190px; }
+    .progress-box .left { width: 250px; }
+    .progress-box .middle { width: 250px; }
+    .progress-box .right { width: 250px; }
+}*/

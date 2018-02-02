@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:HBox xmlns:mx="http://www.adobe.com/2006/mxml"
+	width="100%"
+	horizontalScrollPolicy="off"
+	horizontalAlign="center"
+	verticalAlign="middle"
+	creationComplete="onCreationComplete()"
+	>
+
+	<mx:Script>
+		<![CDATA[
+			import services.vo.profiles.ProfilePersonalVO;
+			import services.vo.GlobalImageAssets;
+			import framework.model.AppModelLocator;
+			import framework.view.pages.reservationCreate.events.ShowProfilesFinder;
+			import mx.controls.DataGrid;
+			import mx.core.Application;
+			import framework.managers.PopUpManagerExt;
+
+			[Bindable]
+			private var model:AppModelLocator = AppModelLocator.getInstance();
+
+			public var sSurname:String;
+
+			private function handleClick():void
+			{
+				var evt:ShowProfilesFinder = new ShowProfilesFinder(ShowProfilesFinder.SHOW_PROFILES_FINDER_EVENT);
+				model.profilesModule.currSearchField=lastName.text;
+
+				(owner as DataGrid).dispatchEvent( new ShowProfilesFinder(ShowProfilesFinder.SHOW_PROFILES_FINDER_EVENT) );
+			}
+
+			private function onCreationComplete():void {
+				lastName.setFocus();
+			}
+
+
+		]]>
+	</mx:Script>
+	<mx:TextInput
+		id="lastName"
+		borderStyle="none"
+		width="100%"
+		text="{(data as ProfilePersonalVO).sSurname}"
+		change="{sSurname = lastName.text}"/>
+	<mx:LinkButton id="searchProfiles"
+		width="16"
+		icon="@Embed(source='/assets/assets.swf', symbol='SearchIcon')"
+		click="handleClick()"/>
+</mx:HBox>

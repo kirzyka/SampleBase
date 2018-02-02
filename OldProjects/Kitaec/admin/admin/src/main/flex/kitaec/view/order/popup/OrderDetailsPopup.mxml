@@ -1,0 +1,124 @@
+<?xml version="1.0"?>
+<popup:OrderDetailsPopupBase
+        xmlns:fx="http://ns.adobe.com/mxml/2009"
+        xmlns:s="library://ns.adobe.com/flex/spark"
+        xmlns:popup="kitaec.view.order.popup.*"
+        xmlns:grid="kitaec.controls.grid.*"
+        xmlns:comboboxes="kitaec.controls.comboboxes.*"
+        xmlns:validators="mx.validators.*"
+
+        width="900" height="500"
+        title="Редактирование заказа"
+        >
+
+    <popup:layout>
+        <s:HorizontalLayout paddingTop="10" paddingRight="10" paddingLeft="10" paddingBottom="10" gap="5"/>
+    </popup:layout>
+
+    <fx:Script>
+        <![CDATA[
+        import kitaec.common.CommonConst;
+        import kitaec.common.Icon;
+        ]]>
+    </fx:Script>
+
+    <fx:Declarations>
+        <fx:Array id="validators">
+            <validators:StringValidator source="{txtName}" property="text" required="true" requiredFieldError="Поле не должно быть пустым."/>
+            <validators:StringValidator source="{txtPhone}" property="text" required="true" requiredFieldError="Поле не должно быть пустым."/>
+            <validators:StringValidator source="{txtEmail}" property="text" required="true" requiredFieldError="Поле не должно быть пустым."/>
+        </fx:Array>
+    </fx:Declarations>
+
+    <s:VGroup width="100%" height="100%">
+        <s:HGroup width="100%" verticalAlign="bottom">
+            <s:VGroup width="100%">
+                <s:Label text="Имя:"/>
+                <s:TextInput id="txtName" text="{model.orderForEdit.name}"
+                    fontWeight="bold"
+                    change="onNameChange(event)"/>
+            </s:VGroup>
+            <s:VGroup width="100%">
+                <s:Label text="Телефон:"/>
+                <s:TextInput id="txtPhone" text="{model.orderForEdit.phone}"
+                    fontWeight="bold"
+                    change="onPhoneChange(event)"/>
+            </s:VGroup>
+            <s:VGroup width="100%">
+                <s:Label text="email:"/>
+                <s:TextInput id="txtEmail" text="{model.orderForEdit.email}"
+                    fontWeight="bold"
+                    change="onEmailChange(event)"/>
+            </s:VGroup>
+
+            <s:Spacer width="100%"/>
+            <s:HGroup verticalAlign="bottom">
+                <s:Label text="Итого: " fontSize="18" fontWeight="bold"/>
+                <s:Label text="{totalLabel}" fontSize="28" fontWeight="bold"/>
+            </s:HGroup>
+        </s:HGroup>
+        <s:Label text="Комментарий к заказу:"/>
+        <s:TextArea width="100%" height="50"
+            text="{model.orderForEdit.comment}"
+            change="onCommentChange(event)"/>
+        <s:DataGrid id="dg"
+                    dataProvider="{model.orderOfferList}"
+                    width="100%" height="100%">
+            <s:columns>
+                <s:ArrayList>
+                    <s:GridColumn headerText="название" dataField="name"
+                                  showDataTips="true"
+                                  dataTipField="description"/>
+                    <!--s:GridColumn headerText="описание" labelFunction="descriptionLabelFunction"
+                                  dataTipField="description"
+                                  width="200"/-->
+                    <s:GridColumn headerText="шт." dataField="count"
+                                  width="40"/>
+                    <s:GridColumn headerText="цена" labelFunction="priceLabelFunction"
+                                  itemRenderer="kitaec.controls.grid.renderer.RightAlignLabelItemRenderer"
+                                  width="60"/>
+                    <s:GridColumn headerText="сумма" labelFunction="sumLabelFunction"
+                                  itemRenderer="kitaec.controls.grid.renderer.RightAlignLabelItemRenderer"
+                                  width="60"/>
+                    <grid:IconButtonGridColumn clickHandler="onAddOffer" icon="{Icon.ICON_ADD}"/>
+                    <grid:IconButtonGridColumn clickHandler="onDeleteOffer" icon="{Icon.ICON_DELETE}"/>
+                </s:ArrayList>
+            </s:columns>
+        </s:DataGrid>
+
+    </s:VGroup>
+
+    <s:VGroup
+            width="200" height="100%">
+        <s:Label text="Список блюд:"/>
+        <s:List dataProvider="{model.offerList}"
+                labelField="name"
+                width="100%" height="100%"
+                change="onOfferListChange(event)"/>
+        <s:Button label="добавить"
+                  width="100%"
+                  enabled="{selectedOffer}"
+                  click="onAdd(event)"/>
+
+        <comboboxes:AutoPopulatedValueComboBox
+                dataProvider="{CommonConst.ORDER_STATUS}"
+                labelField="name"
+                valueField="id"
+                selectedValue="{model.orderForEdit.status}"
+                width="100%"
+                change="onStatusChange(event)"/>
+
+        <s:HGroup width="100%">
+            <s:Button label="сохранить"
+                      width="100%"
+                      enabled="{isSaveEnabled}"
+                      click="{onSave()}"/>
+            <s:Button label="отмена"
+                      width="100%"
+                      click="{onCancel()}"/>
+        </s:HGroup>
+
+    </s:VGroup>
+
+
+</popup:OrderDetailsPopupBase>

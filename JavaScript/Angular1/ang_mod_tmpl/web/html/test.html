@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>aTest v.0.1</title>
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>
+	<script src="../js/test/lib/chai.js"></script>
+	<script src="../js/test/lib/aTest.js"></script>
+
+	<script src="../js/test/testSuite1.js"></script>
+	<script src="../js/test/testSuite2.js"></script>
+
+</head>
+<body>
+<style type="text/css">
+	table {
+		font-family: verdana,arial,sans-serif;
+		font-size:11px;
+		color:#333333;
+		border-width: 1px;
+		border-color: #999999;
+		border-collapse: collapse;
+		width: 100%;
+	}
+	table th {
+		background-color: #456D5C;
+		border-width: 1px;
+		padding: 8px;
+		border-style: solid;
+		border-color: #707575;
+		color: #fff;
+	}
+	table tr {
+		background-color:#EEF4F5;
+	}
+	table td {
+		border-width: 1px;
+		padding: 8px;
+		border-style: solid;
+		border-color: #a9c6c9;
+	}
+	.w150 {
+		width: 150px;
+	}
+</style>
+
+<script type="text/javascript">
+
+	var w = window.open("http://localhost:8080/#/default", "Angular");
+
+
+	(function whenDocLoaded() {
+		if(!w.angular) return setTimeout(whenDocLoaded, 1000);
+		aTest.init(w);
+	})();
+
+
+</script>
+
+<div id="content">
+
+
+</div>
+
+
+
+</body>
+</html>

@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<BasePopupView xmlns="framework.view.components.popups.*" 
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:pager="h2olib.control.pager.*" 
+	layout="vertical" 
+	width="680" 
+	height="320"
+	creationComplete="init()">
+	
+	<mx:Script>
+		<![CDATA[
+			import services.events.profiles.travelAgency.GetTravelAgencyListEvent;
+			import services.business.profiles.ProfileDelegate;
+			import h2olib.control.pager.event.PagerEvent;
+			import framework.managers.PopUpManagerExt;
+			import mx.managers.PopUpManagerChildList;
+			import framework.view.pages.profiles.popups.company.SaveCompanyProfilesPopupView;
+			import mx.core.IFlexDisplayObject;
+			import services.events.profiles.company.GetCompanyByIdEvent;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.controller.AppController;
+			import services.events.profiles.company.GetCompanyListEvent;
+			private function init():void
+			{				
+				searchField.text = model.profilesModule.currSearchField;
+				//if (searchField.text!='') {
+					handleSearch();
+				//}
+			}
+			
+			private function handleSearch():void
+			{
+				var eFindCompany:GetCompanyListEvent = new GetCompanyListEvent(ProfileDelegate.GET_COMPANY_LIST);
+				eFindCompany.pattern = searchField.text;
+				eFindCompany.page = 1;
+				eFindCompany.count = pager.itemPerPageCount;
+				CairngormEventDispatcher.getInstance().dispatchEvent(eFindCompany); 
+				}
+			
+			private function handleCancel():void
+			{
+				close();
+			}
+			
+			private function handlePastProfile():void
+			{
+				var getProfileEvent:GetCompanyByIdEvent = new GetCompanyByIdEvent(ProfileDelegate.GET_COMPANY_PROFILE_BY_ID);
+				getProfileEvent.id = resultList.selectedItem.lMainId;
+				getProfileEvent.callBack = getFullProfileHandler;
+				CairngormEventDispatcher.getInstance().dispatchEvent(getProfileEvent);
+			}
+			
+			private function getFullProfileHandler():void {
+				callBack(model.profilesModule.curCompanyProfile);
+				close();
+			}
+			
+			private function handleCreate():void
+			{
+				var pop:SaveCompanyProfilesPopupView = PopUpManagerExt.createPopUp(model.owner, SaveCompanyProfilesPopupView) as SaveCompanyProfilesPopupView;
+				pop.show();
+			}
+			
+			private function handleGetProfiles(e:PagerEvent):void
+			{
+				var event:GetCompanyListEvent = new GetCompanyListEvent(ProfileDelegate.GET_COMPANY_LIST);
+				event.page = e.index;
+				event.count = e.count;
+				CairngormEventDispatcher.getInstance().dispatchEvent(event);
+			}
+			
+		]]>
+	</mx:Script>
+	
+	<mx:StringValidator source="{searchField}" property="text" minLength="1" />
+	
+	<mx:HBox width="100%">
+		<mx:TextInput id="searchField"/>
+		<mx:Button label="Find" 
+			click="handleSearch()" 
+			enabled="{searchField.text.length > 0}"/>
+	</mx:HBox>
+	<mx:DataGrid id="resultList" 
+		doubleClickEnabled="{model.profilesModule.companyProfileList.length > 0 ? true : false}" 
+		width="100%" 
+		doubleClick="handlePastProfile()"
+		height="100%" 
+		dataProvider="{model.profilesModule.companyProfileList}">
+		<mx:columns>
+			<mx:DataGridColumn headerText="Company Name" dataField="sName"/>
+			<mx:DataGridColumn headerText="City" dataField="sCity"/>
+			<mx:DataGridColumn headerText="Country" dataField="sCountry"/>
+			<mx:DataGridColumn headerText="Phone" dataField="sPhone"/>
+			<mx:DataGridColumn headerText="Email" dataField="sEmail"/>
+		</mx:columns>
+	</mx:DataGrid>
+	<mx:HBox width="100%" 
+		horizontalAlign="right">
+		<mx:Button id="btnCreateProfile"
+			label="Create new profile" 
+			fontWeight="bold" 
+			click="handleCreate()"/>
+		<pager:Pager id="pager"
+			count="{model.profilesModule.companyProfileCount}"
+			pageChange="handleGetProfiles(event)"/>
+	</mx:HBox>
+</BasePopupView>

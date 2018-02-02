@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<view:HSubWindow
+	xmlns:view="framework.core.view.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	styleName="NagivationPlaceNameView"
+	height="45" width="100%">
+	
+	<mx:Script>
+		<![CDATA[
+			import mx.controls.Label;
+			import mx.binding.utils.ChangeWatcher;
+			import services.vo.GlobalImageAssets;
+			
+			public function handleInit(arg:Number):void
+			{
+				var tempModel:Object;
+				
+				for(var i:int = this.numChildren-1; i >= 0;i--)
+				{
+					if (this.getChildAt(i) is LinkButton)
+					{
+						if(this.getChildAt(i).name!= "firstLink") this.removeChildAt(i);
+					}
+					if (this.getChildAt(i) is Label)
+					{
+						this.removeChildAt(i);
+					}
+				}
+				firstLink.addEventListener(MouseEvent.CLICK, handleMenuClick);
+				tempModel = model.backendModuls[model.backendIndex]; //for example moduleHotel
+				var arrowLink:Label = new Label;
+				arrowLink.styleName = "NavigationPlaceArrow";
+				var arrowLink2:Label = new Label;
+				arrowLink2.styleName = "NavigationPlaceArrow";
+				var link2:LinkButton = new LinkButton;
+				link2.styleName = "NavigationPlaceButton";
+				var link:LinkButton = new LinkButton;
+				link.styleName = "NavigationPlaceButton";
+				var arrowLink3:Label = new Label;
+				arrowLink3.styleName = "NavigationPlaceArrow";
+				var link3:LinkButton = new LinkButton;
+				link3.styleName = "NavigationPlaceButton";
+				arrowLink.text = arrowLink2.text = arrowLink3.text = "→";	
+				link.id = "1";
+				
+				if (tempModel.currPage == 1)
+				{
+					link.id = "1";
+				}
+				if (tempModel.currPage == 2)
+				{
+					link.label = tempModel.pageNames[tempModel.currPage-1];	
+					link.id = tempModel.currPage;
+				}
+				if (tempModel.currPage == 3)
+				{
+					link.label = tempModel.pageNames[tempModel.currPage-2];	
+					link.id = tempModel.currPage;
+				}
+				if (tempModel.currPage > 0 &&  tempModel.currPage < 5)
+				{
+					link.addEventListener(MouseEvent.CLICK, handleMenuClick); 
+					link.label = tempModel.pageNames[tempModel.currPage];
+					this.addChild(arrowLink);
+				}
+				this.addChild(link);
+			}
+			
+			private function casePage(id:String):Number
+			{
+				var page:Number = 0;
+				if (id == 'firstLink')
+				{
+					page = 0;
+				}
+				if (id == '1')
+				{
+					page = 1;
+				}
+				if (id == '2')
+				{
+					page = 2;
+				}
+				if (id == '3')
+				{
+					page = 3;
+				}
+				return page;
+			}
+			
+			private function handleMenuClick(evt:MouseEvent=null):void
+			{
+				var tempModel:Object;
+				tempModel = model.backendModuls[model.backendIndex];
+				tempModel.currPage = casePage(evt.target.id);
+				model.backendIndex = model.backendIndex;
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:Image
+		source="{GlobalImageAssets.getInstance().worldWide}"/>
+	<mx:LinkButton id="firstLink"
+		name="firstLink"
+		label="{model.moduleView.selectedChild.label}"
+		styleName="NavigationPlaceButton"/>
+</view:HSubWindow>

@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:HBox xmlns:mx="http://www.adobe.com/2006/mxml" 
+	width="100%" 
+	height="100%" 
+	horizontalAlign="center" 
+	horizontalScrollPolicy="off">
+	
+	<mx:Script>
+		<![CDATA[
+			import services.vo.common.VipTotalVO;
+			import services.vo.profiles.ProfilePersonalVO;
+			import services.vo.GlobalStorage;
+			import framework.model.AppModelLocator;
+			import mx.collections.ArrayCollection;
+			import services.vo.GlobalSettings;
+			
+			private var profile:ProfilePersonalVO;
+			
+			override public function set data(value:Object):void
+			{
+				//super.data = value;
+				
+				var vipTotal:ArrayCollection = GlobalStorage.vipTotal;
+				if(value as ProfilePersonalVO)
+				{
+					profile = value as ProfilePersonalVO;
+					vip1.selectedIndex = 0;
+					
+					for(var i:int=0;i<(vip1.dataProvider as ArrayCollection).length;i++)
+						if(((vip1.dataProvider as ArrayCollection).getItemAt(i) as VipTotalVO).lId == profile.lVipTotalId)
+							vip1.selectedIndex = i;
+							
+					profile.lVipTotalId = (vip1.selectedItem as VipTotalVO).lId;
+				}
+			}   
+			
+			private function getVIPTotalLabel(item:Object):String
+			{
+				return (item as VipTotalVO).sName;
+			}
+			
+			private function handleVIP1Change():void
+			{
+				profile.lVipTotalId = (vip1.selectedItem as VipTotalVO).lId;
+			}
+			 
+		]]>
+	</mx:Script>
+	
+	 <mx:ComboBox id="vip1" dataProvider="{GlobalStorage.vipTotal}"
+	 	labelFunction="getVIPTotalLabel" change="handleVIP1Change()"/>
+	
+</mx:HBox>

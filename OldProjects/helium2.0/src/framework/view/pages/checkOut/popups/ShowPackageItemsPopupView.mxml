@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<popup:BasePopupView
+	xmlns:popup="framework.view.components.popups.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:controls="framework.view.components.controls.*">
+	
+	<mx:Script>
+		<![CDATA[
+			import mx.controls.DateField;
+			import services.vo.GlobalSettings;
+			import services.vo.checkOut.itemRouting.ItemCheckOutVO;
+			import mx.controls.dataGridClasses.DataGridColumn;
+			import mx.collections.ArrayCollection;
+			
+			[Bindable]
+			public var items:ArrayCollection = new ArrayCollection();
+			
+			/**
+			 *  Label function for view date by dd/mm/yyyy format.
+			 *  
+			 *  @param item:Object - item of dataprovider for caller table.
+			 *  @param column:DataGridColumn - column in grid.
+			 *  
+			 *  @result formated date as String.
+			 */
+			private function funcDateView(item:Object, column:DataGridColumn):String
+			{
+				if ((item as ItemCheckOutVO).dDate)
+				{
+					var date:Date = DateField.stringToDate((item as ItemCheckOutVO).dDate, GlobalSettings.DATE_SERVER_FORMAT);
+					return DateField.dateToString(date, GlobalSettings.DATE_FORMAT);
+				}
+				return "";
+			}
+		]]>
+	</mx:Script>
+	
+	<controls:ColoredDataGrid id="dgPackageItems"
+		dataProvider="{items}"
+		selectable="false"
+		width="100%" height="100%">
+		<controls:columns>
+			<mx:DataGridColumn
+				headerText="{model.locale.CheckOut_Columns_Date}"
+				labelFunction="funcDateView"
+				width="100"/>
+			<mx:DataGridColumn
+				headerText="{model.locale.CheckOut_Columns_Code}"
+				dataField="sTransCode"
+				width="60"/>
+			<mx:DataGridColumn
+				headerText="{model.locale.CheckOut_Columns_TransactionName}"
+				dataField="sTransName"
+				showDataTips="true"
+				width="180"/>
+			<mx:DataGridColumn
+				headerText="{model.locale.CheckOut_Columns_Price}"
+				dataField="fPrice"
+				width="100"/>
+			<mx:DataGridColumn
+				headerText="{model.locale.CheckOut_Columns_AdjustmentReason}"
+				dataField="sAdjustedReason"/>
+		</controls:columns>
+	</controls:ColoredDataGrid>
+</popup:BasePopupView>

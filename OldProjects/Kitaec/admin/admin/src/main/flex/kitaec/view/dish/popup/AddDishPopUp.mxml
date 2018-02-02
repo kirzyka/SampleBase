@@ -1,0 +1,56 @@
+<?xml version="1.0"?>
+<popup:AddDishPopupBase xmlns:fx="http://ns.adobe.com/mxml/2009" xmlns:s="library://ns.adobe.com/flex/spark"
+                        xmlns:popup="kitaec.view.dish.popup.*" xmlns:mx="library://ns.adobe.com/flex/mx"
+                        width="625" title="Добавить блюдо">
+    <fx:Script><![CDATA[
+        import kitaec.common.CommonConst;
+        import kitaec.common.CommonFunc;
+
+        import mx.collections.ArrayCollection;
+        import mx.controls.Alert;
+        import mx.events.ValidationResultEvent;
+        ]]></fx:Script>
+    <fx:Declarations>
+        <mx:StringValidator id="titleValidator" source="{titleTi}" property="text"
+                            minLength="3" maxLength="255"/>
+      <!-- <mx:StringValidator id="descriptionValidator" source="{descriptionTa}" property="text" required="true"
+                            tooShortError="Описание блюда должно быть хотя бы больше 3 символов. "
+                            tooLongError="Описание блюда до неприличия длинное"
+                            minLength="3" maxLength="255"/>
+        <mx:StringValidator id="priceValidator" source="{priceTi}" property="text" required="true"
+                            tooShortError="Цена блюда не должна быть пуста. "
+                            minLength="1"/>-->
+    </fx:Declarations>
+    <s:VGroup width="100%" height="100%" horizontalAlign="center" textAlign="center" paddingLeft="10" paddingRight="10"
+              paddingTop="10" paddingBottom="10">
+        <s:Form id="identityForm" >
+            <s:FormItem id="titleItem" label="Наименование блюда:">
+                <s:TextInput id="titleTi" width="300" prompt="Название" validationSubField="text" change="{validate()}"/>
+            </s:FormItem>
+            <s:FormItem id="descriptionItem" label="Описание:">
+                <s:TextArea id="descriptionTa" width="100%" height="80" prompt="Описание" change="{validate()}"/>
+            </s:FormItem>
+        <!--
+        enabled="{titleValidator.validate(titleTi.text) == descriptionValidator.validate(descriptionTa.text) == priceValidator.validate(priceTi.text) == ValidationResultEvent.VALID}"-->
+        <s:HGroup>
+            <s:Image id="img" name="img" source='kitaec/assets/food_example.jpg' width="300" toolTip="Изображение блюда - пример"/>
+            <s:VGroup>
+                <s:FormItem id="typeItem" label="Тип блюда:">
+                    <s:ComboBox id="typeCmb" width="100%" selectedIndex="0"
+                                dataProvider="{new ArrayCollection(CommonConst.DISH_TYPES)}"/>
+                </s:FormItem>
+                <s:FormItem id="priceItem" label="Цена:">
+                    <s:TextInput id="priceTi" width="100%" prompt="Цена" restrict="0-9." change="CommonFunc.onChangeNumberTextInput(event, 2); validate();"/>
+                </s:FormItem>
+                <s:Button width="250" label="Загрузать изображение"/>
+                <s:Button width="250" label="Удалить изображение"/>
+            </s:VGroup>
+        </s:HGroup>
+        <s:HGroup width="100%" textAlign="right">
+            <s:Button id="saveDishBtn" width="300" label="Сохранить" click="{saveDish()}" enabled="{isSaveBtnEnabled}"/>
+            <s:Button width="300" label="Отмена" click="{hide()}"/>
+        </s:HGroup>
+        </s:Form>
+    </s:VGroup>
+
+</popup:AddDishPopupBase>

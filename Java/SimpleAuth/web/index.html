@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Java Test Server</title>
+    <link href="css/style.css" rel="stylesheet"/>
+</head>
+<body>
+    <div id="btnLogin">
+        <input id="txtLogin" type="text" name="login" value="test">
+        <input id="txtPassword" type="password" name="password" value="test">
+        <a  href="/JavaTest/auth?action=login&login=test&pass=test">Login</a>
+    </div>
+    <div id="btnLogout" class="hide">
+        <a href="/JavaTest/auth?action=logout&login=test&pass=test">Logout</a>
+    </div>
+
+
+    <script src="js/jquery-2.0.3.min.js"></script>
+    <script src="js/jquery.cookie.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

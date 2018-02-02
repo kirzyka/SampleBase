@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="utf-8"?>
+<BasePopupView title="Search Profile For Reservation" 
+	xmlns="framework.view.components.popups.*" 
+	xmlns:controls="framework.view.components.controls.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml" 
+	layout="vertical" 
+	width="850" height="550"
+	creationComplete="init()" 
+	defaultButton="{btnSearch}">
+	<mx:Script>
+		<![CDATA[
+			import mx.collections.ArrayCollection;
+			import services.vo.profiles.ProfilePersonViewVO;
+			import services.events.profiles.individual.FindProfileBySurnameForRsvEvent;
+			import services.events.profiles.individual.FindProfileByNameForRsvEvent;
+			import services.business.profiles.ProfileDelegate;
+			import mx.managers.PopUpManagerChildList;
+			import services.events.profiles.individual.GetProfileByIdEvent;
+			import services.vo.profiles.ProfilePersonalVO;
+			import services.events.profiles.individual.FindProfileBySurnameEvent;
+			import services.events.profiles.individual.FindProfileByNameEvent;
+			import framework.view.pages.profiles.popups.individual.SaveIndividualProfilePopupView;
+			import services.vo.frontend.ReservationOrderVO;
+			import framework.model.AppModelLocator;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.controller.AppController;
+			import framework.managers.PopUpManagerExt;
+			
+			public var orderIndex:int;
+			public var roomIndex:int;
+			public var startDate:String;
+			public var endDate:String;			
+						
+			private function init():void
+			{
+				model.profilesModule.individualPageList = new ArrayCollection();
+				txtSearchField.text = model.profilesModule.currSearchField;
+				if (txtSearchField.text!='')
+				{	
+					handleSearch();
+				}
+			}
+			
+			private function handleSearch():void
+			{
+				if(cmbSearchTypeProfile.selectedIndex == 0) 
+				{
+					var findBySurnameEvent:FindProfileBySurnameForRsvEvent = new FindProfileBySurnameForRsvEvent(ProfileDelegate.FIND_PROFILE_BY_SURNAME_FOR_RESERVATION);
+					findBySurnameEvent.pattern = txtSearchField.text;
+					findBySurnameEvent.count = 500;
+					findBySurnameEvent.page = 1;
+					findBySurnameEvent.startDate = startDate;
+					findBySurnameEvent.endDate = endDate;										
+					CairngormEventDispatcher.getInstance().dispatchEvent(findBySurnameEvent);
+				}
+				else 
+				{				
+					var findByNameEvent:FindProfileByNameForRsvEvent = new FindProfileByNameForRsvEvent(ProfileDelegate.FIND_PROFILE_BY_NAME_FOR_RESERVATION);
+					findByNameEvent.pattern = txtSearchField.text;
+					findByNameEvent.count = 500;
+					findByNameEvent.page = 1;
+					findByNameEvent.startDate = startDate;
+					findByNameEvent.endDate = endDate;
+					CairngormEventDispatcher.getInstance().dispatchEvent(findByNameEvent);					
+				}
+			}
+			
+			private function handleCancel():void
+			{
+				close();
+			}
+			
+			private function handlePastProfile():void
+			{
+				if(!(resultList.selectedItem as ProfilePersonViewVO).bIsReserved)
+				{
+					var getProfileEvent:GetProfileByIdEvent = new GetProfileByIdEvent(ProfileDelegate.GET_PROFILE_BY_ID);
+					getProfileEvent.profileId = resultList.selectedItem.lMainId;
+					getProfileEvent.callBack = getFullProfileHandler;
+					CairngormEventDispatcher.getInstance().dispatchEvent(getProfileEvent);
+				}
+			}
+			
+			private function getFullProfileHandler():void {
+				callBack(model.profilesModule.currentProfile);
+				close();
+			}
+			
+			private function handleCreate():void
+			{
+				var pop:SaveIndividualProfilePopupView = PopUpManagerExt.createPopUp(this, SaveIndividualProfilePopupView) as SaveIndividualProfilePopupView;
+				pop.show();
+			}
+			
+		   private function profileRowColor(item:Object, rowIndex:int, dataIndex:int, color:uint):uint
+		   {
+		   		return ((item as ProfilePersonViewVO).bIsReserved) ? 0xf4b9e4 : color;
+		   }
+			
+		]]>
+	</mx:Script>
+	
+	<mx:StringValidator source="{txtSearchField}" property="text" minLength="1" />
+	
+	<mx:HBox width="100%">
+		<mx:Label text="Search By:"/>
+		<mx:ComboBox id="cmbSearchTypeProfile" 
+			dataProvider="{model.reservationModule.typeProfileSearch}"
+			labelField="label"/>
+		<mx:TextInput id="txtSearchField"/>
+		<mx:Button id="btnSearch"
+			label="Find" 
+			click="handleSearch()" 
+			enabled="{txtSearchField.text.length > 0}"/>
+	</mx:HBox>
+	
+	<controls:ColoredDataGrid id="resultList" 
+		doubleClickEnabled="{model.profilesModule.individualPageList.length > 0 ? true : false}" 
+		width="100%" height="100%"   
+		doubleClick="handlePastProfile()"
+		rowColorFunction="profileRowColor"
+		dataProvider="{model.profilesModule.individualPageList}" rowHeight="33" headerHeight="22" styleName="grid">
+		<controls:columns>
+			<mx:DataGridColumn headerText="Name" dataField="sSurname"/>
+			<mx:DataGridColumn headerText="First Name" dataField="sName"/>
+			<mx:DataGridColumn headerText="Company" dataField="sCompany"/>
+			<mx:DataGridColumn headerText="Phone" dataField="sPhone"/>
+			<mx:DataGridColumn headerText="Email" dataField="sEmail"/>
+		</controls:columns>
+	</controls:ColoredDataGrid>
+	<mx:HBox width="100%" 
+		horizontalAlign="right">
+		<mx:Button id="btnCreateProfile"
+			label="Create new profile" 
+			fontWeight="bold" 
+			click="handleCreate()"/>
+	</mx:HBox>
+</BasePopupView>

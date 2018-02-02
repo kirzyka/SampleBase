@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<BaseWindow
+	xmlns="framework.core.view.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:tabnav="h2olib.control.advancedTabNavigator.*"
+	xmlns:bar="framework.view.pages.rates.bar.*"
+	xmlns:companyRates="framework.view.pages.rates.companyRates.*"
+	xmlns:packages="framework.view.pages.rates.packages.*"
+	verticalScrollPolicy="off" horizontalScrollPolicy="off"
+	creationComplete="handleInit()"
+	layout="absolute" styleName="PageBigWithTopPadding">
+    <mx:Script>
+    	<![CDATA[
+    		import framework.core.view.VSubWindow;
+    		import services.business.profiles.ProfileDelegate;
+    		import framework.model.AppModelLocator;
+    		import services.events.profiles.company.GetCompanyListEvent;
+    		import services.events.hotels.GetHotelRoomTypesEvent;
+    		import services.controller.AppController;
+    		import com.adobe.cairngorm.control.CairngormEventDispatcher;
+    		import mx.binding.utils.ChangeWatcher;
+    		import services.vo.GlobalFunctions;
+    		import services.business.items.ItemsDelegate;
+    		import services.events.items.arrangementCodes.GetArrangementsEvent;
+
+    	 	
+    	 	public var flag:Boolean = false;
+    	 	
+    	 	public var flag2:Boolean = true; // for don't dublicate connect
+    	 	
+    	 	override public function show():void
+    		{
+    			if (flag)
+    			{
+    				ratesNavigator.selectedIndex = 0;
+    			}
+    			if (flag2)
+				{
+					var evt:GetCompanyListEvent = new GetCompanyListEvent(ProfileDelegate.GET_COMPANY_LIST);
+					evt.callBack = checkCompany;
+					CairngormEventDispatcher.getInstance().dispatchEvent(evt); 
+					flag2 = false; 
+				}
+    		} 
+    		 
+    	
+    		public function handleInit():void
+			{
+				var evt:GetCompanyListEvent = new GetCompanyListEvent(ProfileDelegate.GET_COMPANY_LIST);
+				evt.callBack = checkCompany;
+				CairngormEventDispatcher.getInstance().dispatchEvent(evt); 
+				onChange();
+			}
+			
+			private function checkCompany():void
+			{
+				if (model.profilesModule.companyProfileList.length == 0)
+				{
+					companyRates.enabled = false;
+				}
+				else
+				{
+					companyRates.enabled = true;
+				}
+			}			
+			
+			private function checkArrngementCodeList():void
+			{
+				if (model.transactionModule.arrangementCodesList.length == 0)
+				{
+					var event:GetArrangementsEvent = new GetArrangementsEvent(ItemsDelegate.GET_ARRANGEMENTS_LIST);
+					CairngormEventDispatcher.getInstance().dispatchEvent(event);
+				}
+			}
+			
+			private function onChange():void
+			{
+				checkArrngementCodeList();
+				if ((ratesNavigator.selectedChild is BarView) || (ratesNavigator.selectedChild is PackagesView))
+				{
+					var getRTevt:GetHotelRoomTypesEvent = new GetHotelRoomTypesEvent( AppController.GET_HOTEL_ROOM_TYPES );	
+					getRTevt.callBack = (ratesNavigator.selectedChild as VSubWindow).update;
+					CairngormEventDispatcher.getInstance().dispatchEvent( getRTevt );
+				}
+				else
+				{
+					(ratesNavigator.selectedChild as VSubWindow).update();	
+				}
+			}
+			
+    	]]>
+    </mx:Script>
+    <tabnav:AdvancedTabNavigator id="ratesNavigator"
+    	width="100%" height="100%"
+    	creationPolicy = "queued"
+    	change = "onChange()"
+        tabPosition = "leftTop" tabWidth = "120" styleName = "verticalTabNavigator">
+        <bar:BarView id="barView"
+        	label="BAR"/>
+        <companyRates:CompanyRatesView id = "companyRates"
+        	label="Company Rates"
+        	width="100%" height="100%"/>
+        <packages:PackagesView id="packagesView"
+        	label="Packages"
+        	width="100%" height="100%"/>
+    </tabnav:AdvancedTabNavigator>
+</BaseWindow>

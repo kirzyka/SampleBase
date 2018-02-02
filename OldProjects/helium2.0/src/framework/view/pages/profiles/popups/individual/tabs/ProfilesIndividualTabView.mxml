@@ -1,0 +1,700 @@
+<?xml version="1.0" encoding="utf-8"?>
+<tab:SubWindow
+	xmlns:tab="framework.core.view.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:controls="framework.view.components.controls.*"
+	xmlns:control="h2olib.control.*"
+	xmlns:address="framework.view.components.address.*"
+	label="{model.locale.Profiles_Individual_Title}"
+	paddingBottom="5" paddingLeft="5" paddingRight="5" paddingTop="5"
+	creationComplete="init()">	
+	
+	<mx:Script>
+		<![CDATA[
+			import services.vo.common.MailingsVO;
+			import h2olib.utils.DateUtils;
+			import framework.view.common.popups.ChooseCompanyPopupView;
+			import mx.events.ValidationResultEvent;
+			import framework.view.pages.inHouse.data.ValidateType;
+			import framework.module.CommonModule;
+			import mx.controls.DateField;
+			import mx.utils.ObjectUtil;
+			import framework.view.components.address.data.LocationData;
+			import services.vo.common.loyaltyPrograms.LoyaltyProgramsVO;
+			import services.vo.GlobalFunctions;
+			import mx.collections.ArrayCollection;
+			import services.vo.common.wishes.SettingsWishVO;
+			import services.vo.common.wishes.ItemsWishVO;
+			import services.events.miscellaneous.langueges.GetLanguageEvent;
+			import services.events.miscellaneous.nationalities.GetNationalityEvent;
+			import services.events.miscellaneous.salutation.GetSalutationEvent;
+			import services.events.miscellaneous.countries.GetRegionEvent;
+			import services.events.miscellaneous.countries.GetCountryEvent;
+			import framework.view.pages.profiles.data.ChooseCompanyVO;
+			import mx.core.IFlexDisplayObject;
+			import framework.view.pages.profiles.events.CompanyEvent;
+			import mx.managers.PopUpManagerChildList;
+			import services.vo.common.CityVO;
+			import services.vo.common.CountryVO;
+			import services.vo.common.RegionVO;
+			import services.vo.common.LanguageVO;
+			import services.vo.common.NationalityVO;
+			import services.vo.common.SalutationVO;
+			import services.vo.common.ContactVO;
+			import services.vo.profiles.ProfileAddressPersonalVO;
+			import services.vo.frontend.AddressVO;
+			import framework.view.pages.profiles.popups.individual.renderer.MailingsActionRenderer;
+			import services.events.common.GetVipTotalListEvent;
+			import services.events.common.GetVipHotelListEvent;
+			import framework.view.pages.profiles.popups.individual.renderer.WishesRenderer;
+			import services.vo.common.VipHotelVO;
+			import services.vo.common.VipTotalVO;
+			import services.vo.profiles.ProfilePersonalVO;
+			import framework.model.AppModelLocator;
+			import services.controller.AppController;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import framework.managers.PopUpManagerExt;
+			import services.vo.GlobalStorage;
+			import services.vo.GlobalSettings;
+			
+			// ================================================================= //
+			//                           CONSTANTS                               //
+			// ================================================================= //
+			/**
+			 *  The prefix for localization by popup "Profile".
+			 */
+			private const localePrefix:String = "popups.update.tabs.profile."; 
+			
+			// ================================================================= //
+			//                           VARIABLES                               //
+			// ================================================================= //
+			
+			private var companyData:ChooseCompanyVO = new ChooseCompanyVO();
+			
+			private var address:ProfileAddressPersonalVO = new ProfileAddressPersonalVO();
+			
+			[Bindable]
+			private var bonusPrograms:ArrayCollection = new ArrayCollection();
+			[Bindable]
+			private var vipTotal:ArrayCollection = new ArrayCollection();
+			[Bindable]
+			private var vipHotel:ArrayCollection = new ArrayCollection();
+			
+			[Bindable]
+			/**
+			 *  This property is all existed in the system languages.
+			 *  
+			 *  @default new ArrayCollection()
+			 */
+			private var _language:ArrayCollection = new ArrayCollection();
+			
+			[Bindable]
+			/**
+			 *  This property is all existed in the system salutations by language.
+			 *  
+			 *  @default new ArrayCollection()
+			 */
+			private var _salutation:ArrayCollection = new ArrayCollection();
+			
+			private var _profile:ProfilePersonalVO = new ProfilePersonalVO();
+			
+			private var _birthday:Date;
+			
+			[Bindable]
+			private var _days:ArrayCollection = new ArrayCollection();
+			[Bindable]
+			private var _months:ArrayCollection = new ArrayCollection();
+			[Bindable]
+			private var _years:ArrayCollection = new ArrayCollection();
+			
+			
+			// ================================================================= //
+			//                        OVERRIDE METHODS                           //
+			// ================================================================= //
+			/**
+			 *  @override
+			 *  The <code>data</code> property lets you pass a value to the component
+			 *  when you use it in an item renderer or item editor.
+			 */
+			override public function set data(value:Object):void
+			{
+				super.data = value;
+				
+				_profile = data as ProfilePersonalVO;
+				
+				if (data)
+				{
+					address = _profile.aAddresses[0];
+					// for relationship for profile
+					companyData = new ChooseCompanyVO(_profile.lCompanyId, _profile.sCompanyName);
+					
+					callLater(refreshData);
+					
+					if (address)
+					{
+						location.location = LocationData.convert(address);
+					}
+					else
+					{
+						location.show();
+					}
+				}
+				else
+				{
+					location.show();
+				}
+			}
+			
+			private function init():void
+			{
+				// create and add none item for VIP TOTAL
+				var noneVIPTotalItem:VipTotalVO = new VipTotalVO();
+				noneVIPTotalItem.lId = 0;
+				noneVIPTotalItem.sName = "none";
+				// copy vip total list and add none item
+				vipTotal = ObjectUtil.copy(GlobalStorage.vipTotal) as ArrayCollection;
+				vipTotal.addItemAt(noneVIPTotalItem, 0);
+				// set none item as default
+				cmbVIPTotal.setItemByField("lId", _profile.lVipTotalId);
+				
+				// create and add none item for VIP HOTEL
+				var noneVipHotelItem:VipHotelVO = new VipHotelVO();
+				noneVipHotelItem.lId = 0;
+				noneVipHotelItem.sName = "none";
+				// copy vip total list and add none item
+				vipHotel = ObjectUtil.copy(GlobalStorage.vipHotel) as ArrayCollection;
+				vipHotel.addItemAt(noneVipHotelItem, 0);
+				// set none item as default
+				cmbVIPHotel.setItemByField("lId", _profile.lVipHotelId);
+				
+				// create and add none item for BONUS PROGRAMS
+				var noneBonusProgramItem:LoyaltyProgramsVO = new LoyaltyProgramsVO();
+				noneBonusProgramItem.lId = 0;
+				noneBonusProgramItem.sName = "none";
+				// copy loyalty programs list and add none item
+				bonusPrograms = ObjectUtil.copy(GlobalStorage.loyaltyPrograms) as ArrayCollection;
+				bonusPrograms.addItemAt(noneBonusProgramItem, 0);
+				// set none item as default
+				var bonus:Number = (_profile.aLoyalties.length > 0) ? _profile.aLoyalties[0] : 0;
+				cmbBonusPrograms.setItemByField("lId", bonus);
+				
+				// create and add none item for LANGUAGE
+				_language = CommonModule.validateLanguage(GlobalStorage.language);
+				cmbLanguage.setItemByField("lId", _profile.lLanguageId);
+				// update salutation
+				_salutation = storage.salutationByLanguage(_profile.lLanguageId, true);
+				cmbSalutation.setItemByField("lId", _profile.lSalutationId);
+				
+				for(var year:int = model.date.fullYear; year > (model.date.fullYear - 100); year--)
+				{
+					_years.addItem({label:year});
+				}
+				_years.addItemAt({label:"---"}, 0);
+				if (_birthday)
+				{
+					cmbYear.setItemByField("label", _birthday.fullYear);
+				}
+				else
+				{
+					cmbYear.selectedIndex = 0;
+				}
+				
+				_months = new ArrayCollection(model.months.slice());
+				_months.addItemAt("---", 0);
+				if (_birthday)
+				{
+					cmbMonth.selectedIndex = _birthday.month + 1;
+				}
+				else
+				{
+					cmbMonth.selectedIndex = 0;
+				}
+				
+				handleMonthChange();
+			}
+			
+			private function handleMonthChange():void
+			{
+				if (!cmbYear.selectedItem) return;
+				
+				var currDate:Date = new Date(cmbYear.selectedItem.label, cmbMonth.selectedIndex - 1, 1);
+				var currDateStr:String = currDate.toDateString();
+				var dayInMonth:Number = DateUtils.daysInMonth(currDate);
+				
+				_days.removeAll();
+				for(var day:int = 1; day < dayInMonth + 1; day++)
+				{
+					_days.addItem(day);
+				}
+				_days.addItemAt("--", 0);
+				_days.refresh();
+				if (_birthday)
+				{
+					cmbDay.selectedIndex = _birthday.date;
+				}
+				else
+				{
+					cmbDay.selectedIndex = 0;
+				}
+			}
+			
+			public function get profile():ProfilePersonalVO
+			{
+				var profile:ProfilePersonalVO = (data) ? data as ProfilePersonalVO : new ProfilePersonalVO();
+				// personal info
+				profile.sName = tiFirstName.text;
+				profile.sSurname = tiLastName.text;
+				profile.sPassNumber = tiPassport.text;
+				// check selected date for existing
+				if ((cmbYear.selectedItem.label != "---") && (cmbMonth.selectedItem != "---") && (cmbDay.selectedItem != "--"))
+				{
+					var day:String = ((cmbDay.selectedItem < 10) ? "0": "") + cmbDay.selectedItem;
+					var month:String = ((cmbMonth.selectedIndex < 10) ? "0": "") + cmbMonth.selectedIndex;
+					
+					var dateStr:String = cmbYear.selectedItem.label + "-" + month + "-" + day;
+					profile.dBirthDate = dateStr;
+				}
+				else
+				{
+					profile.dBirthDate = null;
+				}
+				
+				profile.lLanguageId = (cmbLanguage.selectedItem as LanguageVO).lId;
+				profile.lSalutationId = (cmbSalutation.selectedItem as SalutationVO).lId;
+				
+				// check selection of nationality
+				if (nationality.selectedItem)
+				{
+					profile.lNationalityId = (nationality.selectedItem as NationalityVO).lId;
+				}
+				
+				// home addres
+				profile.aAddresses[0] = location.location.toProfileAddress();
+				profile.aContacts = location.contacts;
+				
+				// additional info
+				profile.lVipTotalId = (cmbVIPTotal.selectedItem as VipTotalVO).lId;
+				profile.lVipHotelId = (cmbVIPHotel.selectedItem as VipHotelVO).lId;
+				profile.bIsSmoking = smokerYes.selected;
+				profile.bIsDisabled = disabled.selected;
+				profile.sPreferRoom = preferredRoom.text;
+				profile.smokerField = cmbSmoker.selectedItem.lId;
+				
+				profile.sNote = note.text;
+				
+				profile.lCompanyId = companyData.id;
+				profile.sCompanyName = companyData.name;
+				
+				var wishes:ArrayCollection = specialWishes.dataProvider as ArrayCollection;
+				profile.aItemsWishes = new Array();
+				profile.aSettingsWishes = new Array();
+				for(var i:int = 0; i < wishes.length; i++)
+				{
+					var item:* = wishes.getItemAt(i);
+					if ((item is ItemsWishVO) && ((item as ItemsWishVO).bIsSelected))
+					{
+						profile.aItemsWishes.push((item as ItemsWishVO).lId);
+					}
+					if ((item is SettingsWishVO) && ((item as SettingsWishVO).bIsSelected))
+					{
+						profile.aSettingsWishes.push((item as SettingsWishVO).lId);
+					}
+				}
+				
+				var bonus:LoyaltyProgramsVO = (cmbBonusPrograms.selectedItem as LoyaltyProgramsVO);
+				if (bonus.lId > 0)
+				{
+					profile.aLoyalties[0] = bonus.lId;
+				}
+				else
+				{
+					profile.aLoyalties = [];
+				}
+				
+				profile.aMailings = [];
+				for each(var mailing:MailingsVO in mailingActions.dataProvider)
+				{
+					if (mailing.bIsSelected)
+					{
+						profile.aMailings.push(mailing.lId);
+					}
+				}
+				
+				return profile;
+			}
+			
+			
+			
+			public function changeLanguage():void
+			{
+				var lanId:Number = cmbLanguage.selectedItem.lId;
+				_salutation = storage.salutationByLanguage(lanId, true);
+			}
+			
+			
+			private function refreshData():void
+			{
+				if (!data) return;
+				
+				var i:int = 0;
+				var j:int = 0;
+				var profile:ProfilePersonalVO = data as ProfilePersonalVO;
+				
+				cmbSalutation.salutationId = profile.lSalutationId;
+				cmbSalutation.dataProvider = storage.salutationByLanguage(profile.lLanguageId, true);
+				cmbLanguage.setItemByField("lId", profile.lLanguageId);
+				nationality.setItemByField("lId", profile.lNationalityId);
+				cmbVIPTotal.setItemByField("lId", profile.lVipTotalId);
+				cmbVIPHotel.setItemByField("lId", profile.lVipHotelId);
+				
+				// birthday date
+				if ((profile.dBirthDate) && (profile.dBirthDate != ""))
+				{
+					_birthday = DateField.stringToDate(profile.dBirthDate, GlobalSettings.DATE_SERVER_FORMAT);
+					cmbYear.setItemByField("label", _birthday.fullYear);
+					cmbMonth.selectedIndex = _birthday.month;
+					handleMonthChange();
+				}
+				
+				address = ((profile.aAddresses[0]) as ProfileAddressPersonalVO);
+				location.contacts = profile.aContacts;
+				
+				// additional info
+				smokerYes.selected = profile.bIsSmoking;
+				smokerNo.selected = !profile.bIsSmoking;
+				disabled.selected = profile.bIsDisabled;
+				cmbSmoker.selectedIndex = profile.smokerField;				
+				preferredRoom.text = profile.sPreferRoom;
+				
+				note.text = profile.sNote;
+				
+				if (profile.aLoyalties.length != 0)
+				{
+					cmbBonusPrograms.setItemByField("lId", profile.aLoyalties[0]);
+				}
+				// wishes
+				var wishes:ArrayCollection = specialWishes.dataProvider as ArrayCollection;
+				for(i = 0; i < wishes.length; i++)
+				{
+					var item:* = wishes.getItemAt(i);
+					if (item is ItemsWishVO)
+					{
+						(item as ItemsWishVO).bIsSelected = false;
+						for(j = 0; j < profile.aItemsWishes.length; j++)
+						{
+							if ((item as ItemsWishVO).lId == profile.aItemsWishes[j])
+							{
+								(item as ItemsWishVO).bIsSelected = true;
+							}
+						}
+					}
+					if (item is SettingsWishVO)
+					{
+						(item as SettingsWishVO).bIsSelected = false;
+						for(j = 0; j < profile.aSettingsWishes.length; j++)
+						{
+							if ((item as SettingsWishVO).lId == profile.aSettingsWishes[j])
+							{
+								(item as SettingsWishVO).bIsSelected = true;
+							}
+						}
+					}
+				}
+				// mailing
+				for each(var mailing:MailingsVO in mailingActions.dataProvider)
+				{
+					mailing.bIsSelected = false;
+					for(i = 0; i < profile.aMailings.length; i++)
+					{
+						if (mailing.lId == profile.aMailings[i])
+						{
+							mailing.bIsSelected = true;
+						}
+					}
+				}
+			}
+			
+			private function openChooseCompanyPopup():void
+			{
+				model.profilesModule.companyProfileList.removeAll();
+				
+				var pop:ChooseCompanyPopupView = PopUpManagerExt.createPopUp(this, ChooseCompanyPopupView) as ChooseCompanyPopupView;
+				pop.isCanEdit = true;
+				pop.companyName = company.text;
+				pop.addEventListener(CompanyEvent.CHOOSE_COMPANY, handleChooseCompany);
+				pop.update();
+			}
+			
+			private function handleChooseCompany(e:CompanyEvent):void
+			{
+				e.target.removeEventListener(CompanyEvent.CHOOSE_COMPANY, handleChooseCompany);
+				
+				companyData = new ChooseCompanyVO(e.id, e.name);
+				
+				company.text = e.name;
+			}
+			
+			public function validate():Boolean
+			{
+				var validate:ValidationResultEvent;
+				var result:Boolean = true;
+				// validate first name
+//				validate = svFirstName.validate();
+//				result &&= (validate.type == ValidationResultEvent.VALID);
+				// validate last name
+				validate = svLastName.validate();
+				result &&= (validate.type == ValidationResultEvent.VALID);
+				// validate passport number
+				if (tiPassport.text.length > 0)
+				{
+					validate = svPassport.validate();
+					result &&= (validate.type == ValidationResultEvent.VALID);
+				}
+				// validate locations
+				result &&= location.validate();
+				
+				return result;
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:HBox width="100%" height="100%">
+		<mx:VBox width="100%" height="100%">
+			<!-- Personal Information -->
+			<control:Frame
+				label="{model.locale.Profiles_Individual_Popups_Update_Profile_Personal_Title}"
+				width="100%">
+				<mx:Form width="100%" height="100%">
+					<mx:FormItem
+						required="true"
+						label="{model.locale.Global_PersonalInformation_LastName}:"												
+						width="100%">
+						<mx:TextInput
+							id="tiLastName"
+							text="{(data as ProfilePersonalVO).sSurname}"
+							restrict="\-A-Z a-zßÄäÖöÜü0-9'"
+							maxChars="25"/>
+					</mx:FormItem>
+					<mx:FormItem
+						label="{model.locale.Global_PersonalInformation_FirstName}:"
+						width="100%">
+						<mx:TextInput
+							id="tiFirstName"
+							text="{(data as ProfilePersonalVO).sName}"
+							restrict="\-A-Z a-zßÄäÖöÜü0-9'"
+							maxChars="25"/>
+					</mx:FormItem>
+					<!-- Choose language -->
+					<mx:FormItem
+						label="{model.locale.Global_PersonalInformation_Language}:"
+						width="100%">
+						<control:ComboBoxEx id="cmbLanguage"
+							dataProvider="{_language}"
+							labelField="sCode"
+							change="{changeLanguage()}"
+							width="170"/>
+					</mx:FormItem>
+					<!-- Choose salutation -->
+					<mx:FormItem
+						label="{model.locale.Global_PersonalInformation_Salutation}:"
+						width="100%">
+						<controls:SalutationComboBox id="cmbSalutation"
+							dataProvider="{_salutation}"
+							labelField="sName"
+							width="170"/>
+					</mx:FormItem>
+					<!-- Choose birthday date -->
+					<mx:FormItem
+						label="{model.locale.Profiles_Individual_Popups_Update_Profile_Personal_Birthday}:"
+						direction="horizontal"
+						width="100%">
+						<control:ComboBoxEx id="cmbDay"
+							dataProvider="{_days}"
+							width="55"/>
+						<control:ComboBoxEx id="cmbMonth"
+							dataProvider="{_months}"
+							change="handleMonthChange()"/>
+						<control:ComboBoxEx id="cmbYear"
+							dataProvider="{_years}"
+							change="handleMonthChange()"
+							width="90"/>
+					</mx:FormItem>
+					<!-- Choose nationality -->
+					<mx:FormItem
+						label="{model.locale.Global_PersonalInformation_Nationality}:"
+						width="100%">
+						<control:ComboBoxEx id="nationality"
+							prompt="Choose nationality"
+							enabled="{GlobalStorage.nationality.length != 0}"
+							dataProvider="{GlobalStorage.nationality}"
+							labelField="sName"
+							width="170"/>
+					</mx:FormItem>
+					<mx:FormItem
+						label="{model.locale.Profiles_Individual_Popups_Update_Profile_Personal_Passport}:"
+						width="100%">
+						<mx:TextInput id="tiPassport"
+							text="{(data as ProfilePersonalVO).sPassNumber}"
+							maxChars="10"
+							restrict="0-9A-Za-z"/>
+					</mx:FormItem>
+				</mx:Form>
+			</control:Frame>
+			
+			<!-- Home Address -->
+			<control:Frame
+				label="{model.locale.Profiles_Individual_Popups_Update_Profile_HomeAddress_Title}"
+				horizontalScrollPolicy="off"
+				verticalScrollPolicy="off"
+				width="100%">
+				<address:LocationChooser id="location"
+					countries="{storage.countries}"
+					horizontalScrollPolicy="off"
+					verticalScrollPolicy="off"
+					phoneRequired="false"
+					width="470"/>
+			</control:Frame>
+		</mx:VBox>
+		
+		<mx:VBox>
+			<!-- Additional Information -->
+			<control:Frame width="100%" label="{model.locale.Profiles_Individual_Popups_Update_Profile_Additional_Title}">
+				<mx:Form width="100%">
+					<mx:FormItem
+						label="{model.locale.Profiles_Individual_Popups_Update_Profile_Additional_Vip1}:"
+						width="100%">
+						<control:ComboBoxEx
+							id="cmbVIPTotal"
+							dataProvider="{vipTotal}"
+							labelField="sName"
+							width="200"/>
+					</mx:FormItem>
+					<mx:FormItem
+						label="{model.locale.Profiles_Individual_Popups_Update_Profile_Additional_Vip2}:"
+						width="100%">
+						<control:ComboBoxEx
+							id="cmbVIPHotel"
+							dataProvider="{vipHotel}"
+							labelField="sName"
+							width="200"/>
+					</mx:FormItem>
+					<mx:FormItem  
+						label="{model.locale.Profiles_Individual_Popups_Update_Profile_Additional_Smoker}:"  
+						width="100%" > 
+						<control:ComboBoxEx 
+							id="cmbSmoker"  
+							dataProvider="{GlobalStorage.smokerField}" 
+							labelField="sName" 
+							width="200"/>
+					</mx:FormItem>
+					<mx:FormItem visible="false"
+						label="{model.locale.Profiles_Individual_Popups_Update_Profile_Additional_Smoker}:"
+						direction="horizontal"
+						width="100%">
+						<mx:RadioButton
+							id="smokerYes"
+							label="Yes"
+							selected="false"
+							groupName="groupSmoker"/>
+						<mx:RadioButton
+							id="smokerNo"
+							label="No"
+							selected="true"
+							groupName="groupSmoker"/>
+					</mx:FormItem>
+					<mx:FormItem
+						label="{model.locale.Profiles_Individual_Popups_Update_Profile_Additional_Disabled}:"
+						width="100%">
+						<mx:CheckBox
+							id="disabled"/>
+					</mx:FormItem>
+					<mx:FormItem
+						label="{model.locale.Profiles_Individual_Popups_Update_Profile_Additional_PreferredRoom}:"
+						width="100%">
+						<mx:TextInput
+							id="preferredRoom"
+							enabled="false"
+							maxChars="10"/>
+					</mx:FormItem>
+					<mx:FormItem
+						label="{model.locale.Profiles_Individual_Popups_Update_Profile_Additional_BonusProgram}:"
+						width="100%">
+						<control:ComboBoxEx
+							id="cmbBonusPrograms"
+							dataProvider="{bonusPrograms}"
+							labelField="sName"
+							width="150"/>
+					</mx:FormItem>
+					<mx:FormItem
+						label="{model.locale.Profiles_Individual_Popups_Update_Profile_Additional_Wishes}:"
+						width="100%">
+						<mx:List
+							id="specialWishes"
+							dataProvider="{model.profilesModule.wishesList}"
+							itemRenderer="{new ClassFactory(WishesRenderer)}"
+							height="80"
+							width="100%"/>
+					</mx:FormItem>
+					<mx:FormItem
+						label="{model.locale.Profiles_Individual_Popups_Update_Profile_Additional_MailingActions}:"
+						width="100%">
+						<mx:List
+							id="mailingActions"
+							dataProvider="{GlobalStorage.mailings}"
+							itemRenderer="{new ClassFactory(MailingsActionRenderer)}"
+							height="80"
+							width="100%"/>
+					</mx:FormItem>
+					<mx:FormItem
+						label="{model.locale.Profiles_Individual_Popups_Update_Profile_Additional_Notes}:"
+						width="100%">
+						<mx:TextArea id="note"
+							maxChars="{GlobalSettings.DESCRIPTION_LENGTH}"
+							height="80"
+							width="100%"/>
+					</mx:FormItem>
+				</mx:Form>
+			</control:Frame>
+			
+			<!-- Relationships -->
+			<control:Frame
+				label="{model.locale.Profiles_Individual_Popups_Update_Profile_Relationships_Title}"
+				width="100%">
+				<mx:Form width="100%">
+					<mx:FormItem
+						label="{model.locale.Profiles_Individual_Popups_Update_Profile_Relationships_Company}:"
+						width="100%">
+						<mx:HBox>
+							<mx:TextInput id="company"
+								text="{(data as ProfilePersonalVO).sCompanyName}"
+								editable="false"
+								maxChars="30"/>
+							<mx:Button
+								label="{model.locale.Profiles_Individual_Buttons_Profiles}"
+								click="openChooseCompanyPopup()"/>
+						</mx:HBox>
+					</mx:FormItem>
+				</mx:Form>
+			</control:Frame>
+		</mx:VBox>
+	</mx:HBox>
+	
+	<!--mx:StringValidator id="svFirstName"
+		required="true"
+		source="{tiFirstName}"
+		property="text"
+		minLength="2"
+		maxLength="25"/-->
+	<mx:StringValidator id="svLastName"
+		required="true"
+		source="{tiLastName}"
+		property="text"
+		minLength="2"
+		maxLength="25"/>
+	<mx:StringValidator id="svPassport"
+		required="false"
+		source="{tiPassport}"
+		property="text"
+		minLength="10"
+		maxLength="10"/>
+</tab:SubWindow>

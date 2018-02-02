@@ -1,0 +1,67 @@
+<?xml version="1.0"?>
+<order:OrdersViewBase
+        xmlns:s="library://ns.adobe.com/flex/spark"
+        xmlns:mx="library://ns.adobe.com/flex/mx"
+        xmlns:fx="http://ns.adobe.com/mxml/2009"
+        xmlns:order="kitaec.view.order.*"
+        xmlns:comboboxes="kitaec.controls.comboboxes.*"
+        xmlns:date="kitaec.controls.date.*"
+
+        width="100%" height="100%"
+        >
+
+    <s:HGroup width="100%" verticalAlign="middle">
+        <s:FormItem label="Поставщик:">
+            <comboboxes:AutoPopulatedValueComboBox dataProvider="{model.suppliers}"
+                            labelField="name"
+                            valueField="supplierId"
+                            selectedValue="{selectedSupplier.supplierId}"
+                            width="150"
+                            change="onSupplierChange(event)"/>
+        </s:FormItem>
+        <s:FormItem label="Локация:">
+            <comboboxes:AutoPopulatedValueComboBox dataProvider="{model.locations}"
+                            labelField="name"
+                            valueField="locationId"
+                            selectedValue="{selectedLocation.locationId}"
+                            width="150"
+                            change="onLocationChange(event)"/>
+        </s:FormItem>
+        <s:FormItem label="Дата поставки:">
+            <date:DateChooser dataProvider="{model.offerDateList}"
+                    valueField="date"
+                    selectedValue="{selectedDate.date}"
+                    change="onDateChange(event)"/>
+        </s:FormItem>
+        <s:FormItem label="Время:">
+            <comboboxes:AutoPopulatedValueComboBox dataProvider="{model.offerTimeList}"
+                    labelField="name"
+                    valueField="value"
+                    selectedValue="{selectedTime.value}"
+                    width="60"
+                    change="onTimeChange(event)"/>
+        </s:FormItem>
+
+        <mx:Spacer width="100%"/>
+        <s:Button label="создать" click="onCreateOrder()"/>
+        <s:Button label="найти" click="onLoadOrderList()"/>
+    </s:HGroup>
+
+
+    <s:DataGrid width="100%" height="100%"
+                dataProvider="{model.orderList}"
+                doubleClickEnabled="true"
+                gridDoubleClick="onLoadOrderDetails(event)"
+            >
+        <s:columns>
+            <s:ArrayList>
+                <s:GridColumn headerText="имя" dataField="name"/>
+                <s:GridColumn headerText="телефон" dataField="phone"/>
+                <s:GridColumn headerText="email" dataField="email"/>
+                <s:GridColumn headerText="статус" dataField="status" labelFunction="statusLabelFunction"/>
+            </s:ArrayList>
+        </s:columns>
+
+    </s:DataGrid>
+
+</order:OrdersViewBase>

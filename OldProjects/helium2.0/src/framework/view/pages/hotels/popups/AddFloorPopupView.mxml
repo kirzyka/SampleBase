@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<popup:DataPopupView 
+	xmlns:popup="framework.view.components.popups.*" 
+	addTitle="Create Floor" xmlns:mx="http://www.adobe.com/2006/mxml" 
+	layout="vertical" showCloseButton="true" close="closeWindow()">
+	
+	<mx:Script>
+		<![CDATA[
+			import services.events.hotels.GetHotelStageListEvent;
+			import services.events.hotels.AddFloorEvent;
+			import framework.model.AppModelLocator;
+			import mx.collections.ArrayCollection;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.controller.AppController;
+			import framework.managers.PopUpManagerExt;
+			
+			[Bindable]
+			private var submitEnable:Boolean = false;
+			
+			/**
+			 * 	Set data for floor.
+			 * 	Add floor to Floor List.
+			 * 	Close Popup.
+			*/
+			private function handleCreateFloor():void
+			{
+				var evt:AddFloorEvent = new AddFloorEvent( AppController.ADD_FLOOR_EVENT );
+				 
+				evt.stage.aMapHotelRooms = new Array();
+				evt.stage.iStageHotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+				evt.stage.iStageId = 0;
+				evt.stage.iStageLevel = 0;
+				evt.stage.iStageRoomCount = 0;
+				evt.stage.sStageFloorPlanName = "";
+				evt.stage.sStageName = floorName.text;
+				
+				CairngormEventDispatcher.getInstance().dispatchEvent( evt );
+				
+				var evt2:GetHotelStageListEvent = new GetHotelStageListEvent( AppController.GET_HOTEL_STAGES );
+				CairngormEventDispatcher.getInstance().dispatchEvent( evt2 ); 
+				
+				closeWindow();	
+			}
+			/**
+			 * 	Close Popup.
+			*/
+			private function closeWindow():void
+			{
+				PopUpManagerExt.removePopUp( this );
+			}
+			/**
+			 * 	Check: Is all required fields are filled.
+			*/
+			private function checkFillRequiredFields():void
+			{
+				if(floorName.text.length > 0) submitEnable = true;
+				else submitEnable = false;
+				   
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:FormItem label="Name of Floor" required="true">
+		<mx:TextInput id="floorName" 
+			change="checkFillRequiredFields()" 
+			maxChars="15"/>
+	</mx:FormItem>
+	
+	<mx:HBox width="100%" horizontalAlign="right">
+		<mx:Button id="submit_From_AddFloorPopupView" 
+			label="Apply" 
+			click="handleCreateFloor()" 
+			enabled="{submitEnable}"/>
+		<mx:Button id="cancel_From_AddFloorPopupView" 
+			label="Cancel" 
+			click="closeWindow()"/>
+	</mx:HBox>
+	
+</popup:DataPopupView>

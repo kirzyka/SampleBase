@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:HBox xmlns:mx="http://www.adobe.com/2006/mxml"
+	width="100%"
+	horizontalScrollPolicy="off"
+	horizontalAlign="center"
+	verticalAlign="middle"
+	creationComplete="onCreationComplete()">
+
+	<mx:Script>
+		<![CDATA[
+			import services.vo.profiles.ProfilePersonalVO;
+			import mx.controls.DataGrid;
+			import framework.view.pages.reservationCreate.events.SearchCompanyGuestEvent;
+			import framework.model.AppModelLocator;
+			import services.vo.GlobalImageAssets;
+
+			public var sCompanyName:String;
+
+			private function handleClick():void
+			{
+				var event:SearchCompanyGuestEvent = new SearchCompanyGuestEvent(SearchCompanyGuestEvent.SEARCH_COMPANY_EVENT);
+				(owner as DataGrid).dispatchEvent(event);
+			}
+
+			private function onCreationComplete():void {
+				txtCompany.setFocus();
+			}
+
+		]]>
+	</mx:Script>
+
+	<mx:TextInput
+		id="txtCompany"
+		borderStyle="none"
+		width="90%"
+		text="{ProfilePersonalVO(data).sCompanyName}"
+		change="{sCompanyName = txtCompany.text}"/>
+	<mx:LinkButton id="searchProfiles"
+		width="16"
+		icon="@Embed(source='/assets/assets.swf', symbol='SearchIcon')"
+		click="handleClick()"/>	
+</mx:HBox>

@@ -1,0 +1,548 @@
+<?xml version="1.0" encoding="utf-8"?>
+<view:VSubWindow
+	xmlns:view="framework.core.view.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:controls="framework.view.components.controls.*"
+	xmlns:control="framework.view.pages.checkOut.control.*"
+	width="100%">
+	
+	<mx:Script>
+		<![CDATA[
+			import services.events.checkOut.DetachPackageFromAccountEvent;
+			import services.cairngorm.BaseEvent;
+			import framework.core.utils.UtilsMXML;
+			import framework.view.pages.checkOut.popups.CheckOutPopupView;
+			import framework.view.pages.checkOut.popups.MergeItemsByTransactiosPopupView;
+			import mx.core.IFlexDisplayObject;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.business.checkOut.CheckOutDelegate;
+			import services.events.checkOut.DetachItemsToAccountEvent;
+			import services.vo.backend.VatObjectVO;
+			import framework.view.pages.checkOut.events.RemoveItemsEvent;
+			import framework.view.components.popups.events.PopupEvent;
+			import framework.view.components.popups.DeletePopupView;
+			import framework.model.AppModelLocator;
+			import framework.view.pages.checkOut.popups.MergeItemsByCodesPopupView;
+			import framework.view.pages.checkOut.popups.AdjustItemPopupView;
+			import mx.managers.PopUpManagerChildList;
+			import framework.view.pages.checkOut.popups.SplitItemPopupView;
+			import framework.managers.PopUpManagerExt;
+			import services.vo.GlobalSettings;
+			import services.vo.checkOut.itemRouting.ItemCheckOutVO;
+			import mx.controls.DateField;
+			import mx.collections.ArrayCollection;
+			
+			// ===================================================================== //
+			//                         VARIABLES AND CONSTANTS                       //
+			// ===================================================================== //
+			/**
+			 *  This property is id of attached view.
+			 */
+			private var _id:Number;
+			/**
+			 *  This property is type of account.
+			 */
+			private var _type:int;
+			/**
+			 *  This property is title of attached item. Title contain account
+			 *  data and his address.
+			 *  
+			 *  @default ""
+			 */
+			private var _title:String = "";
+			/**
+			 *  This property is price by all items into the list.
+			 *  
+			 *  @default 0
+			 */
+			private var _price:Number = 0;
+			/**
+			 *  This proeprty is data provider for data grid.
+			 *  
+			 *  @default new ArrayCollection()
+			 */
+			private var _dataProvider:/* ItemCheckOutVO */ArrayCollection = new ArrayCollection();
+			/**
+			 *  This proeprty is VATs collection by items.
+			 *  
+			 *  @default new ArrayCollection()
+			 */
+			private var _vat:ArrayCollection = new ArrayCollection();
+			/**
+			 *  This proeprty is id of payment.
+			 *  
+			 *  @default 0
+			 */
+			private var _paymentId:Number = 0;
+			
+			// ===================================================================== //
+			//                            OVERRIDE METHODS                           //
+			// ===================================================================== //
+			/**
+			 *  @override
+			 */
+			override protected function updateDisplayList(unscaledWidth:Number, unscaledHeight:Number):void
+			{
+				price = 0;
+				_vat = new ArrayCollection();
+				for each(var item:ItemCheckOutVO in dgAttachedItems.dataProvider)
+				{
+					// calculate price by all attached items
+					price += item.fPrice;
+					// check have to add current VAT to collection
+					var isAdded:Boolean = false;
+					for each(var insideVAT:Number in _vat)
+					{
+						if (item.iVatValue == insideVAT)
+						{
+							isAdded = true;
+							break;
+						}
+					}
+					// if VAT is not added yet - add it to collection of VATs
+					if (!isAdded)
+					{
+						vat.addItem(item.iVatValue);
+						dispatchEvent(new Event("vatChanged"));
+					}
+				}
+				
+				super.updateDisplayList(unscaledWidth, unscaledHeight);
+			}
+			
+			// ===================================================================== //
+			//                      COMMON METHODS AND HANDLERS                      //
+			// ===================================================================== //
+			/**
+			 *  Label function for view date by dd/mm/yyyy format.
+			 *  
+			 *  @param item:Object - item of dataprovider for caller table.
+			 *  @param column:DataGridColumn - column in grid.
+			 *  
+			 *  @result formated date as String.
+			 */
+			private function funcDateView(item:Object, column:DataGridColumn):String
+			{
+				var date:Date = DateField.stringToDate((item as ItemCheckOutVO).dDate, GlobalSettings.DATE_SERVER_FORMAT);
+				return DateField.dateToString(date, GlobalSettings.DATE_FORMAT);
+			}
+			
+			/**
+			 *  The handler to open popup to split item.
+			 */
+			private function openSplitItemPopup():void
+			{
+				var pop:SplitItemPopupView = PopUpManagerExt.createPopUp(this, SplitItemPopupView) as SplitItemPopupView;
+				pop.data = dgAttachedItems.selectedItem;
+				pop.selectedIndex = dgAttachedItems.selectedIndex;
+				pop.isAttached = true;
+				pop.attachedId = paymentId;
+				pop.callBack = updateControlPanel;
+			}
+			
+			/**
+			 *  The handler to open popup to adjust item.
+			 */
+			private function openAdjustItemPopup():void
+			{
+				var pop:AdjustItemPopupView = PopUpManagerExt.createPopUp(this, AdjustItemPopupView) as AdjustItemPopupView;
+				pop.data = dgAttachedItems.selectedItem;
+				pop.selectedIndex = dgAttachedItems.selectedIndex;
+				pop.isAttached = true;
+				pop.attachedId = paymentId;
+				pop.callBack = updateControlPanel;
+			}
+			
+			/**
+			 *  The handler to open popup to merge items.
+			 */
+			private function openMergeItemsPopup():void
+			{
+				var pop:IFlexDisplayObject;
+				var mergeByCode:Boolean = false;
+				var hotelItemId:Number = (dgAttachedItems.selectedItems[0] as ItemCheckOutVO).lHotelItemId;
+				
+				for each(var item:ItemCheckOutVO in dgAttachedItems.selectedItems)
+				{
+					if (item.lHotelItemId != hotelItemId)
+					{
+						mergeByCode = true;
+						break;
+					}
+				}
+				
+				if (mergeByCode)
+				{
+					pop = PopUpManagerExt.createPopUp(this, MergeItemsByCodesPopupView);
+					(pop as MergeItemsByCodesPopupView).selectedItems = dgAttachedItems.selectedItems;
+					(pop as MergeItemsByCodesPopupView).selectedIndexes = dgAttachedItems.selectedIndices;
+				}
+				else
+				{
+					pop = PopUpManagerExt.createPopUp(this, MergeItemsByTransactiosPopupView);
+					(pop as MergeItemsByTransactiosPopupView).selectedItems = dgAttachedItems.selectedItems;
+					(pop as MergeItemsByTransactiosPopupView).selectedIndexes = dgAttachedItems.selectedIndices;
+				}
+				
+				(pop as CheckOutPopupView).callBack = updateControlPanel;
+				(pop as CheckOutPopupView).isAttached = true;
+				(pop as CheckOutPopupView).attachedId = paymentId;
+			}
+			
+			/**
+			 *  The handler to open popup to merge items.
+			 */
+			private function openRemoveItemsPopup():void
+			{
+				var pop:DeletePopupView = PopUpManagerExt.createPopUp(this, DeletePopupView) as DeletePopupView;
+				pop.title = model.locale.CheckOut_Popups_DeleteAttachedItems_Title;
+				pop.description = model.locale.CheckOut_Popups_DeleteAttachedItems_Description;
+				pop.callBack = updateControlPanel;
+				pop.addEventListener(PopupEvent.DELETE_HANDLER, tryRemoveItems);
+			}
+			
+			/**
+			 *  Confirmation Handler to remove selected items from account.
+			 *  
+			 *  @param e:PopupDeleteEvent
+			 */
+			private function tryRemoveItems(e:PopupEvent):void
+			{
+				(e.target as DeletePopupView).removeEventListener(PopupEvent.DELETE_HANDLER, handleRemoveItems);
+				(e.target as DeletePopupView).callBack = handleRemoveItems
+				
+				var event:BaseEvent;
+				var item:ItemCheckOutVO = dgAttachedItems.selectedItem as ItemCheckOutVO;
+				if (item.bIsPackage)
+				{
+					event = new DetachPackageFromAccountEvent(CheckOutDelegate.DETACH_PACKAGE_FROM_ACCOUNT);
+					(event as DetachPackageFromAccountEvent).accountId = paymentId;
+					(event as DetachPackageFromAccountEvent).packageId = item.lId;
+					(event as DetachPackageFromAccountEvent).paymentLineId = model.checkOutModule.paymentLineId;
+				}
+				else
+				{
+					event = new DetachItemsToAccountEvent(CheckOutDelegate.DETACH_ITEMS_TO_ACCOUNT);
+					for each(item in dgAttachedItems.selectedItems)
+					{
+						(event as DetachItemsToAccountEvent).itemIds.push(item.lId);
+					}
+				}
+				event.callBack = (e.target as DeletePopupView).completeCall;
+				CairngormEventDispatcher.getInstance().dispatchEvent(event);
+			}
+			
+			private function handleRemoveItems():void
+			{
+				// collect selected items to remove from account
+				var removedItems:ArrayCollection = new ArrayCollection();
+				for each(var index:int in dgAttachedItems.selectedIndices)
+				{
+					var item:ItemCheckOutVO = _dataProvider[index] as ItemCheckOutVO;
+					removedItems.addItem(item.clone());
+					// update attached items to guest
+					(model.checkOutModule.attachedItems[paymentId] as ArrayCollection).removeItemAt(index);
+				}
+				
+				// say about changes to main view (parent)
+				var event:RemoveItemsEvent = new RemoveItemsEvent(RemoveItemsEvent.REMOVE_ITEMS_FROM_ACCOUNT);
+				event.id = _id;
+				event.paymentId = paymentId;
+				event.items = removedItems;
+				event.isRemoveView = (0 == _dataProvider.length)
+				dispatchEvent(event);
+				// update view attched items
+				dispatchEvent(new Event("idChanged"));
+			}
+			
+			private function showPackageItems():void
+			{
+				if ((dgAttachedItems.selectedItem as ItemCheckOutVO).bIsPackage)
+				{
+					// say about changes to main view (parent)
+					var event:RemoveItemsEvent = new RemoveItemsEvent(RemoveItemsEvent.SHOW_PACKAGE_ITEMS);
+					event.items = new ArrayCollection((dgAttachedItems.selectedItem as ItemCheckOutVO).aPackageItems);
+					dispatchEvent(event);
+				}
+			}
+			
+			/**
+			 *  The handle of update control panel for routing items.
+			 */
+			private function updateControlPanel():void
+			{
+				var item:ItemCheckOutVO = dgAttachedItems.selectedItem as ItemCheckOutVO;
+				var items:Array = dgAttachedItems.selectedItems;
+				var countItem:int = items.length;
+				// operations with one item
+				btAdjust.enabled = ((countItem == 1) && (!item.bIsPackage));
+				btSplit.enabled = ((countItem == 1) && (!item.bIsPackage));
+				// operations with more then one items
+				btMerge.enabled = (countItem > 1);
+			}
+			/**
+			 *  Label function for view price by "NN.DD" format.
+			 *  
+			 *  @param item:Object - item of dataprovider for caller table.
+			 *  @param column:DataGridColumn - column in grid.
+			 *  
+			 *  @result formated price as String.
+			 */
+			private function funcPriceView(item:Object, column:DataGridColumn):String
+			{
+				if (!isNaN((item as ItemCheckOutVO).fPrice))
+				{
+					return nfPrice.format((item as ItemCheckOutVO).fPrice);
+				}
+				return "";
+			}
+			/**
+			 *  Data tool tip function for column.
+			 *  
+			 *  @param item:Object - item of dataprovider for caller table.
+			 *  @param column:DataGridColumn - column in grid.
+			 *  
+			 *  @result tool tip as String.
+			 */
+			private function funcDataToolTip(item:Object):String
+			{
+				var tooltip:String = (item as ItemCheckOutVO).sTransName;
+				if (((item as ItemCheckOutVO).bIsPackage) && (!(item as ItemCheckOutVO).bIsChecked))
+				{
+					tooltip += "\n" + "Note: for show items in package use double click on selected package";
+				}
+				return tooltip;
+			} 
+			// ===================================================================== //
+			//                       GETTER AND SETTER HANDLERS                      //
+			// ===================================================================== //
+			[Bindable(event="idChanged")]
+			/**
+			 *  Id of account.
+			 */
+			public function get ind():Number
+			{
+				return _id;
+			}
+			/**
+			 *  @private
+			 */
+			public function set ind(value:Number):void
+			{
+				_id = value;
+				
+				dispatchEvent(new Event("idChanged"));
+			}
+			
+			[Bindable(event="paymentIdChanged")]
+			/**
+			 *  Id of payment by account.
+			 */
+			public function get paymentId():Number
+			{
+				return _paymentId
+			}
+			/**
+			 *  @private
+			 */
+			public function set paymentId(value:Number):void
+			{
+				_paymentId = value;
+				
+				dataProvider = model.checkOutModule.attachedItems[_paymentId];
+				
+				dispatchEvent(new Event("paymentIdChanged"));
+			}
+			
+			[Bindable(event="typeChanged")]
+			/**
+			 *  Type of account.
+			 */
+			public function get type():int
+			{
+				return _type;
+			}
+			/**
+			 *  @private
+			 */
+			public function set type(value:int):void
+			{
+				_type = value;
+				
+				dispatchEvent(new Event("typeChanged"));
+			}
+			
+			[Bindable(event="titleChanged")]
+			/**
+			 *  The title of attached item.
+			 */
+			public function get title():String
+			{
+				return _title;
+			}
+			/**
+			 *  @private
+			 */
+			public function set title(value:String):void
+			{
+				_title = value;
+				
+				dispatchEvent(new Event("titleChanged"));
+			}
+			
+			[Bindable(event="priceChanged")]
+			/**
+			 *  Type of account.
+			 */
+			public function get price():Number
+			{
+				return _price;
+			}
+			/**
+			 *  @private
+			 */
+			public function set price(value:Number):void
+			{
+				_price = value;
+				
+				dispatchEvent(new Event("priceChanged"));
+			}
+			
+			[Bindable(event="dataProviderChanged")]
+			/**
+			 *  Data provider for data grid.
+			 */
+			public function get dataProvider():ArrayCollection
+			{
+				return _dataProvider;
+			}
+			/**
+			 *  @private
+			 */
+			public function set dataProvider(value:ArrayCollection):void
+			{
+				_dataProvider = value;
+				
+				dispatchEvent(new Event("dataProviderChanged"));
+			}
+			
+			[Bindable(event="vatChanged")]
+			/**
+			 *  VATs collection by items.
+			 */
+			public function get vat():ArrayCollection
+			{
+				return _vat;
+			}
+			/**
+			 *  @private
+			 */
+			public function set vat(value:ArrayCollection):void
+			{
+				_vat = value;
+				
+				dispatchEvent(new Event("vatChanged"));
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:Canvas width="100%" backgroundColor="0x00ccff">
+		<mx:Label
+			text="{title}"
+			fontWeight="bold"
+			width="100%"/>
+	</mx:Canvas>
+	
+	<controls:ColoredDataGrid id="dgAttachedItems"
+		dataProvider="{dataProvider}"
+		allowMultipleSelection="true"
+		draggableColumns="false"
+		resizableColumns="false"
+		doubleClickEnabled="true"
+		doubleClick="showPackageItems()"
+		mouseUp="updateControlPanel()"
+		width="100%" height="92">
+		<controls:columns>
+			<mx:DataGridColumn
+				headerText="{model.locale.CheckOut_Columns_Date}"
+				labelFunction="funcDateView"
+				width="120"/>
+			<mx:DataGridColumn
+				headerText="{model.locale.CheckOut_Columns_Code}"
+				dataField="sTransCode"
+				width="80"/>
+			<mx:DataGridColumn
+				headerText="{model.locale.CheckOut_Columns_TransactionName}"
+				dataField="sTransName"
+				dataTipFunction="funcDataToolTip"/>
+			<mx:DataGridColumn
+				headerText="{model.locale.CheckOut_Columns_Price}"
+				labelFunction="funcPriceView"
+				width="80"/>
+			<mx:DataGridColumn
+				headerText="{model.locale.CheckOut_Columns_AdjustmentReason}"
+				dataField="sAdjustedReason"/>
+		</controls:columns>
+	</controls:ColoredDataGrid>
+	<!--
+		Control panel:
+			- Remove item from account;
+			- Merge items;
+			- Adjust item;
+			- Split item.
+	  -->
+	<mx:HBox width="100%">
+		<mx:HBox width="100%">
+			<mx:Button id="btRemoveFromAccount"
+				label="{model.locale.CheckOut_Buttons_RemoveFromAccount}"
+				enabled="{dgAttachedItems.selectedItems.length == 1}"
+				click="openRemoveItemsPopup()"/>
+			<mx:Button id="btMerge"
+				label="{model.locale.CheckOut_Buttons_Merge}"
+				enabled="false"
+				click="openMergeItemsPopup()"/>
+			<mx:Button id="btAdjust"
+				label="{model.locale.CheckOut_Buttons_Adjust}"
+				enabled="false"
+				click="openAdjustItemPopup()"/>
+			<mx:Button id="btSplit"
+				label="{model.locale.CheckOut_Buttons_Split}"
+				enabled="false"
+				click="openSplitItemPopup()"/>
+		</mx:HBox>
+		<!--
+			Descripyion by attached items such as
+				- Total price;
+				- VAT.
+		  -->
+		<mx:HBox width="100%">
+			<mx:Form
+				id="frmPrices"
+				paddingBottom="0"
+				paddingTop="0"
+				verticalGap="0"
+				width="100%">
+				<mx:FormItem
+					label="{model.locale.Global_Total}:"
+					fontWeight="bold"
+					width="100%">
+					<mx:Label
+						text="{nfPrice.format(price)} {model.locale.Global_CurrencyEuroLong}"
+						fontWeight="bold"/>
+				</mx:FormItem>
+				<mx:Repeater
+					id="rpVATView"
+					dataProvider="{vat}"
+					width="100%">
+					<control:VATLabel
+						vat="{rpVATView.currentItem}"/>
+				</mx:Repeater>
+			</mx:Form>
+		</mx:HBox>
+	</mx:HBox>
+	
+	<mx:NumberFormatter id="nfPrice"
+		precision="2"
+		useThousandsSeparator="false"
+		rounding="none"/>
+</view:VSubWindow>

@@ -1,0 +1,395 @@
+<?xml version="1.0" encoding="utf-8"?>
+<popup:BasePopupView
+	xmlns:popup="framework.view.components.popups.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	prefix="popups.roomAvailable."
+	title="{guestName}{model.locale.InHouse_Popups_RoomAvailable_Title}"
+	width="800" height="600">
+	
+	<mx:Script>
+		<![CDATA[
+			import h2olib.utils.DateUtils;
+			import services.vo.reservation.PersonAssignVO;
+			import services.events.reservation.GetOrderFutureInfoEvent;
+			import services.events.hotels.GetHotelRoomSettingsEvent;
+			import services.vo.backend.PackageVO;
+			import services.vo.rates.companyRates.CompanyRateObjectVO;
+			import services.vo.rates.companyRates.CompanyRateItemVO;
+			import services.vo.inHouse.RateChangeVO;
+			import framework.module.ReservationModule;
+			import services.vo.inHouse.InHouseViewVO;
+			import mx.controls.DateField;
+			import services.vo.GlobalSettings;
+			import framework.view.pages.reservationCreate.popups.SelectRateReservationPopupView;
+			import mx.events.CloseEvent;
+			import mx.controls.Alert;
+			import framework.view.components.popups.events.PopupEvent;
+			import mx.managers.PopUpManagerChildList;
+			import framework.managers.PopUpManagerExt;
+			import framework.view.components.popups.ConfirmationPopupView;
+			import services.events.MsgEvent;
+			import h2olib.control.enum.MessageShowType;
+			import h2olib.control.enum.MessageKind;
+			import mx.controls.CheckBox;
+			import mx.events.ListEvent;
+			import services.vo.backend.RoomSettingObjectVO;
+			import mx.collections.ArrayCollection;
+			import framework.view.pages.inHouse.events.RoomsEvent;
+			import services.vo.inHouse.AvailableRoomsVO;
+			import services.events.inHouse.MoveRoomEvent;
+			import services.vo.hotels.HotelStageObjectVO;
+			import services.business.inHouse.InHouseDelegate;
+			import services.events.inHouse.GetAvailableRoomsListEvent;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.controller.AppController;
+			import services.events.backend.GetHotelDictionariesEvent;
+			import services.events.hotels.GetHotelStageListEvent;
+			
+			// ===================================================================== //
+			//                        VARIABLES AND CONSTANTS                        //
+			// ===================================================================== //
+			/**
+			 *  This property is name of guest in the hotel.
+			 */
+			private var _guestName:String = "";
+			/**
+			 *  This property is id of profile of the guest.
+			 */
+			public var profileId:Number = 0;
+			/**
+			 *  This property is id of order.
+			 */
+			public var orderId:Number = 0;
+			/**
+			 *  This property is id of room, where guest are living.
+			 */
+			public var roomId:Number = 0;
+		
+			private var orderArrivalDate:String = "";
+			public var orderDepartureDate:String = "";
+			
+			private var _isNeedToChangeRate:Boolean = false;
+			
+			private var selectRateReservationPopupView:SelectRateReservationPopupView;
+			// ===================================================================== //
+			//                      COMMON METHODS AND HANDLERS                      //
+			// ===================================================================== //
+			/**
+			 *  The handler of selection stage into hotel (for example, stage1,
+			 *  stage2... or all floors).
+			 */
+			private function handleSelectStage():void
+			{
+				//event.profileId, event.orderId, event.hotelId, event.stage
+				var event:GetAvailableRoomsListEvent = new GetAvailableRoomsListEvent(InHouseDelegate.GET_AVAILABLE_ROOM_LIST);
+				event.hotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+				event.profileId = profileId;
+				event.orderId = orderId;
+				event.stage = (cmbStages.selectedItem as HotelStageObjectVO).iStageId;
+				CairngormEventDispatcher.getInstance().dispatchEvent(event);
+			}
+			
+			private function onOpenConfirmationPopup():void
+			{
+				orderArrivalDate = DateField.dateToString(model.businessDate, GlobalSettings.DATE_SERVER_FORMAT);
+				var getOrderFutureInfoEvent:GetOrderFutureInfoEvent = new GetOrderFutureInfoEvent();
+				getOrderFutureInfoEvent.hotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+				getOrderFutureInfoEvent.orderId = orderId;
+				getOrderFutureInfoEvent.sDateStart = orderArrivalDate;
+				getOrderFutureInfoEvent.sDateEnd = orderDepartureDate;
+				getOrderFutureInfoEvent.iRoomId = (dgRooms.selectedItem as AvailableRoomsVO).lRoomId;
+				
+				getOrderFutureInfoEvent.callBack = onGetOrderFutureInfo; // <==========
+				getOrderFutureInfoEvent.dispatch();
+			}
+			
+			private function onGetOrderFutureInfo():void
+			{
+				var preassignForFutureMSG:String = "";
+				
+				if(model.reservationModule.orderFutureInfo.aPersonAssign != null)
+				{
+					for each(var item:PersonAssignVO in model.reservationModule.orderFutureInfo.aPersonAssign)
+					{	
+						var cd1:Date = DateField.stringToDate(orderArrivalDate, DateUtils.DATE_SERVER_FORMAT);
+						var cd2:Date = DateField.stringToDate(orderDepartureDate, DateUtils.DATE_SERVER_FORMAT);
+						
+						var d1:Date = DateField.stringToDate(item.sDateStart, DateUtils.DATE_SERVER_FORMAT);
+						var d2:Date = DateField.stringToDate(item.sDateEnd, DateUtils.DATE_SERVER_FORMAT);
+						
+						if(DateUtils.dateDiff(DateUtils.DAY_OF_MONTH,cd1,d2) > -1 &&
+						   DateUtils.dateDiff(DateUtils.DAY_OF_MONTH,d1,cd2) > -1	)
+						{			
+						
+							var sDateStart:String = DateField.dateToString(d1, DateUtils.DATE_CLIENT_FORMAT);
+							var sDateEnd:String = DateField.dateToString(d2, DateUtils.DATE_CLIENT_FORMAT);
+							var sGuestName:String = item.label;						
+													
+							preassignForFutureMSG = 'There is preassigned guest "' + sGuestName + '" from "' + sDateStart + '" to "' + sDateEnd + '" for that room';
+							break;
+						}
+					}
+				}
+				
+				var pop:ConfirmationPopupView = PopUpManagerExt.createPopUp(this, ConfirmationPopupView) as ConfirmationPopupView;
+				
+				
+				if(dgRooms.selectedItem is AvailableRoomsVO)
+				{
+					if((dgRooms.selectedItem as AvailableRoomsVO) != null)
+					{
+						/*if((dgRooms.selectedItem as AvailableRoomsVO).sGuestName != null && (dgRooms.selectedItem as AvailableRoomsVO).sGuestName != "")
+						{
+							pop.title = "Warning";
+							pop.subDescription = "There are pre-assigned people on this room.";							
+						}
+						else*/ 
+						if(preassignForFutureMSG != "")
+						{
+							pop.title = "Warning";
+							pop.description = preassignForFutureMSG;
+							pop.subDescription = "Are you really want to assign guest to selected room?";
+						}
+						else
+						{
+							pop.title = "Confrim";
+							pop.description = "Are you really want to assign guest to selected room?";
+						}						
+					}					
+				}
+				pop.addEventListener(PopupEvent.CONFIRM, onOpenRecalculatePopup);
+			}
+			
+			private function onOpenRecalculatePopup(e:PopupEvent):void
+			{
+				var pop:ConfirmationPopupView = PopUpManagerExt.createPopUp(this, ConfirmationPopupView) as ConfirmationPopupView;
+				pop.title = "Recalculate";
+				pop.description = "Do you want to recalculate?";
+				pop.addEventListener(PopupEvent.CONFIRM, onSelectRatePopup);
+				pop.addEventListener(PopupEvent.DECLINE, handleAssignToRoom);
+			}
+			
+			private function onSelectRatePopup(e:PopupEvent):void
+			{
+				_isNeedToChangeRate = true;
+				
+				selectRateReservationPopupView = PopUpManagerExt.createPopUp(this, SelectRateReservationPopupView) as SelectRateReservationPopupView;
+				selectRateReservationPopupView.isInHouse = true;
+				selectRateReservationPopupView.dateFrom = DateField.dateToString(model.businessDate, GlobalSettings.DATE_SERVER_FORMAT);
+				selectRateReservationPopupView.dateTo = orderDepartureDate;
+				selectRateReservationPopupView.roomQualityId = (dgRooms.selectedItem as AvailableRoomsVO).lRoomQuality;
+				selectRateReservationPopupView.companyId = (data as InHouseViewVO).lCompanyId;
+				selectRateReservationPopupView.departureDate = orderDepartureDate; 
+				selectRateReservationPopupView.currentState = SelectRateReservationPopupView.TABS_STATE;
+				selectRateReservationPopupView.callBack = handleAssignToRoom;
+			}
+			/**
+			 *  The handle to assign guest to other selected available room.
+			 */
+			private function handleAssignToRoom(e:Event = null):void
+			{
+				var room:AvailableRoomsVO = (dgRooms.selectedItem as AvailableRoomsVO);
+				var event:MoveRoomEvent = new MoveRoomEvent(InHouseDelegate.MOVE_ROOM);
+				event.roomIdFrom = roomId;
+				event.roomIdTo = room.lRoomId;
+				event.orderDateDep = orderDepartureDate;
+				//event.isNeedToUnassign = ((room.sGuestName) && (room.sGuestName.length > 0));
+				event.isNeedToUnassign = true;
+				event.isNeedToChangeRate = _isNeedToChangeRate;
+				if (event.isNeedToChangeRate)
+				{
+					event.rateChange.lRsvId = (data as InHouseViewVO).lReservationNumber;
+					switch(selectRateReservationPopupView.rateType)
+					{
+						case ReservationModule.BAR:
+							event.rateChange.lRateId = 0;
+							event.rateChange.iRateType = RateChangeVO.RATE_TYPE_BAR;
+							break;
+						case ReservationModule.COMPANY_RATE:
+							event.rateChange.lRateId = model.reservationModule.companyRate.iRateId;
+							event.rateChange.iRateType = RateChangeVO.RATE_TYPE_COMPANY;
+							break;
+						case ReservationModule.PACKAGE_RATE:
+							event.rateChange.lRateId = model.reservationModule.packageRate.iPackageId;
+							event.rateChange.iRateType = RateChangeVO.RATE_TYPE_PACKAGE;
+							break;
+					}
+					event.rateChange.lQuality = room.lRoomQuality;
+				}
+				event.callBack = completeAssign;
+				CairngormEventDispatcher.getInstance().dispatchEvent(event);
+			}
+			
+			private function completeAssign():void
+			{
+				var room:AvailableRoomsVO = (dgRooms.selectedItem as AvailableRoomsVO);
+				
+				var event:RoomsEvent = new RoomsEvent(RoomsEvent.ROOM_ASSIGN);
+				event.id = room.lRoomId;
+				event.room = room.sRoomName;
+				dispatchEvent(event);
+				
+				completeCall();
+			}
+			
+			/**
+			 *  The handle to apply filter for found rooms.
+			 */
+			private function handleApplyFilter():void
+			{
+				var fnFilter:Function = filter;
+				var settings:ArrayCollection = lstHotelRoomSettings.dataProvider as ArrayCollection;
+				for each(var setting:RoomSettingObjectVO in settings)
+				{
+					if (setting.bIsSelected)
+					{
+						//fnFilter = null;
+						break;
+					}
+				}
+				// apply filter to collection
+				dgRooms.dataProvider.filterFunction = fnFilter;
+				dgRooms.dataProvider.refresh();
+			}
+			
+			private function filter(data:Object):Boolean
+			{
+				var room:AvailableRoomsVO = data as AvailableRoomsVO;
+				// collect selected room settings
+				var settings:ArrayCollection = lstHotelRoomSettings.dataProvider as ArrayCollection;
+				var filters:Array = [];
+				for each(var roomSetting:RoomSettingObjectVO in settings)
+				{
+					if (roomSetting.bIsSelected)
+					{
+						filters.push(roomSetting.iRsettingId);
+					}
+				}
+				// check possible to compare filters' and rooms' settings
+				if (filters.length > room.aRoomSettingIds.length)
+				{
+					return false;
+				}
+				// check selected room setting for rooms
+				var isView:Boolean = true;
+				for each(var filterSettingId:Number in filters)
+				{
+					var count:int = 0;
+					for each(var roomSettingId:Number in room.aRoomSettingIds)
+					{
+						if (roomSettingId != filterSettingId)
+						{
+							//isView = false;
+							count++;
+						}
+					}
+					if (count == room.aRoomSettingIds.length - 1)
+					{
+						isView = false;
+					}
+				}
+				
+				return isView;
+			}
+			
+			public function checkFilterOption(e:Event):void
+			{
+				var settings:ArrayCollection = lstHotelRoomSettings.dataProvider as ArrayCollection;
+				var checkBox:CheckBox = (e.currentTarget as CheckBox);
+				for each(var roomSetting:RoomSettingObjectVO in settings)
+				{
+					if (checkBox.label == roomSetting.sRsettingDesctiptionLocale)
+					{
+						roomSetting.bIsSelected = checkBox.selected;
+					}
+				}
+				
+				handleApplyFilter();
+			}
+			// ===================================================================== //
+			//                       GETTER AND SETTER HANDLERS                      //
+			// ===================================================================== //
+			[Bindable(event="guestNameChanged")]
+			/**
+			 *  The name of guest in the hotel.
+			 */
+			public function get guestName():String
+			{
+				return _guestName;
+			}
+			/**
+			 *  @private
+			 */
+			public function set guestName(value:String):void
+			{
+				_guestName = value;
+				
+				dispatchEvent(new Event("guestNameChanged"));
+			}
+
+
+		]]>
+	</mx:Script>
+	
+	<mx:HBox width="100%" height="100%">
+		<mx:DataGrid id="dgRooms"
+			dataProvider="{model.inHouseModule.availableRooms}"
+			resizableColumns="false"
+			draggableColumns="false"
+			width="100%" height="100%">
+			<mx:columns>
+				<mx:DataGridColumn
+					headerText="{model.locale.InHouse_Popups_RoomAvailable_Columns_Room}"
+					dataField="sRoomName"
+					width="80"/>
+				<mx:DataGridColumn
+					headerText="{model.locale.InHouse_Popups_RoomAvailable_Columns_RoomType}"
+					dataField="sRoomType"
+					width="120"/>
+				<mx:DataGridColumn
+					headerText="{model.locale.InHouse_Popups_RoomAvailable_Columns_Setting}"/>
+				<mx:DataGridColumn
+					headerText="{model.locale.InHouse_Popups_RoomAvailable_Columns_Status}"
+					dataField="sStatus"
+					width="80"/>
+				<mx:DataGridColumn
+					headerText="{model.locale.InHouse_Popups_RoomAvailable_Columns_GuestName}"
+					dataField="sGuestName"/>
+				<mx:DataGridColumn
+					headerText="{model.locale.InHouse_Popups_RoomAvailable_Columns_NightsAvailable}"
+					dataField="sNightsAvail"/>
+			</mx:columns>
+		</mx:DataGrid>
+		
+		<mx:VBox width="200" height="100%">
+			<mx:HBox width="100%" verticalAlign="middle">
+				<mx:Label
+					text="{model.locale.InHouse_Popups_RoomAvailable_Floor}:"/>
+				<mx:ComboBox id="cmbStages"
+					dataProvider="{model.hotelsModule.stageDP}"
+					labelField="sStageName"
+					enabled="{cmbStages.selectedItem}"
+					change="handleSelectStage()"
+					width="100%"/>
+			</mx:HBox>
+			
+			<mx:List id="lstHotelRoomSettings"
+				dataProvider="{model.roomSettingsModule.roomSettingsDP}"
+				width="100%" height="100%">
+				<mx:itemRenderer>
+					<mx:Component>
+						<mx:CheckBox
+							label="{data.sRsettingDesctiptionLocale}"
+							selected="{data.bIsSelected}"
+							change="{outerDocument.checkFilterOption(event)}"/>
+						</mx:Component>
+					</mx:itemRenderer>
+				</mx:List>
+		</mx:VBox>
+	</mx:HBox>
+	
+	<mx:Button
+		label="{model.locale.InHouse_Popups_RoomAvailable_Buttons_assign}"
+		enabled="{dgRooms.selectedItem}"
+		click="onOpenConfirmationPopup()"/>
+</popup:BasePopupView>

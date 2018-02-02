@@ -1,0 +1,238 @@
+<?xml version="1.0" encoding="utf-8"?>
+<BaseWindow
+	xmlns="framework.core.view.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	layout="vertical"
+	creationComplete="init()" verticalScrollPolicy="off" xmlns:ui="h2olib.control.itemRenderer.treeCheckbox.sepy.ui.*" xmlns:components="framework.view.components.*" xmlns:advancedTabNavigator="h2olib.control.advancedTabNavigator.*" xmlns:reports="framework.view.pages.reports.*" styleName="PageBigWithTopPadding" xmlns:treeCheckbox="h2olib.control.itemRenderer.treeCheckbox.*" xmlns:sephiroth="http://www.sephiroth.it/2006/mxml" xmlns:subview="framework.view.pages.reports.subview.*">
+
+	<mx:Script>
+		<![CDATA[
+			import framework.view.pages.reports.data.ReportsConstants;
+			import mx.controls.DateField;
+			import mx.controls.CheckBox;
+			import services.vo.reports.ForecastSearchVO;
+			import services.vo.reports.TreeItemVO;
+			import services.events.reports.GetItemTreeEvent;
+			import services.events.reports.GetReportEvent;
+			import mx.controls.Tree;
+			import mx.events.ListEvent;
+			import services.vo.TestVO;
+			import services.vo.reports.ManagerReportVO;
+			import services.command.rates.packages.GetTransactionItemPageCommand;
+			import h2olib.control.itemRenderer.treeCheckbox.sepy.ui.CheckBoxExtended;
+			import h2olib.control.event.TreeCheckboxEvent;
+			import h2olib.control.itemRenderer.treeCheckbox.threeStatesCheckboxItemRenderer;
+			import mx.controls.HRule;
+			import services.vo.reports.PaymentJournalVO;
+			import services.vo.reports.PaymentOfTheDayVO;
+			import services.events.miscellaneous.loyaltyPrograms.GetLoyaltyProgramsEvent;
+			import services.events.backend.GetHotelDictionariesEvent;
+			import services.events.items.itemGroups.GetSystemGroupsListEvent;
+			import services.business.items.ItemsDelegate;
+			import services.events.items.itemGroups.GetSystemItemsGroupsEvent;
+			import services.vo.items.ItemsGroupVO;
+			import services.vo.reports.TransactionCodeReportVO;
+			import services.events.roomSettings.GetRoomSettingsDataEvent;
+			import services.vo.reports.OpenBalanceReportVO;
+			import mx.controls.Alert;
+			import services.vo.hotels.HotelStageObjectVO;
+			import services.vo.hotels.HotelRoomWithBedTypesObjectVO;
+			import services.events.hotels.GetHotelStageListEvent;
+			import services.events.hotels.GetHotelRoomTypesEvent;
+			import services.vo.common.MarketCodesVO;
+			import services.vo.common.DataListVO;
+			import services.events.common.GetDataListByTypeEvent;
+			import services.vo.reports.HousekeepingReportVO;
+			import services.vo.reports.ArrivalReportVO;
+			import services.vo.reports.NoShowsReportVO;
+			import services.vo.reports.InHouseReportVO;
+			import services.vo.backend.RoomSettingObjectVO;
+			import services.vo.common.loyaltyPrograms.LoyaltyProgramsVO;
+			import framework.core.utils.UtilsGolobal;
+			import mx.collections.ArrayCollection;
+			import services.vo.common.SourceCodesVO;
+			import services.events.profiles.company.GetMarketGroupListEvent;
+			import services.events.profiles.company.GetSourceGroupListEvent;
+			import mx.containers.Panel;
+			import framework.core.utils.UtilsSecurity;
+			import services.vo.GlobalStorage;
+			import services.vo.GlobalSettings;
+			import services.vo.GlobalFunctions;
+			import framework.model.AppModelLocator;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.vo.backend.ReportVO;
+			import services.controller.AppController;
+
+			private var loader:URLLoader;
+
+			private var listSelectedIndexRoomType:Array;
+
+  			//config
+  			[Bindable]
+  			public var indicatorGapFormItem:int = 14;
+
+			[Bindable]
+			private var cashier:ArrayCollection = new ArrayCollection();
+
+  			public var testData:Array = [];
+
+			private function init():void
+			{
+				start();
+			}
+			
+			override public function show():void
+			{
+				if (isCreated)
+				{
+					cashier.removeAll();
+					// fill cash shift list
+					var temp:Object;
+					for (var i:int = 1; i <= 3; i++)
+					{
+						temp = new Object();
+						if (i == 1)
+							temp.label = "Morning";
+						if (i == 2)
+							temp.label = "Evening";
+						if (i == 3)
+							temp.label = "Night";
+						temp.num = i;
+						temp.bIsSelected = false;
+						cashier.addItem(temp);
+					}
+					start();
+				}
+			}
+
+			private function start():void
+			{
+				if (GlobalStorage.sourceCodes.length == 0)
+					GlobalStorage.getSourceCodes();
+				if (GlobalStorage.marketCodes.length == 0)
+					GlobalStorage.getMarketCodes();
+				if (GlobalStorage.housekeepingStatuses.length == 0)
+					GlobalStorage.getHousekeepingStatus();
+
+
+
+				var evt:GetRoomSettingsDataEvent = new GetRoomSettingsDataEvent( AppController.GET_ROOM_SETTINGS_DATA_EVENT );
+				CairngormEventDispatcher.getInstance().dispatchEvent( evt );
+
+				var programEvt:GetLoyaltyProgramsEvent = new GetLoyaltyProgramsEvent(AppController.GET_LOYALTY_PROGRAMS_EVENT);
+				CairngormEventDispatcher.getInstance().dispatchEvent(programEvt);
+
+				if (model.transactionModule.systemGroupsList.length == 0)
+				{
+					var evtGroup:GetSystemGroupsListEvent = new GetSystemGroupsListEvent(ItemsDelegate.GET_SYSTEM_GROUPS);
+					CairngormEventDispatcher.getInstance().dispatchEvent( evtGroup );
+				}
+
+				/////////////for hotel/////////////////
+
+				var getAllForHotel:GetHotelDictionariesEvent = new GetHotelDictionariesEvent( AppController.GET_PAGE_OF_START_HOTEL );
+				getAllForHotel.hotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+				CairngormEventDispatcher.getInstance().dispatchEvent( getAllForHotel );
+
+				var evtTree:GetItemTreeEvent = new GetItemTreeEvent(AppController.GET_ITEM_TREE_EVENT);
+				CairngormEventDispatcher.getInstance().dispatchEvent( evtTree );
+			}
+
+			/**
+			 *	Get reports.
+			*/
+			public function getReports(reportValue:Object, reportType:int, dateReport:String):void
+			{
+				var evt:GetReportEvent = new GetReportEvent( AppController.GET_ARRIVAL_REPORT_EVENT );
+
+				var report:ReportVO = new ReportVO();
+				report.iHotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+				if (dateReport != null)
+				{
+				 	report.sDateReport = dateReport;
+				}
+				else
+				{
+					report.sDateReport = DateField.dateToString(GlobalFunctions.getDate(), GlobalSettings.DATE_SERVER_FORMAT);//GlobalFunctions.getDate().time / 1000;
+				}
+				report.iReportType = reportType;
+				report.oReportParameters = reportValue;
+				evt.report = report;
+				CairngormEventDispatcher.getInstance().dispatchEvent( evt );
+			}
+
+			private function getMarketCodeLabel(item:Object):String
+			{
+				return (item as MarketCodesVO).sName;
+			}
+
+			private function getSourceCodeLabel(item:Object):String
+			{
+				return (item as SourceCodesVO).sName;
+			}
+
+			/**
+			 *	Get Room Type label based on RoomTypesObjectVO.
+			*/
+			private function getRoomTypeLabel(item:Object):String
+			{
+				var evtItem:HotelRoomWithBedTypesObjectVO = item as HotelRoomWithBedTypesObjectVO;
+
+				return evtItem.oRoomQuality.sQualityName;
+			}
+
+			/**
+			 *	Get selected All for all list.
+			*/
+			public function allClick(all:CheckBox, objectList:Object):Boolean
+			{
+				if (all.selected)
+				{
+					objectList.enabled = false;
+				}
+				else
+				{
+					objectList.enabled = true;
+				}
+				return all.selected;
+			}
+
+			private function roomTypeLabelFunction(item:Object):String
+			   {
+			    if(item.hasOwnProperty("flx_oRoomStandalone")) return item.oRoomQuality.sQualityName;
+			    if(item.hasOwnProperty("oBedType") && item.oBedType != null) return item.oBedType.sTypeName;
+			    return "";
+			   }
+
+		]]>
+	</mx:Script>
+
+<advancedTabNavigator:AdvancedTabNavigator id="panelWithRTPrices"
+    	width="100%" height="70%"
+        tabPosition="leftTop" tabWidth="200"
+        styleName="verticalTabNavigator">
+        <subview:ArrivalReportView id="arv"  label="Arrival" show="arv.init()" creationComplete="arv.init()"
+        	getReports="{getReports}" reportType="{ReportsConstants.ARRIVALS}" allClick="allClick" verticalScrollPolicy="off" horizontalScrollPolicy="off"/>
+		<subview:NoShowsReportView label="No Shows" getReports="{getReports}" reportType="{ReportsConstants.NO_SHOWS}" allClick="allClick"/>
+		<subview:InHouselReportView id="ihrv" label="In House" show="ihrv.init()" getReports="{getReports}" reportType="{ReportsConstants.GUEST_INH}" allClick="allClick"/>
+		<subview:HousekeepingReportView id="hrv" label="Housekeeping" show="hrv.init()" getReports="{getReports}" reportType="{ReportsConstants.HOUSEKEEPING}" allClick="allClick"/>
+		<subview:RevenueTransactReportView label="Revenue Transact" getReports="{getReports}" reportType="{ReportsConstants.REVENUE_TRANSACT}" allClick="allClick"/>
+		<subview:OpenBalanceInHouseReportView label="Open Balance In House" getReports="{getReports}" reportType="{ReportsConstants.OPEN_BALANCE_IN_HOUSE}" allClick="allClick"/>
+		<subview:PaymentsOfTheDayReportView id="potdrv" label="Payments of the day" show="potdrv.init()" getReports="{getReports}" reportType="{ReportsConstants.PAYMENT_OF_DAY}" allClick="allClick"/>
+		<subview:PaymentJournalReportView id="pjrv" label="Payment Journal" show="pjrv.init()" getReports="{getReports}" reportType="{ReportsConstants.PAYMENT_JOURNAL}" allClick="allClick"/>
+		<subview:CashierSummaryReportView label="Cashier summary" getReports="{getReports}" reportType="{ReportsConstants.CASHIER_SUMMARY}" allClick="allClick"/>
+		<subview:ManagerReportView label="Manager report" getReports="{getReports}" reportType="{ReportsConstants.MANAGER_REPORT}" allClick="allClick"/>
+		<subview:AccountReceivableReportView label="Account receivable" getReports="{getReports}" reportType="{ReportsConstants.ACCOUNTS_RECEIVABLE}" allClick="allClick"/>
+		<subview:ForecastReportView id="frv" label="Forecast" show="frv.init()" getReports="{getReports}" reportType="{ReportsConstants.FORECAST}" allClick="allClick"/>
+		<subview:CorrectionOfTheDayReportView id="cotd" label="Correction of the day" show="cotd.init()" getReports="{getReports}" reportType="{ReportsConstants.CORRECTION_OF_THE_DAY}" allClick="allClick"/>
+		<subview:MovementReportView id="mr" label="Movement" show="mr.init()" getReports="{getReports}" reportType="{ReportsConstants.MOVEMENT_GUESTS}" allClick="allClick"/>
+		<subview:DepartureReportView id="dr" label="Departure" getReports="{getReports}" reportType="{ReportsConstants.DEPARTURE}" allClick="allClick"/>
+		<subview:RegistrationCardSearchReportView id="rcsr" label="Registration card" show="rcsr.init()" getReports="{getReports}" reportType="{ReportsConstants.REGISTRATION_CARD}" allClick="allClick"/>
+		<subview:DebitorReportView id="debr" label="Debitor" show="debr.init()" getReports="{getReports}" reportType="{ReportsConstants.DEBITOR_REPORT}" allClick="allClick"/>
+		<subview:ProfileProductionReportView id="ppr" label="Profile Production" show="ppr.init()" getReports="{getReports}" reportType="{ReportsConstants.PROFILE_PRODUCTION}" allClick="allClick"/>
+		<subview:DMYStatisticsView id="dmyst" label="D / M / Y Statistics" show="dmyst.init()" getReports="{getReports}" reportType="{ReportsConstants.DMY_STATISTICS}" allClick="allClick"/>
+		
+</advancedTabNavigator:AdvancedTabNavigator>
+
+	<!--</mx:Array>-->
+</BaseWindow>

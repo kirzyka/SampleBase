@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="utf-8"?>
+<popup:DataPopupView
+	xmlns:popup="framework.view.components.popups.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+
+	addTitle="{model.locale.RoomSettings_SavePopup_AddTitle}"
+	editTitle="{model.locale.RoomSettings_SavePopup_EditTitle}"
+	width="550">
+	
+	<mx:Script>
+		<![CDATA[
+			import framework.core.utils.UtilsMXML;
+			import services.cairngorm.BaseEvent;
+			import services.events.roomSettings.AddRoomSettingEvent;
+			import services.events.roomSettings.EditRoomSettingEvent;
+			import services.vo.GlobalSettings;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.controller.AppController;
+			import services.vo.backend.RoomSettingObjectVO;
+			import framework.managers.PopUpManagerExt;
+			
+			[Bindable]
+			private var isEnabled:Boolean = false;
+			
+			public var index:int;
+			
+			// ================================================================= //
+			//                        OVERRIDE METHODS                           //
+			// ================================================================= //
+			/**
+			 *  @override
+			 *  
+			 *  @see framework.view.components.popups.BasePopupView#data
+			 */
+			override public function set data(value:Object):void
+			{
+				super.data = value;
+			}
+			
+			private function handleAddClick():void
+			{
+				var roomSetting:RoomSettingObjectVO = (isEdit) ? data as RoomSettingObjectVO : new RoomSettingObjectVO();
+				//roomSetting.bIsSpwish = false;
+				
+				roomSetting.sRsettingCode = code.text;
+				roomSetting.sRsettingDesctiptionLocale = desc.text;
+				roomSetting.bIsSpwish = specialWishes.selected;
+				
+				var event:BaseEvent;
+				
+				if (isEdit)
+				{
+					event = new EditRoomSettingEvent(AppController.EDIT_ROOM_SETIING_EVENT);
+					(event as EditRoomSettingEvent).roomSetting = roomSetting;
+					(event as EditRoomSettingEvent).index = index;
+					
+				}
+				else
+				{
+					event = new AddRoomSettingEvent(AppController.ADD_ROOM_SETTING_EVENT);
+					(event as AddRoomSettingEvent).roomSetting = roomSetting;
+				}
+				
+				event.callBack = completeCall;
+				CairngormEventDispatcher.getInstance().dispatchEvent(event);
+			}
+		]]>
+	</mx:Script>
+		
+	<mx:Form>
+		<mx:FormItem
+			label="{model.locale.RoomSettings_SavePopup_LabelCode}:">
+			<mx:HBox>
+				<mx:TextInput id="code"
+					restrict="A-Z0-9" 
+					text="{(data as RoomSettingObjectVO).sRsettingCode}" 
+					maxChars="{model.roomSettingsModule.MAX_NAME_LENGTH}" 
+					width="100" />
+				<mx:Label
+					text="({model.locale.RoomSettings_SavePopup_LabelCodeLimitInput})" />
+			</mx:HBox>
+		</mx:FormItem>
+		<mx:FormItem>
+			<mx:HBox>
+				<mx:CheckBox id="specialWishes" 
+					selected="{(data as RoomSettingObjectVO).bIsSpwish}"/>
+				<mx:Label
+					text="{model.locale.RoomSettings_SavePopup_LabelSpecialWish}" />
+			</mx:HBox>
+		</mx:FormItem>
+		<mx:FormItem
+			label="{model.locale.RoomSettings_SavePopup_LabelDescription}:">
+			<mx:TextArea id="desc" 
+				text="{(data as RoomSettingObjectVO).sRsettingDesctiptionLocale}" 
+				maxChars="{GlobalSettings.DESCRIPTION_LENGTH}"  
+				width="220" height="61"/>
+		</mx:FormItem>	
+	</mx:Form>
+	<mx:HBox width="100%">
+	<mx:Button id="btSaveRoomSettings" 
+		label="{model.locale.Global_Button_Save}"
+		click="handleAddClick()" 
+		enabled="{UtilsMXML.and(code.text.length > 0,
+			desc.text.length > 0)}"
+		width="{GlobalSettings.BUTTON_WIDTH_APPLY}"/>
+		<mx:Spacer width="100%"/>
+		<mx:Button id="btCancel" 
+			label="{model.locale.Global_Button_Cancel}"
+			click="close()" 
+			width="{GlobalSettings.BUTTON_WIDTH}"/>
+	</mx:HBox>
+</popup:DataPopupView>

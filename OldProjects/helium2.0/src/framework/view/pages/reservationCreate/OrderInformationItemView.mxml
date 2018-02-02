@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox xmlns:mx="http://www.adobe.com/2006/mxml" width="100%" verticalScrollPolicy="off">
+	
+	<mx:Script>
+		<![CDATA[
+			import services.vo.frontend.ReservationOrderVO;
+			import services.vo.GlobalFunctions;
+			import mx.collections.ArrayCollection;
+			import framework.model.AppModelLocator;
+			
+			[Bindable]
+			private var model:AppModelLocator = AppModelLocator.getInstance();
+			[Bindable]
+			private var orders:ArrayCollection = new ArrayCollection();
+			
+			override public function set data(value:Object):void
+			{
+				super.data = value;
+				
+				if(data)
+				{
+					var obj:Object = new Object();
+					
+					obj.arrival = GlobalFunctions.getDateByUnixTime((data as ReservationOrderVO).iDateFrom);
+					obj.departure = GlobalFunctions.getDateByUnixTime((data as ReservationOrderVO).iDateTo);
+					obj.roomType = (data as ReservationOrderVO).sRoomTypeFullName;
+					obj.rooms = (data as ReservationOrderVO).iRoomCount;
+					obj.adults = (data as ReservationOrderVO).iAdultNumber;
+					obj.less = (data as ReservationOrderVO).iChildrenLess12Number;
+					obj.more = (data as ReservationOrderVO).iChildrenMore12Number;
+					obj.rate = 'BAR';
+					obj.price = (data as ReservationOrderVO).iPrice; 
+					
+					orders.addItem( obj );
+				}
+			}
+			
+			private function handleInit():void
+			{
+				
+			}
+			
+		]]>
+	</mx:Script>
+	
+	<mx:DataGrid width="100%" dataProvider="{orders}" rowCount="1" borderStyle="solid">
+		<mx:columns>
+			<mx:DataGridColumn headerText="Arrival" dataField="arrival"/>
+			<mx:DataGridColumn headerText="Departure" dataField="departure"/>
+			<mx:DataGridColumn headerText="Room Type" dataField="roomType"/>
+			<mx:DataGridColumn headerText="Rooms" dataField="rooms"/>
+			<mx:DataGridColumn headerText="Adults" dataField="adults"/>
+			<mx:DataGridColumn headerText="Children &lt; 12" dataField="less"/>
+			<mx:DataGridColumn headerText="Children > 12" dataField="more"/>
+			<mx:DataGridColumn headerText="Rate" dataField="rate"/>
+			<mx:DataGridColumn headerText="Price" dataField="price"/>
+		</mx:columns>
+	</mx:DataGrid>
+	
+</mx:VBox>

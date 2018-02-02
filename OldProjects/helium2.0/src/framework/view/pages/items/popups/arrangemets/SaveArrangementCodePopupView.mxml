@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<popup:DataPopupView
+	xmlns:popup="framework.view.components.popups.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+
+	addTitle="{model.locale.Items_Arrangements_Popups_Save_Add}"
+	editTitle="{model.locale.Items_Arrangements_Popups_Save_Edit}"
+	width="400">
+	
+	<mx:Script>
+		<![CDATA[
+			import framework.utils.SkinHelper;
+			import services.business.items.ItemsDelegate;
+			import services.vo.GlobalImageAssets;
+			import services.vo.GlobalFunctions;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.events.items.arrangementCodes.SaveArrangementsEvent;
+			import framework.core.utils.UtilsMXML;
+			import services.vo.items.ArrangementCodeVO;
+			
+			// ================================================================= //
+			//                             VARIABLES                             //
+			// ================================================================= //
+			/**
+			 *  This property is index of selected item, which will be edited.
+			 *  
+			 *  @default -1
+			 */
+			public var selectedIndex:int = -1;
+			
+			// ================================================================= //
+			//                         COMMON METHODS                            //
+			// ================================================================= //
+			/**
+			 *  The handle for try to save new code.
+			 */
+			private function saveArragementCode():void
+			{
+				var item:ArrangementCodeVO = (isEdit) ? data as ArrangementCodeVO : new ArrangementCodeVO();
+				item.sCode = tiCode.text;
+				item.sName = taDescription.text;
+				
+				// check needs to make request for save. If any data is not changed
+				// close popup.
+				if (!isDirty)
+				{
+					completeCall();
+					return;
+				}
+				// save changes
+				var event:SaveArrangementsEvent = new SaveArrangementsEvent(ItemsDelegate.SAVE_ARRANGEMENTS);
+				event.code = item;
+				event.callBack = completeCall;
+				CairngormEventDispatcher.getInstance().dispatchEvent(event);
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:Form width="100%" height="100%">
+		<mx:FormItem
+			required="true"
+			label="{model.locale.Items_Arrangements_Popups_Save_LabelCode}:"
+			width="100%">
+			<mx:TextInput id="tiCode"
+				text="{ArrangementCodeVO(data).sCode}"
+				maxChars="5"
+				restrict="A-Za-z0-9"
+				width="100"/>
+		</mx:FormItem>
+		
+		<mx:FormItem
+			required="true"
+			label="{model.locale.Items_Arrangements_Popups_Save_LabelDescription}:"
+			width="100%">
+			<mx:TextArea id="taDescription"
+				text="{ArrangementCodeVO(data).sName}"
+				maxChars="50"
+				width="100%" height="100"/>
+		</mx:FormItem>
+	</mx:Form>
+	
+	<mx:HBox width="100%" horizontalAlign="right">
+		<mx:Button id="btSave"
+			label="{model.locale.Global_Button_Save}"
+			click="saveArragementCode()"
+			enabled="{UtilsMXML.and(tiCode.text.length != 0,
+				taDescription.text.length != 0)}"
+			height="{SkinHelper.BUTTON_HEIGHT}"
+			minWidth="{SkinHelper.BUTTON_WIDTH}"/>
+		<mx:Button
+			label="{model.locale.Global_Button_Cancel}"
+			click="close()"
+			height="{SkinHelper.BUTTON_HEIGHT}"
+			minWidth="{SkinHelper.BUTTON_WIDTH}"/>
+	</mx:HBox>
+</popup:DataPopupView>

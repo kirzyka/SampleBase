@@ -1,0 +1,56 @@
+<?xml version="1.0"?>
+<dish:DishesViewBase
+        xmlns:fx="http://ns.adobe.com/mxml/2009"
+        xmlns:s="library://ns.adobe.com/flex/spark"
+        xmlns:mx="library://ns.adobe.com/flex/mx"
+        xmlns:dish="kitaec.view.dish.*"
+        xmlns:grid="kitaec.controls.grid.*"
+        xmlns:comboboxes="kitaec.controls.comboboxes.*"
+
+        width="100%" height="100%"
+        >
+    <fx:Script>
+        <![CDATA[
+
+        import kitaec.common.Icon;
+        import kitaec.renderers.DishTypeIR;
+
+        ]]>
+    </fx:Script>
+
+    <fx:Declarations>
+    </fx:Declarations>
+
+        <s:Label text="Поставщики:"/>
+        <s:HGroup>
+            <!--<s:ComboBox
+                    id="supplierCb"
+                    labelField="name"
+                    dataProvider="{model.suppliers}"
+                    selectedIndex="0"/>-->
+            <comboboxes:AutoPopulatedValueComboBox  id="supplierCb"
+                                                    dataProvider="{model.suppliers}"
+                                                   labelField="name"
+                                                   valueField="supplierId"
+                                                   selectedValue="1"
+                                                   width="150"
+                                                   change="onSupplierChange(event)"/>
+            <s:VGroup>
+                <s:Button label="Добавить блюдо" click="showAddDishPopup()"/>
+                <s:Label text="{'Всего: ' + model.dishes.length}"/>
+            </s:VGroup>
+        </s:HGroup>
+        <s:DataGrid dataProvider="{model.dishes}" width="100%" height="100%" id="dishesDg" doubleClickEnabled="true" doubleClick="{onUpdateDish()}">
+            <s:columns>
+                <s:ArrayList>
+                    <s:GridColumn dataField="name" headerText="Название блюда"/>
+                    <s:GridColumn headerText="Тип блюда" itemRenderer="{new ClassFactory(DishTypeIR)}" width="200"/>
+                    <s:GridColumn dataField="description" showDataTips="true" headerText="Описание" width="300"/>
+                    <s:GridColumn dataField="picture" headerText="Картинка"/>
+                    <s:GridColumn dataField="defaultPrice" headerText="Цена" width="70"/>
+                    <grid:IconButtonGridColumn clickHandler="onUpdateDish" icon="{Icon.ICON_EDIT}"/>
+                    <grid:IconButtonGridColumn clickHandler="onDeleteDish" icon="{Icon.ICON_DELETE}"/>
+                </s:ArrayList>
+            </s:columns>
+        </s:DataGrid>
+</dish:DishesViewBase>

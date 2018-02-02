@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:HBox xmlns:mx="http://www.adobe.com/2006/mxml" width="100%" horizontalAlign="center">
+	
+	<mx:Script>
+		<![CDATA[
+			import framework.model.AppModelLocator;
+			import framework.view.pages.reservationCreate.personslist.OrderPersonsListView;
+			import services.vo.profiles.ProfilePersonalVO;
+			import mx.managers.PopUpManagerChildList;
+			import mx.core.Application;
+			import framework.managers.PopUpManagerExt;
+			import framework.view.pages.reservationCreate.popups.WishesList;
+			
+			private var profile:ProfilePersonalVO;
+			
+			override public function set data(value:Object):void
+			{
+				profile = value as ProfilePersonalVO;	
+			}
+			
+			
+			
+			private function hadleClick():void
+			{
+				var wishesPopUp:WishesList = PopUpManagerExt.createPopUp(AppModelLocator.getInstance().owner.mainView, WishesList) as WishesList;
+				wishesPopUp.profile = profile;
+				wishesPopUp.callBack = setProfileWishes;
+				PopUpManagerExt.centerPopUp( wishesPopUp ); 
+			} 
+			
+			private function setProfileWishes():void 
+			{
+				if(parent is OrderPersonsListView)
+				{
+					for each(var person:ProfilePersonalVO in (parent as OrderPersonsListView).persons)
+					{
+						if(person.lId == profile.lId)
+						{
+							person.aSettingsWishes = profile.aSettingsWishes;
+						}
+					}
+				}
+			}
+			
+		]]>
+	</mx:Script>
+	
+	<mx:Button id="click_ProfileWishesColumnView" label="Click me" click="hadleClick()"/>
+	
+</mx:HBox>

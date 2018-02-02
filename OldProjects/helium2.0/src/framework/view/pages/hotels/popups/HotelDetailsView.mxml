@@ -1,0 +1,392 @@
+<?xml version="1.0" encoding="utf-8"?>
+<DataPopupView 
+	xmlns="framework.view.components.popups.*" 
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:address="framework.view.components.address.*"
+	xmlns:control="h2olib.control.*" 
+	addTitle="Add Hotel"
+	editTitle="Edit Hotel"	
+	creationComplete="handleInit()"
+	close="{closeWindow()}"	
+	>
+	<mx:Script>
+		<![CDATA[
+			import services.vo.hotels.HotelInfoTotalVO;
+			import framework.core.utils.UtilsMXML;
+			import services.vo.GlobalSettings;
+			import services.vo.common.RegionVO;
+			import framework.managers.PopUpManagerExt;
+			import services.vo.common.CountryVO;
+			import framework.module.CommonModule;
+			import services.vo.GlobalStorage;
+			import services.controller.AppController;
+			import services.events.hotels.UpdateHotelInfoEvent;
+			import services.events.backend.GetHotelChainEvent;
+			import services.vo.frontend.HotelChainVO;
+			import services.events.miscellaneous.countries.GetRegionEvent;
+			import services.events.miscellaneous.countries.GetCountryEvent;
+			import mx.collections.ArrayCollection;
+			import services.events.frontend.GetCityEvent;
+			
+			private const MIN_DIGITS_ZIP_CODE:int = 4;
+			private var prevCountDigit:int = 0;
+
+
+
+			[Bindable]
+			private var applyEnable:Boolean = false;
+
+
+			public var hotelIndex:int;
+
+			private function handleInit():void
+			{
+				if(data!=null)
+				{
+					model.hotelsModule.hotelTotalInfo = data as HotelInfoTotalVO;
+				}
+				else
+				{
+					model.hotelsModule.hotelTotalInfo = new HotelInfoTotalVO();
+				}
+				// check posiible get countries from server or get them from cashe
+				if (model.commonModule.countries.length == 0)
+				{
+					var countryEvent:GetCountryEvent = new GetCountryEvent(AppController.GET_COUNTRY_EVENT);
+					countryEvent.callBack = countryNormalize;
+					countryEvent.loadDefault = false;
+					countryEvent.dispatch();
+				}
+				else
+				{
+					countryNormalize();
+				}
+
+				if (GlobalStorage.hotelChain.length == 0)
+				{
+					var evtHotelChain:GetHotelChainEvent = new GetHotelChainEvent(AppController.GET_HOTEL_CHAINS);
+					evtHotelChain.callBack = chainNormalize;
+					evtHotelChain.dispatch();
+				}
+				else
+				{
+					chainNormalize();
+				}
+
+
+				hCode.text = model.hotelsModule.hotelTotalInfo.sHotelCode;
+				hName.text = model.hotelsModule.hotelTotalInfo.sHotelName;
+				hChain.text = model.hotelsModule.hotelTotalInfo.sHotelHChainName;
+
+				hManager.text = model.hotelsModule.hotelTotalInfo.sHotelGMName;
+				hRoomCount.text = String(model.hotelsModule.hotelTotalInfo.iHotelRoomCount);
+				hDescription.text = model.hotelsModule.hotelTotalInfo.sHotelDescription;
+
+				hStreet.text = model.hotelsModule.hotelTotalInfo.sHotelStreet;
+				hZip.text = model.hotelsModule.hotelTotalInfo.sHotelZip;
+
+				hPhone.text = model.hotelsModule.hotelTotalInfo.sHotelPhone
+				hFAX.text = model.hotelsModule.hotelTotalInfo.sHotelFax;
+				hEmail.text = model.hotelsModule.hotelTotalInfo.sHotelEMail;
+				hWeb.text = model.hotelsModule.hotelTotalInfo.sHotelWeb;
+
+				category1.value = model.hotelsModule.hotelTotalInfo.iChildAge1;
+				category2.value = model.hotelsModule.hotelTotalInfo.iChildAge2;
+				category3.value = model.hotelsModule.hotelTotalInfo.iChildAge3;
+			}
+
+
+
+			private function updateHotel(pageIndex:int):void
+			{
+				var event:UpdateHotelInfoEvent = new UpdateHotelInfoEvent( AppController.UPDATE_HOTEL_INFO_EVENT );
+
+				model.hotelsModule.hotelTotalInfo.iHotelHChainId = (hChain.selectedItem as HotelChainVO).iHChainId;
+				model.hotelsModule.hotelTotalInfo.iHotelRoomCount = Number(hRoomCount.text);
+				model.hotelsModule.hotelTotalInfo.sHotelZip = hZip.text;
+				model.hotelsModule.hotelTotalInfo.sHotelCode = hCode.text;
+				model.hotelsModule.hotelTotalInfo.sHotelName = hName.text;
+				model.hotelsModule.hotelTotalInfo.sHotelCountry = hCountry.text;
+				model.hotelsModule.hotelTotalInfo.sHotelRegion = hRegion.text;
+				model.hotelsModule.hotelTotalInfo.sHotelPhone = hPhone.text;
+				model.hotelsModule.hotelTotalInfo.sHotelFax = hFAX.text;
+				model.hotelsModule.hotelTotalInfo.sHotelEMail = hEmail.text;
+				model.hotelsModule.hotelTotalInfo.sHotelGMName = hManager.text;
+				model.hotelsModule.hotelTotalInfo.sHotelDescription = hDescription.text;
+				model.hotelsModule.hotelTotalInfo.sHotelHChainName = hChain.text;
+				model.hotelsModule.hotelTotalInfo.sHotelStreet = hStreet.text;
+				model.hotelsModule.hotelTotalInfo.sHotelWeb = hWeb.text;
+				model.hotelsModule.hotelTotalInfo.iHotelCityId = hCity.cityID;
+				model.hotelsModule.hotelTotalInfo.sHotelCity = hCity.text;
+
+				model.hotelsModule.hotelTotalInfo.iChildAge1 = category1.value;
+				model.hotelsModule.hotelTotalInfo.iChildAge2 = category2.value;
+				model.hotelsModule.hotelTotalInfo.iChildAge3 = category3.value;
+
+				event.isEdit = isEdit;
+				if(isEdit)
+				{
+					event.hotelIndex = hotelIndex;				
+				}
+				event.pageIndex = pageIndex;
+				event.hotelTotalInfo = model.hotelsModule.hotelTotalInfo;
+				event.callBack = closeWindow;
+				
+				event.dispatch();
+			}
+
+			private function closeWindow():void
+			{
+				PopUpManagerExt.removePopUp(this);
+			}
+
+			private var countryId:Number;
+			private function handleCountryChange(e:Event = null):void
+			{
+				if(hCountry.selectedItem != null)
+				{
+					if(countryId != (hCountry.selectedItem as CountryVO).lId)
+					{
+						countryId = (hCountry.selectedItem as CountryVO).lId;
+	
+						model.commonModule.regions = CommonModule.getRegions(countryId);
+	
+						if (model.commonModule.regions.length == 0)
+						{
+							var evt:GetRegionEvent = new GetRegionEvent(AppController.GET_REGION_EVENT);
+							evt.countryId = countryId;
+							evt.callBack = regionNormalize;
+							evt.dispatch();
+						}
+						else
+						{
+							regionNormalize();
+						}
+					}
+				}
+
+			}
+
+			private var regionId:Number = 0;
+			private function handleRegionChange(e:Event = null):void
+			{
+				if(hRegion.selectedItem)
+				{
+					if(regionId != (hRegion.selectedItem as RegionVO).lId)
+					{
+						regionId = (hRegion.selectedItem as RegionVO).lId;
+						if(regionId > 0)
+						{
+							model.commonModule.cities = CommonModule.getCities(regionId);
+
+							if (model.commonModule.cities.length == 0)
+							{
+								var evt:GetCityEvent = new GetCityEvent(AppController.GET_CITY_EVENT);
+								evt.regionId = regionId;
+								evt.dispatch();
+							}
+							else
+							{
+								cityNormalize();
+							}
+						}
+						else
+						{
+							model.commonModule.cities = new ArrayCollection();
+						}
+					}
+				}
+			}
+
+			private function chainNormalize():void
+			{
+				var i:int = GlobalStorage.hotelChain.length;
+				while(i--)
+				{
+					var chain:HotelChainVO = GlobalStorage.hotelChain.getItemAt(i) as HotelChainVO;
+					if (chain.sHChainName == model.hotelsModule.hotelTotalInfo.sHotelHChainName)
+					{
+						hChain.selectedIndex = i;
+						return
+					}
+				}
+			}
+
+			private function countryNormalize():void
+			{
+				hCountry.setItemByField("sCountryName", model.hotelsModule.hotelTotalInfo.sHotelCountry);
+				callLater(handleCountryChange);
+			}
+
+			private function regionNormalize():void
+			{
+				hRegion.setItemByField("sRegionName",model.hotelsModule.hotelTotalInfo.sHotelRegion);
+				callLater(handleRegionChange);
+			}
+
+			private function cityNormalize():void
+			{
+				hCity.setItemByField("sCityName",model.hotelsModule.hotelTotalInfo.sHotelCity);
+			}
+
+			private function updateCategory():void
+			{
+				if (category1.value > category2.value)
+					category2.value = category1.value;
+				if (category2.value > category3.value)
+					category3.value = category2.value;
+			}
+
+		]]>
+	</mx:Script>
+
+	<mx:VBox width="100%" height="100%">
+		<mx:HBox width="100%" height="100%">
+			<!--
+				The block of make description for hotel. This block
+				contain:
+				  - change code of the hotel;
+				  - change name of the hotel;
+				  - change chain which included the hotel;
+				  - change manager's name of the hotel;
+				  - change number of the rooms into the hotel;
+				  - change some description for the hotel.
+			  -->
+			<mx:Form width="100%" height="100%">
+				<mx:FormHeading label="Hotel" width="100%"/>
+				<!-- Set code for the hotel -->
+				<mx:FormItem label="Code:" required="true" width="100%">
+					<mx:TextInput id="hCode"
+								  width="100%" restrict="0-9" maxChars="30"/>
+				</mx:FormItem>
+				<!-- Set name for the hotel -->
+				<mx:FormItem label="Name:" required="true" width="100%">
+					<mx:TextInput id="hName"
+								  width="100%" maxChars="60"/>
+				</mx:FormItem>
+				<!-- Choose chain for the hotel -->
+				<mx:FormItem label="Chain:" width="100%">
+					<mx:ComboBox id="hChain" width="100%" labelField="sHChainName"
+								 dataProvider="{GlobalStorage.hotelChain}"/>
+				</mx:FormItem>
+
+				<mx:FormHeading label="Information" width="100%"/>
+				<!-- Set name of manager for this hotel -->
+				<mx:FormItem label="Manager's Name:" width="100%">
+					<mx:TextInput id="hManager" maxChars="30" width="100%"/>
+				</mx:FormItem>
+				<!-- Set the number of rooms into the hotel -->
+				<mx:FormItem label="Number of Rooms:">
+					<mx:TextInput id="hRoomCount" restrict="0-9"  maxChars="6"/>
+				</mx:FormItem>
+				<!-- Set some description for the hotel -->
+				<mx:FormItem label="Description:"  width="100%">
+					<mx:TextArea id="hDescription" height="80"  width="100%" maxChars="{GlobalSettings.DESCRIPTION_LENGTH}"/>
+				</mx:FormItem>
+
+			</mx:Form>
+			<!--
+				The block of make address info for the hotel. This block
+				contain:
+				  - change country;
+				  - change region by country;
+				  - change city by region;
+				  - change street by city or input new city;
+				  - change zip or postal code;
+				  - change phone number;
+				  - change fax number
+				  - change e-mail;
+				  - change URL to web host.
+			  -->
+			<mx:Form width="100%" height="100%">
+				<mx:FormHeading label="Hotel Address" width="100%"/>
+					<!-- Choose country -->
+					<mx:FormItem label="Country:" width="100%">
+						<control:ComboBoxEx id="hCountry"
+							width="100%"
+							dataProvider="{model.commonModule.countries}"
+							labelField="sCountryName"
+							prompt="Choose country"
+							change="handleCountryChange()"/>
+					</mx:FormItem>
+					<!-- Choose region by country -->
+					<mx:FormItem label="State/Province/Region:" width="100%">
+						<control:ComboBoxEx width="100%" id="hRegion" dataProvider="{model.commonModule.regions}"
+									 enabled="{model.commonModule.regions.length != 0}" labelField="sRegionName"
+									 change="handleRegionChange()"/>
+					</mx:FormItem>
+					<!-- Choose city by region -->
+					<mx:FormItem label="City:" required="true" width="100%">
+						<address:CityComboBox id="hCity"
+							dataProvider="{model.commonModule.cities}"
+							labelField="sCityName"
+							enabled="{hRegion.enabled}"
+							regionID="{(hRegion.selectedItem as RegionVO).lId}"
+							/>
+					</mx:FormItem>
+					<!-- Choose street by city or input new city -->
+					<mx:FormItem label="Street:" required="true" width="100%">
+						<mx:TextInput id="hStreet"
+							width="100%" maxChars="20"/>
+					</mx:FormItem>
+					<!-- Input zip or postal code -->
+					<mx:FormItem label="Zip/Postal Code:" required="true" width="100%">
+						<mx:TextInput id="hZip"
+							width="100%"/>
+							<!--controls:AutoCompleteComboBox id="hZip" dataProvider="{model.profilesModule.addressByZip}" width="100%"
+														   labelField="zipCode" change="checkGetAddressByZip()"/-->
+					</mx:FormItem>
+					<!-- Input phone number -->
+					<mx:FormItem label="Phone:" width="100%">
+						<mx:TextInput id="hPhone"
+							width="100%"
+							maxChars="20" restrict="0-9\-\+\(\)\/"/>
+					</mx:FormItem>
+					<!-- Input fax number -->
+					<mx:FormItem label="FAX:" width="100%">
+						<mx:TextInput id="hFAX" width="100%"
+							maxChars="20" restrict="0-9\-\+\(\)\/"/>
+					</mx:FormItem>
+					<!-- Input e-mail -->
+					<mx:FormItem label="E-Mail:" width="100%">
+						<mx:TextInput id="hEmail" width="100%" maxChars="40"/>
+					</mx:FormItem>
+					<!-- Input URL to web host -->
+					<mx:FormItem label="Web:" width="100%">
+						<mx:TextInput id="hWeb" width="100%" maxChars="100"/>
+					</mx:FormItem>
+				</mx:Form>
+		</mx:HBox>
+
+		<mx:HBox width="100%">
+		<mx:FormHeading label="Children Categories:" width="100%"/>
+				<!-- Set category of children for this hotel -->
+				<mx:FormItem label="Category 1:" width="100%">
+					<mx:NumericStepper id="category1"  minimum="1" maximum="18" stepSize="1" change="updateCategory()"/>
+				</mx:FormItem>
+				<mx:FormItem label="Category 2:" width="100%">
+					<mx:NumericStepper id="category2"  minimum="1" maximum="18" stepSize="1" change="updateCategory()"/>
+				</mx:FormItem>
+				<mx:FormItem label="Category 3:" width="100%">
+					<mx:NumericStepper id="category3"  minimum="1" maximum="18" stepSize="1" change="updateCategory()"/>
+				</mx:FormItem>
+		</mx:HBox>
+
+		<mx:HBox width="100%" horizontalAlign="center" verticalAlign="middle">
+			<mx:Button
+				label="Apply"
+				width="100"
+				click="{updateHotel(0)}"
+				enabled="{UtilsMXML.and(
+										hCode.text != '',
+										hName.text != '',
+										hCity.selectedItem != null,
+										hStreet.text,
+										hZip.text)}"/>
+			<mx:Spacer width="100%"/>
+			<mx:Button label="Cancel"
+				width="100"
+				click="closeWindow()"/>
+		</mx:HBox>
+	</mx:VBox>
+</DataPopupView>

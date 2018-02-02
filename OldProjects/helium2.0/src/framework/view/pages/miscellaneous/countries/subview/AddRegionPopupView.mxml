@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox xmlns:mx="http://www.adobe.com/2006/mxml" height="500">
+	
+	<mx:Script>
+		<![CDATA[
+			import services.events.miscellaneous.countries.GetRegionEvent;
+			import services.events.miscellaneous.countries.AddRegionEvent;
+			import services.vo.common.CountryVO;
+			import services.controller.AppController;
+			import framework.model.AppModelLocator;
+			import mx.events.CloseEvent;
+			import services.vo.GlobalStorage;
+			import mx.collections.ArrayCollection;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import framework.managers.PopUpManagerExt;
+			
+			[Bindable]
+			private var submitEnable:Boolean = false;
+			
+			[Bindable]
+			public var selectCountry:int = 0;
+			
+			[Bindable]
+			private var model:AppModelLocator = AppModelLocator.getInstance();
+			/**
+			 * 	Set data for floor.
+			 * 	Add floor to Floor List.
+			 * 	Close Popup.
+			*/
+			private function handleCreateRegion():void
+			{
+				var evt:AddRegionEvent = new AddRegionEvent (AppController.ADD_REGION_EVENT);
+				evt.region.lCountryId = (country.selectedItem as CountryVO).lId;
+				evt.region.sRegionName = region.text;
+				evt.region.sRegionCode = regionCode.text;
+				/* evt.country.sCountryName = country.text;
+				evt.country.sCountryCode = countryCode.text; */
+				CairngormEventDispatcher.getInstance().dispatchEvent( evt );
+				
+				var evt2:GetRegionEvent = new GetRegionEvent (AppController.GET_REGION_EVENT);
+				evt2.countryId = (country.selectedItem as CountryVO).lId;
+				CairngormEventDispatcher.getInstance().dispatchEvent( evt2 );
+				
+				var closeEvt:CloseEvent = new CloseEvent (CloseEvent.CLOSE);
+				dispatchEvent( closeEvt );
+			}
+			/**
+			 * 	Close Popup.
+			*/
+			private function closeWindow():void
+			{
+				var closeEvt:CloseEvent = new CloseEvent (CloseEvent.CLOSE);
+				dispatchEvent( closeEvt );
+			}
+			/**
+			 * 	Check: Is all required fields are filled.
+			*/
+			private function checkFillRequiredFields():void
+			{
+				if(country.text.length > 0 && regionCode.text.length > 0) submitEnable = true;
+				else submitEnable = false;
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:FormItem label="Region:"  required="true">
+		<mx:TextInput id="region" change="checkFillRequiredFields()" width="200" />
+	</mx:FormItem>
+	<mx:FormItem label="Region Code"  required="true">
+		<mx:TextInput id="regionCode" change="checkFillRequiredFields()" width="50" maxChars="5"/>
+	</mx:FormItem>
+	
+	<mx:FormItem label="Country:" >
+		<mx:ComboBox id="country" dataProvider="{model.commonModule.countries}" 
+						width="200" labelField="sCountryName" selectedIndex="{selectCountry}"/>
+	</mx:FormItem>
+	
+	<mx:HBox width="100%" horizontalAlign="right">
+		<mx:Button label="Save" click="handleCreateRegion()" enabled="{submitEnable}" id="submit_From_AddFloorPopupView"/>
+		<mx:Button label="Close" click="closeWindow()" id="cancel_From_AddFloorPopupView"/>
+	</mx:HBox>
+	
+</mx:VBox>

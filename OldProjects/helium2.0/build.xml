@@ -1,0 +1,115 @@
+<?xml version="1.0"?>
+<!-- Auto build for heluim system -->
+<project
+	name="helium" 
+	default="build"
+	basedir=".">
+<echo file="${build.dir}/test.txt" ></echo>
+	
+	<property file="local.properties"/>
+	<!-- directories -->
+	<property name="flex.sdk.dir" location="c:/Program Files/Adobe/Flex Builder 3 Plug-in/sdks/3.2.0"/>
+	<property name="build.dir" location="bin-debug"/>
+	<property name="src.dir" location="src/"/>
+	<property name="lib.src" location="libs/src/"/>
+	<property name="lib.swc" location="libs/swc/"/>
+	<property name="flex.config.xml" location="${flex.sdk.dir}/frameworks/flex-config.xml"/>
+	
+	<!-- files -->
+	<property name="mxmlc.jar" location="${flex.sdk.dir}/lib/mxmlc.jar"/>
+	<property name="main.application" location="${src.dir}/H2O_WEB.mxml"/>
+	<property name="output.swf.name" value="H2O_WEB"/>
+	<property name="main.application.out" location="${build.dir}/${output.swf.name}.swf"/>
+	<!--property name="services.config" location="${basedir}/config/services-config.xml"/-->
+	<property name="services.config" location="."/>
+	
+	<!-- wrapper -->
+	<property name="wrapper.dir" location="${basedir}/html-template/"/>
+	<property name="output.html.name" value="${output.swf.name}.html"/>
+	<property name="output.html" location="${build.dir}/${output.html.name}"/>
+	<property name="unnamed.output.html" location="${build.dir}/index.template.html"/>
+	
+	<property name="swf.width" value="100%"/>
+	<property name="swf.height" value="100%"/>
+	<property name="swf.title" value="helium system 1.0"/>
+	<property name="swf.version.major" value="9"/>
+	<property name="swf.version.minor" value="0"/>
+	<property name="swf.version.revision" value="0"/>
+	<property name="swf.application" value="${output.swf.name}"/>
+	<property name="swf.swf" value="${output.swf.name}"/>
+	<property name="swf.bgcolor" value="#FFFFFF"/>
+	
+	<description>helium system 1.0 [compiled by Ant]</description>
+	
+	<!-- target: build -->
+	<target 
+		name="build" 
+		depends="clear,init,compile,copy.wrapper,prepare.wrapper,upload" 
+		description="->ant compile">
+	</target>
+	
+	<!-- 1) target: clear -->
+	<target name="clear">
+		<delete failonerror="false">
+			<fileset dir="${build.dir}" includes="**/*.*" />
+		</delete>
+	</target>
+	<!-- 2) target: init -->
+	<target name="init">
+		<mkdir dir="${build.dir}"/>
+	</target>
+	<!-- 3) target: compile -->
+	<target name="compile">
+		<java jar="${mxmlc.jar}" fork="true" maxmemory="512m" failonerror="true">
+			<arg value="+flexlib=${flex.sdk.dir}/frameworks"/>
+			<arg value="-load-config=${flex.config.xml}"/>
+			<arg value="-output=${main.application.out}"/>
+			<!--arg value="-services=${services.config}"/-->
+			<arg value="-source-path"/>
+			<arg value="${src.dir}"/>
+			<arg value="${lib.src}"/>
+			<arg value="-library-path+=${lib.swc}"/>
+			<arg value="${main.application}" />
+		</java>
+	</target>
+	<!-- 4) target: copy.wrapper -->
+	<target name="copy.wrapper">
+		<copy todir="${build.dir}">
+			<fileset dir="${wrapper.dir}" />
+		</copy>
+		<copy todir="${build.dir}/assets/">
+			<fileset dir="${src.dir}/assets/" />
+		</copy>
+		<copy todir="${build.dir}/css/">
+			<fileset dir="${src.dir}/css/" />
+		</copy>
+		<copy todir="${build.dir}">
+			<fileset file="services-config.xml"/>
+		</copy>	
+	</target>
+	<!-- 5) target: prepare.wrapper -->
+	<target name="prepare.wrapper">
+		<move file="${unnamed.output.html}" tofile="${output.html}" />
+		<replaceregexp file="${output.html}" flags="gs" match="\$\{width\}" replace="${swf.width}"/>
+		<replaceregexp file="${output.html}" flags="gs" match="\$\{height\}" replace="${swf.height}"/>
+		<replaceregexp file="${output.html}" flags="gs" match="\$\{title\}" replace="${swf.title}" encoding="utf-8"/>
+		<replaceregexp file="${output.html}" flags="gs" match="\$\{version_major\}" replace="${swf.version.major}"/>
+		<replaceregexp file="${output.html}" flags="gs" match="\$\{version_minor\}" replace="${swf.version.minor}"/>
+		<replaceregexp file="${output.html}" flags="gs" match="\$\{version_revision\}" replace="${swf.version.revision}"/>
+		<replaceregexp file="${output.html}" flags="gs" match="\$\{application\}" replace="${swf.application}"/>
+		<replaceregexp file="${output.html}" flags="gs" match="\$\{bgcolor\}" replace="${swf.bgcolor}"/>
+		<replaceregexp file="${output.html}" flags="gs" match="\$\{swf\}" replace="${swf.swf}"/>
+	</target>
+	<!-- 6) target: upload -->
+	<target name="upload">	
+	  <ftp server="88.198.35.102"
+	       remotedir="web/1.4/web"
+	       userid="ramadaqang"
+	       password="L6LpdB3aHvanQ"
+	  	   verbose="yes"
+	  	   passive="yes"
+	       depends="yes">
+	    <fileset dir="${build.dir}"/>
+	  </ftp>
+	</target>
+</project>

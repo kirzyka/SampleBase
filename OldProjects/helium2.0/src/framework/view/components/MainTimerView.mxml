@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	horizontalAlign="center" verticalAlign="middle"
+	verticalGap="1"
+	initialize="handleInit()">
+	
+	<mx:Script>
+		<![CDATA[
+			import services.vo.backend.DateResultVO;
+			import services.vo.GlobalFunctions;
+			
+			import framework.model.AppModelLocator;
+			
+			[Bindable]
+			private var timeResult:String = "";
+			
+			private var hours:Number;
+			private var minutes:Number;
+			private var seconds:Number;
+			
+			[Bindable]
+			private var year:Number;
+			
+			[Bindable]
+			private var today:Date;
+			
+			[Bindable]
+			private var model:AppModelLocator = AppModelLocator.getInstance();
+			
+			
+			private var _month:String = "";
+			
+			private function handleInit():void
+			{
+				today = model.date;
+				
+				var time:Timer = new Timer(200);
+				time.addEventListener(TimerEvent.TIMER, handleTime);
+				time.start();
+				
+				handleTime();
+			}	
+			
+			private function updateTimeValues():void
+			{
+				model.date = new Date();
+				// update view time
+				hours = model.date.getHours();
+				minutes = model.date.getMinutes();
+				seconds = model.date.getSeconds();
+				// update view date
+				month = model.months[model.date.month];
+				year = model.date.fullYear;
+			}
+			
+			private function handleTime(evt:TimerEvent = null):void
+			{
+				updateTimeValues();
+				
+				var strHours:String = (hours < 10) ? "0" + hours.toString() : hours.toString();
+				var strMinutes:String = (minutes < 10) ? "0" + minutes.toString() : minutes.toString();
+				
+				timeResult = strHours + " : " + strMinutes;
+			}
+			
+			
+			[Bindable(event="monthChanged")]
+			
+			public function get month():String
+			{
+				return _month;
+			}
+			/**
+			 *  @private
+			 */
+			public function set month(value:String):void
+			{
+				_month = value;
+				
+				dispatchEvent(new Event("monthChanged"));
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:Label
+		text="{timeResult}"
+		fontSize="18"
+		fontFamily="Verdana"
+		fontAntiAliasType="advanced" styleName="timeResult"/>
+	<mx:Label
+		text="{model.date.getDate()} {month} {year} ({model.days.getItemAt(today.day)})"
+		fontSize="10"
+		fontAntiAliasType="advanced"/>
+</mx:VBox>

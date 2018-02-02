@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<popup:BasePopupView
+	xmlns:popup="framework.view.components.popups.*"
+	xmlns="framework.view.components.popups.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	title="Set Price"
+	width="400">
+	
+	<mx:Script>
+		<![CDATA[
+			import mx.events.ValidationResultEvent;
+			import framework.view.pages.checkOut.events.ItemRoutingEvent;
+			import services.vo.GlobalSettings;
+			import services.vo.items.HotelItemVO;
+			import framework.managers.PopUpManagerExt;
+			import framework.core.utils.UtilsMXML;
+			
+			// ================================================================= //
+			//                           VARIABLES                               //
+			// ================================================================= //
+			[Bindable]
+			/**
+			 *  Validation state of price input.
+			 *  
+			 *  @default false
+			 */
+			private var priceValid:Boolean = false;
+			
+			private function applyPriceToItem():void
+			{
+				var event:ItemRoutingEvent = new ItemRoutingEvent(ItemRoutingEvent.ADDED_PRICE);
+				event.price = Number(tiItemPrice.text);
+				event.item = data;
+				event.isAdjust = cbAdjustment.selected;
+				event.comment = taComment.text;
+				dispatchEvent(event);
+				
+				PopUpManagerExt.removePopUp(this);
+			}
+			
+			// Event listener for the valid and invalid events.
+			private function handlePriceValid(event:ValidationResultEvent):void
+			{
+				priceValid = (event.type == ValidationResultEvent.VALID)
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:VBox width="100%" height="100%">
+		<mx:Form width="100%" height="100%">
+			<mx:FormItem
+				required="true"
+				label="Price:"
+				width="100%" height="100%">
+				<mx:TextInput id="tiItemPrice"
+					text="{(data as HotelItemVO).fPrice}"
+					maxChars="10"
+					restrict="0-9."/>
+			</mx:FormItem>
+			<mx:FormItem>
+				<mx:CheckBox id="cbAdjustment"
+					label="Adjustment"/>
+			</mx:FormItem>
+			<mx:FormItem
+				label="Comment:"
+				width="100%" height="100%">
+				<mx:TextArea id="taComment"
+					maxChars="250"
+					width="100%" height="100%"/>
+			</mx:FormItem>
+		</mx:Form>
+		<mx:HBox width="100%" horizontalAlign="right">
+			<mx:Button
+				label="Apply"
+				enabled="{UtilsMXML.and(tiItemPrice.text.length != 0,
+								tiItemPrice.text != '0',
+								priceValid)}"
+				click="applyPriceToItem()"
+				width="{GlobalSettings.BUTTON_WIDTH_APPLY}"/>
+			<mx:Button
+				label="{model.locale.Global_Button_Cancel}"
+				click="close()"
+				width="{GlobalSettings.BUTTON_WIDTH}"/>
+		</mx:HBox>
+	</mx:VBox>
+	
+	<mx:NumberValidator
+		id="priceValidator"
+		source="{tiItemPrice}"
+		property="text"
+		domain="real"
+		minValue="0.01"
+		maxValue="100000"
+		precision="2"
+		trigger="{tiItemPrice}"
+		triggerEvent="change"
+		invalid="callLater(handlePriceValid, [event])"
+		valid="callLater(handlePriceValid, [event])"/>
+</popup:BasePopupView>

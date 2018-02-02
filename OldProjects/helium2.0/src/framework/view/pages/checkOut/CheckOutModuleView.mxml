@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<module:BaseWindow
+	xmlns:module="framework.core.view.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:subview="framework.view.pages.checkOut.subview.*" styleName="PageBig">
+	
+	<mx:Script>
+		<![CDATA[
+			import framework.core.view.VSubWindow;
+			import framework.module.CheckOutModule;
+			
+			override public function update():void
+			{
+				updatePageView();
+			}
+			
+			override public function show():void
+			{
+				
+				if (model.inHouseModule.isCheckOut)
+				{
+					model.checkOutModule.attachedItemsView = new Dictionary(true);
+					model.checkOutModule.currPage = CheckOutModule.CHECKOUT_ITEMS_ROUTING;
+				}
+				else
+				{
+					model.checkOutModule.currPage = CheckOutModule.CHECKOUT_GUESTS_VIEW;
+				}
+			
+				handlePageIndexChange();				
+				super.show();
+				if(model.checkOutModule.currPage == CheckOutModule.CHECKOUT_GUESTS_VIEW)
+				{
+					model.checkOutModule.needGuestListUpdate = true;				
+					updatePageView();
+				}
+				
+				
+			}
+			
+			// ===================================================================== //
+			//                       COMMON METHODS AND HANDLERS                     //
+			// ===================================================================== //
+			/**
+			 *  The handle of change index of page.
+			 */
+			private function handlePageIndexChange(e:Event = null):void
+			{
+				callLater(updatePageView);
+			}
+			/**
+			 *  Update current viewing page.
+			 */
+			private function updatePageView():void
+			{
+				//model.profilesModule.currPage = vsCheckOutPages.selectedIndex;
+				// selected tab is individual profiles
+				if (vsCheckOutPages.selectedChild is VSubWindow)
+				{
+					(vsCheckOutPages.selectedChild as VSubWindow).update();
+				}
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:ViewStack id="vsCheckOutPages"
+		selectedIndex="{model.checkOutModule.currPage}"
+		change="handlePageIndexChange()"
+		width="100%" height="100%">
+		<subview:CheckOutView id="checkOut" />
+		<subview:ItemsRoutingView/>
+	</mx:ViewStack>
+</module:BaseWindow>

@@ -1,0 +1,509 @@
+<?xml version="1.0" encoding="utf-8"?>
+<popup:BasePopupView
+	xmlns:popup="framework.view.components.popups.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:control="h2olib.control.*"
+	xmlns:dataGrid="h2olib.control.itemRenderer.dataGrid.*"
+
+	width="700" height="450"
+	creationComplete="init()"
+	title="{model.locale.Rates_Packages_TransactionsSplitting_Title}" >
+	<mx:Script>
+		<![CDATA[
+			import services.vo.rates.packages.PackageGroupVO;
+		]]>
+	</mx:Script>
+
+	<mx:Script>
+		<![CDATA[
+			import services.vo.checkOut.itemRouting.PackageItemsVO;
+			import framework.view.pages.rates.packages.renderer.PackageIncludedRenderer;
+			import mx.managers.PopUpManagerChildList;
+			import mx.core.Application;
+			import framework.core.utils.UtilsGolobal;
+			import services.vo.backend.PackageVO;
+			import mx.managers.PopUpManager;
+			import mx.events.CloseEvent;
+			import services.vo.backend.PackageItemVO;
+			import services.events.rates.packages.DeleteTransactionEvent;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.controller.AppController;
+			import services.events.rates.packages.GetTransactionGroupListEvent;
+			import services.events.rates.packages.GetTransactionListEvent;
+			import mx.controls.dataGridClasses.DataGridColumn;
+			import services.vo.GlobalImageAssets;
+			import framework.managers.PopUpManagerExt;
+			import framework.model.AppModelLocator;
+			import mx.collections.*;
+			import services.vo.items.ArrangementCodeVO;
+			import services.events.rates.packages.SavePackageEvent;
+			import framework.utils.TransactionSplittingUtils;
+			
+			private var packageID:int;
+	
+			private function init():void
+			{
+	
+			}
+	
+			public function getTransactionList(packageID:int):void
+			{
+				var getTransactionListEvent:GetTransactionListEvent = new GetTransactionListEvent();
+				getTransactionListEvent.iPackageId = packageID;
+				this.packageID = packageID;
+				getTransactionListEvent.callBack = callBackRefresh;
+				CairngormEventDispatcher.getInstance().dispatchEvent(getTransactionListEvent);
+			}
+	
+			/*		ICONS */
+			[Bindable]
+			[Embed(source='/assets/assets.swf', symbol='EditIcon')]
+			public var editIcon:Class;
+			
+			[Bindable]
+			[Embed(source='/assets/assets.swf', symbol='RemoveIcon')]
+			public var deleteIcon:Class;
+	
+	        private function editIconFunction(item:Object, column:DataGridColumn):String
+	        {
+	        	if(item is PackageItemVO)
+	        	{
+	        		if((item as PackageItemVO).iId == 0)
+	        		{
+	        			return null;	
+	        		}
+	        	}
+	            return "editIcon";
+	        }
+	        private function deleteIconFunction(item:Object, column:DataGridColumn):String
+	        {
+	        	if(item is PackageItemVO)
+	        	{
+	        		if((item as PackageItemVO).iId == 0 || (item as PackageItemVO).sCodeDirect == "ACCOMODATION")
+	        		{
+	        			return null;	
+	        		}
+	        	}
+	            return "deleteIcon";
+	        }
+	        private var tdv:TransactionDetailView;
+			private function addTransaction():void
+			{
+				tdv = PopUpManagerExt.createPopUp(this, TransactionDetailView) as TransactionDetailView;
+//				tdv.windowNewIcon = GlobalImageAssets.getInstance().windowNewIcon;
+//				tdv.windowEditIcon = GlobalImageAssets.getInstance().windowEditIcon;
+				tdv.isNew = true;
+				tdv.addEventListener(CloseEvent.CLOSE,refreshTransactionListHandler);
+				model.ratesModule.barModule.currentPackageItem = new PackageItemVO();
+				
+				PopUpManagerExt.centerPopUp(tdv);
+			}
+	
+	        public function editItem():void
+	        {
+				tdv = PopUpManagerExt.createPopUp(Application.application.mainView, TransactionDetailView) as TransactionDetailView;
+//				tdv.windowNewIcon = GlobalImageAssets.getInstance().windowNewIcon;
+//				tdv.windowEditIcon = GlobalImageAssets.getInstance().windowEditIcon;
+				tdv.isNew = false;
+				tdv.addEventListener(CloseEvent.CLOSE,refreshTransactionListHandler);
+				model.ratesModule.barModule.currentPackageItem = dgTransactions.selectedItem as PackageItemVO;
+	
+				PopUpManagerExt.centerPopUp(tdv);
+	        }
+	
+	        public function deleteItem():void
+	        {
+				var deleteTransactionEvent:DeleteTransactionEvent = new DeleteTransactionEvent();
+				deleteTransactionEvent.iPackageId = packageID;
+				deleteTransactionEvent.iTransactionToDeleteId = (dgTransactions.selectedItem as PackageItemVO).iId;
+				deleteTransactionEvent.transactionForDelete = dgTransactions.selectedItem as PackageItemVO;
+				deleteTransactionEvent.callBack = baseTransactionListRefresh;
+				CairngormEventDispatcher.getInstance().dispatchEvent(deleteTransactionEvent);
+	        }
+	
+	        private function refreshTransactionListHandler(event:CloseEvent):void
+	        {
+	        	tdv.removeEventListener(CloseEvent.CLOSE,refreshTransactionListHandler);
+	        	baseTransactionListRefresh();
+	        }
+			
+			private function baseTransactionListRefresh():void
+			{
+				getTransactionList(model.ratesModule.barModule.currentPackage.iPackageId);
+			}
+			
+			private function pricePerStayLabelFunction(item:Object, column:DataGridColumn):String
+			{
+				if(!(item as PackageItemVO).bPriceExists)
+				{
+					return " - ";
+				}
+				var p:Number = UtilsGolobal.round((item as PackageItemVO).fPricePerStay,2);
+				return p.toString();
+			}
+	
+			private function priceLabelFunction(item:Object, column:DataGridColumn):String
+			{
+				if(!(item as PackageItemVO).bPriceExists)
+				{
+					return " - ";
+				}
+				var p:Number = UtilsGolobal.round((item as PackageItemVO).fPrice,2);
+				return p.toString();
+			}
+	
+	        private function pricePerLabelFunction(item:Object,column:DataGridColumn):String
+	        {
+	        	return (item as PackageItemVO).bPerPerson ? model.locale.Rates_Packages_TransactionsSplitting_PerPerson : model.locale.Rates_Packages_TransactionsSplitting_PerRoom;
+	        }
+	        
+	        public function editTransactionLabel():String
+	        {
+	        	return model.locale.Rates_Packages_TransactionsSplitting_Columns_EditTransaction;
+	        }
+	        
+	        public function deleteTransactionLabel():String
+	        {
+	        	return model.locale.Rates_Packages_TransactionsSplitting_Columns_DeleteTransaction;
+	        }
+	        
+	        //merge section
+	        private function callBackRefresh():void
+			{					
+				handleMergeCombo();				
+			}
+			
+/*transaction splitting section*/
+			private function handleMergeCombo():void
+			{
+				splitIncludedTransaction();	
+			}
+
+			private function splitIncludedTransaction():void
+			{
+				var transactionList:ArrayCollection = model.ratesModule.barModule.packageTransactionList;
+				var inclusiveArr:ArrayCollection = new ArrayCollection();
+				var exclusiveArr:ArrayCollection = new ArrayCollection();
+				var transaction:PackageItemVO;
+				for(var i:int = 0; i < transactionList.length; i++)
+				{
+					transaction = transactionList.getItemAt(i) as PackageItemVO;
+					if(transaction.bPtmIsIncluded)
+					{
+						inclusiveArr.addItem(transaction);
+					}
+					else
+					{
+						exclusiveArr.addItem(transaction);	
+					}
+				}	
+				
+				var arrCommonArrgCodesInclusive:Array =  getCommonArrangementCodes(inclusiveArr);
+				var arrCommonArrgCodesExclusive:Array = getCommonArrangementCodes(exclusiveArr);
+				
+				fillMergeCombo(arrCommonArrgCodesInclusive, cmbMergeInclusive, chkbIncludeMerge, model.ratesModule.barModule.currentPackage.iArgIdIncluded);
+				fillMergeCombo(arrCommonArrgCodesExclusive, cmbMergeExclusive, chkbExlusiveMerge, model.ratesModule.barModule.currentPackage.iArgIdExcluded);
+				
+				model.ratesModule.barModule.currentPackage.iArgIdExcluded = TransactionSplittingUtils.updateMergeFieldRateState(arrCommonArrgCodesExclusive, model.ratesModule.barModule.currentPackage.iArgIdExcluded);
+				model.ratesModule.barModule.currentPackage.iArgIdIncluded = TransactionSplittingUtils.updateMergeFieldRateState(arrCommonArrgCodesInclusive, model.ratesModule.barModule.currentPackage.iArgIdIncluded);
+				
+				
+				
+				var result1:ArrayCollection = showMergedTransaction(inclusiveArr, model.ratesModule.barModule.currentPackage.iArgIdIncluded, true);
+				var result2:ArrayCollection = showMergedTransaction(exclusiveArr, model.ratesModule.barModule.currentPackage.iArgIdExcluded, false);
+				for(i = 0; i < result2.length; i++)
+				{
+					result1.addItem(result2.getItemAt(i));
+				}
+				dgTransactions.dataProvider = result1;
+				//TransactionSplittingUtils.manageSaveBtn(cmbMergeExclusive, cmbMergeInclusive, btnSaveMerged);
+				TransactionSplittingUtils.manageSaveBtn2(chkbExlusiveMerge, chkbIncludeMerge, btnSaveMerged);
+			}
+			
+			
+						
+			private function showMergedTransaction(usedProvider:ArrayCollection, arrgCode:int, isIncluded:Boolean):ArrayCollection
+			{			
+				var finalDataProvider:ArrayCollection = new ArrayCollection();
+				if(arrgCode)
+				{
+					var mergeItem:PackageItemVO = new PackageItemVO();
+					mergeItem.sName = TransactionSplittingUtils.getArrangementObjById(model.transactionModule.arrangementCodesList, arrgCode).sCode;
+					mergeItem.bPtmIsIncluded = isIncluded;
+					var description:String = "";
+					var totalPrice:Number = 0;
+					var totalPricePerStay:Number = 0;
+					
+					for(var i:int = 0; i < usedProvider.length; i++)
+					{
+						description += (usedProvider.getItemAt(i) as PackageItemVO).sName + ", ";
+						totalPrice += (usedProvider.getItemAt(i) as PackageItemVO).fPrice;
+						totalPricePerStay += (usedProvider.getItemAt(i) as PackageItemVO).fPricePerStay;
+					}
+					
+					mergeItem.bPriceExists = true;
+					mergeItem.fPricePerStay = totalPricePerStay;
+					mergeItem.fPrice = totalPrice;
+					mergeItem.sDescription = description;
+					//mark as merged string in data grid.
+					mergeItem.iId = 0;					
+					
+					finalDataProvider.addItem(mergeItem);
+					return finalDataProvider;
+				}
+				else
+				{
+					return usedProvider;
+				}
+				
+			}			
+			
+			private function fillMergeCombo(codesList:Array, combo:ComboBox, checkBox:CheckBox, presetCode:int):void
+			{
+				
+				if(codesList.length > 0)
+				{					
+					if(presetCode == 0)
+					{
+						combo.dataProvider = TransactionSplittingUtils.selectArrgCodeById(codesList, model.transactionModule.arrangementCodesList);									
+						combo.selectedIndex = 0;
+						combo.enabled = false;	
+						checkBox.enabled = true;
+					}
+					else
+					{
+						combo.dataProvider = TransactionSplittingUtils.selectArrgCodeById(codesList, model.transactionModule.arrangementCodesList);									
+						combo.selectedItem = TransactionSplittingUtils.getArrangementObjById(model.transactionModule.arrangementCodesList, presetCode);
+						combo.enabled = true;	
+						checkBox.enabled = true;
+						checkBox.selected = true;
+					}			
+					
+				}
+				else
+				{
+					combo.dataProvider = null;
+					combo.enabled = false;
+					checkBox.selected = false;
+					checkBox.enabled = false;
+										
+				}
+				
+			}
+			
+			private function getMergeComboByCheckBox(chckControl:CheckBox):ComboBox
+			{
+				if(chckControl.id == chkbExlusiveMerge.id)
+				{
+					return  cmbMergeExclusive;
+				}
+				else if(chckControl.id == chkbIncludeMerge.id)
+				{
+					return cmbMergeInclusive;	
+				}
+				return null;
+			}
+			
+			private function getMergeCheckBoxByCombo(comboControl:ComboBox):CheckBox
+			{
+				if(comboControl.id == chkbExlusiveMerge.id)
+				{
+					return  chkbExlusiveMerge;
+				}
+				else if(comboControl.id == chkbIncludeMerge.id)
+				{
+					return chkbIncludeMerge;	
+				}
+				
+				return null;
+			}
+			
+			private function changeMergeDDState(evt:Event):void
+			{
+				var chckControl:CheckBox = evt.target as CheckBox;
+				var ddControl:ComboBox = getMergeComboByCheckBox(chckControl);
+								
+				if(ddControl != null)
+				{
+					if(chckControl.selected)
+					{
+						ddControl.enabled = (ddControl.dataProvider != null)?true:false;
+					}
+					else
+					{
+						ddControl.enabled = false;
+					}
+				}
+				//TransactionSplittingUtils.manageSaveBtn(cmbMergeExclusive, cmbMergeInclusive, btnSaveMerged);
+				TransactionSplittingUtils.manageSaveBtn2(chkbExlusiveMerge, chkbIncludeMerge, btnSaveMerged);
+			}
+			
+			
+			
+			
+			private function getCommonArrangementCodes(transactionArr:ArrayCollection):Array
+			{
+				var arrangementCodesList:Array = new Array();
+				if(transactionArr.length > 1)
+				{
+					var arrangementCodeConsidence:Boolean = false;									
+					var arragementCodeEtalon:Array = (transactionArr.getItemAt(0) as PackageItemVO).aCodeArrangement;
+					if(arragementCodeEtalon)
+					{
+						for(var i:int = 0; i < arragementCodeEtalon.length; i++)
+						{  
+							if(hasTransactionsArrgCode(transactionArr, int(arragementCodeEtalon[i])))
+							{
+								arrangementCodesList.push(arragementCodeEtalon[i]);
+							}						
+						}
+					}
+				}
+				else
+				{
+					//add to drop dowm all arrangement codes of use transaction. 	
+				}
+					
+				return arrangementCodesList;
+			}
+			
+			private function hasTransactionsArrgCode(transactionArr:ArrayCollection, searchCode:int):Boolean
+			{
+				var transaction:PackageItemVO;
+				var arrangementCodeList:Array;
+				for(var i:int = 1; i < transactionArr.length; i++)
+				{
+					transaction = transactionArr.getItemAt(i) as PackageItemVO;
+					arrangementCodeList = transaction.aCodeArrangement;						
+					if( !isArrgCodePresent( arrangementCodeList, searchCode ) )
+					{
+						return false;
+					}
+				}
+				return true;				
+			}
+			
+			private function isArrgCodePresent(arrgCodeList:Array, searchCode:int):Boolean
+			{				
+				if(arrgCodeList.lastIndexOf(searchCode) != -1)
+				{					
+					return true;	
+				}
+				else
+				{
+					return false;
+				}
+				
+			}
+
+			private function handleMergedSave():void
+			{				
+				model.ratesModule.barModule.currentPackage.iArgIdIncluded = (cmbMergeInclusive.enabled && chkbIncludeMerge.selected)?(cmbMergeInclusive.selectedItem as ArrangementCodeVO).lId:null;	
+				model.ratesModule.barModule.currentPackage.iArgIdExcluded = (cmbMergeExclusive.enabled && chkbExlusiveMerge.selected)?(cmbMergeExclusive.selectedItem as ArrangementCodeVO).lId:null;
+				
+				var evt:SavePackageEvent = new SavePackageEvent();				
+				evt.packageForSave = model.ratesModule.barModule.currentPackage;
+				evt.packageOriginal = model.ratesModule.barModule.currentPackage;
+				evt.callBack = baseTransactionListRefresh;
+				CairngormEventDispatcher.getInstance().dispatchEvent( evt );
+			}
+			
+			
+/*end transaction splitting section*/			
+
+	
+       
+		]]>
+	</mx:Script>
+
+	<mx:DataGrid id="dgTransactions"
+		dataProvider="{model.ratesModule.barModule.packageTransactionList}"
+		width="100%" height="100%">
+		<mx:columns>
+			<mx:DataGridColumn
+				headerText="{model.locale.Rates_Packages_TransactionsSplitting_Columns_Code}"
+				dataField="sCode"/>
+			<mx:DataGridColumn
+				headerText="{model.locale.Rates_Packages_TransactionsSplitting_Columns_TransactionName}"
+				dataField="sName"/>
+			<mx:DataGridColumn
+				headerText="{model.locale.Rates_Packages_TransactionsSplitting_Columns_PricePerStay}"
+				labelFunction="pricePerStayLabelFunction"/>
+			<mx:DataGridColumn
+				headerText="{model.locale.Rates_Packages_TransactionsSplitting_Columns_Price}"
+				labelFunction="priceLabelFunction"/>
+			<mx:DataGridColumn
+				headerText="{model.locale.Rates_Packages_TransactionsSplitting_Columns_PricePer}"
+				labelFunction="pricePerLabelFunction"/>
+			<mx:DataGridColumn
+				headerText="{model.locale.Rates_Packages_TransactionsSplitting_Columns_Description}"
+				dataField="sDescription"/>
+			<mx:DataGridColumn headerText = "Included to Logis" itemRenderer="{new ClassFactory(PackageIncludedRenderer)}" />
+            <mx:DataGridColumn minWidth="8" width="22"
+                labelFunction="editIconFunction">
+                <mx:itemRenderer>
+                    <mx:Component>
+                        <dataGrid:EmbedImageRenderer
+                            toolTip="{outerDocument.editTransactionLabel()}"
+                            click="{outerDocument.editItem()}"/>
+                    </mx:Component>
+                </mx:itemRenderer>
+            </mx:DataGridColumn>
+            <mx:DataGridColumn minWidth="8" width="22"
+                labelFunction="deleteIconFunction">
+                <mx:itemRenderer>
+                    <mx:Component>
+                        <dataGrid:EmbedImageRenderer
+                            toolTip="{outerDocument.deleteTransactionLabel()}"
+                            click="{outerDocument.deleteItem()}"/>
+                    </mx:Component>
+                </mx:itemRenderer>
+            </mx:DataGridColumn>
+		</mx:columns>
+	</mx:DataGrid>
+<control:Frame  label="{model.locale.Rates_CompanyRates_transaction_splitting_Merge_Head}" width="100%">
+	<mx:HBox width="100%" height="100%" paddingBottom="5">	
+		<mx:Grid width="100%" x="0" y="0" verticalGap="10">
+			<mx:GridRow width="100%" height="100%">
+				<mx:GridItem width="30" height="100%" horizontalAlign="center">
+					<mx:CheckBox id="chkbIncludeMerge"  click="changeMergeDDState(event)"   />
+				</mx:GridItem>
+				<mx:GridItem width="100%" height="100%">
+					<mx:Label text="{model.locale.Rates_CompanyRates_transaction_splitting_Merge_Inclusive}" />
+				</mx:GridItem>
+				<mx:GridItem width="100%" height="100%">
+					<mx:ComboBox id="cmbMergeInclusive"  enabled="false"  width="100%" labelField="sCode"  />
+				</mx:GridItem>
+				<mx:GridItem width="100" height="100%">
+				</mx:GridItem>
+			</mx:GridRow>
+			<mx:GridRow width="100%" height="100%" >
+				<mx:GridItem width="30" height="100%"  horizontalAlign="center">
+					<mx:CheckBox id="chkbExlusiveMerge"  click="changeMergeDDState(event)"  />
+				</mx:GridItem>
+				<mx:GridItem width="100%" height="100%">
+					<mx:Label text="{model.locale.Rates_CompanyRates_transaction_splitting_Merge_NonInclusive}" />
+				</mx:GridItem>
+				<mx:GridItem width="100%" height="100%">
+					<mx:ComboBox id="cmbMergeExclusive" enabled="false" width="100%" labelField="sCode"  />
+				</mx:GridItem>
+				<mx:GridItem width="100" height="100%" horizontalAlign="center">
+					<mx:Button id="btnSaveMerged" click="handleMergedSave()" label="{model.locale.Rates_CompanyRates_transaction_splitting_Save}" />
+				</mx:GridItem>
+			</mx:GridRow>
+		</mx:Grid>
+	</mx:HBox>	
+</control:Frame>
+	<mx:ApplicationControlBar
+		width="100%">
+		<mx:Button id="btnAddTransaction"
+			label="{model.locale.Rates_Packages_TransactionsSplitting_Buttons_AddTransaction}"
+			click="{addTransaction()}"/>
+		<mx:Spacer width="100%"/>
+		<mx:Button id="btnCancel"
+			label="{model.locale.Global_Button_Cancel}"
+			click="{close()}"
+			enabled="false"
+			/>
+	</mx:ApplicationControlBar>
+</popup:BasePopupView>

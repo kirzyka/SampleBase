@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox xmlns:mx="http://www.adobe.com/2006/mxml" 
+	xmlns:backend="framework.view.pages.*" 
+	xmlns:frontend="framework.view.pages.*" 
+	xmlns:login="framework.view.pages.login.*"
+	xmlns:bar="framework.view.pages.bar.*" 
+	xmlns:components="framework.view.components.*"
+	verticalGap="0"
+	initialize="init()" xmlns:view="framework.view.*">
+	
+	<mx:Script>
+		<![CDATA[
+			import mx.managers.PopUpManagerChildList;
+			import mx.controls.Alert;
+			import mx.core.Application;
+			import h2olib.control.enum.MessageKind;
+			import mx.formatters.SwitchSymbolFormatter;
+			import framework.managers.PopUpManagerExt;
+			import framework.view.components.stacktrace.CriticalNotificationView;
+			import h2olib.control.enum.MessageShowType;
+			import services.events.MsgEvent;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import framework.model.AppModelLocator;		
+				 
+			[Bindable]
+			private var model:AppModelLocator = AppModelLocator.getInstance();	
+					
+			private function init():void 
+			{
+				CairngormEventDispatcher.getInstance().addEventListener(MsgEvent.NAME, msgHandler);	
+			}			
+			private function msgHandler(event:MsgEvent):void
+			{
+				if(model.owner == null)
+				{
+					Alert.show(event.message,"Error");
+					return;
+				}
+			
+				event.showType = MessageShowType.POPUP;
+				if(event.showType == MessageShowType.POPUP)
+				{
+					var pop:CriticalNotificationView = PopUpManagerExt.createPopUp(model.owner, CriticalNotificationView) as CriticalNotificationView;
+					
+					pop.msgKind = event.kind;
+					pop.msgTitle = event.title != "" ? event.title : "Error";
+
+					pop.msgMessage = event.message;
+					pop.onCloseEventCallback = event.onCloseEventCallback
+					PopUpManagerExt.centerPopUp(pop);
+				}
+			}
+			
+			private function changeMainState():void
+			{
+				login.loginView.currentState = '';
+				if(model.mainViewIndex == 1)
+				{
+					workspaceView.setState();
+				}
+			}
+			
+		]]>
+	</mx:Script>
+	
+	<components:LogInInformationView
+		width="100%"
+		visible="{model.mainViewIndex > 0}"/>
+	<mx:ViewStack id="mainView"
+		width="100%" height="100%"
+		change="{changeMainState()}"
+		selectedIndex="{model.mainViewIndex}">
+		<login:LoginPageView id="login"
+			height="100%" width="100%"/>
+		<view:WorkspaceView id="workspaceView" 
+			height="100%" width="100%"/>
+	</mx:ViewStack>
+	<components:BottomBarView id="bottomBar"
+		width="100%"
+		visible="{model.mainViewIndex > 0}"/>
+</mx:VBox>

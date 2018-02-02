@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox xmlns:mx="http://www.adobe.com/2006/mxml" width="100%" height="100%" xmlns:control="h2olib.control.*" xmlns:pager="h2olib.control.pager.*">
+	<control:Frame width="100%" height="100%" label="Changes">
+		<mx:DataGrid width="100%" height="100%">
+			<mx:columns>
+				<mx:DataGridColumn headerText="Author"/>
+				<mx:DataGridColumn headerText="Date"/>
+				<mx:DataGridColumn headerText="Field Changed"/>
+				<mx:DataGridColumn headerText="Previous Value"/>
+				<mx:DataGridColumn headerText="Current Value"/>
+			</mx:columns>
+		</mx:DataGrid>
+		
+		<pager:Pager />
+	</control:Frame>
+	<control:Frame width="100%" height="100%" label="Reservation History">
+		<mx:DataGrid width="100%" height="100%">
+			
+		</mx:DataGrid>
+		
+		<pager:Pager />
+	</control:Frame>
+	<control:Frame width="100%" height="100%" label="Reservation History">
+		<mx:DataGrid width="100%" height="100%">
+			
+		</mx:DataGrid>
+		
+		<pager:Pager />
+	</control:Frame>
+</mx:VBox>

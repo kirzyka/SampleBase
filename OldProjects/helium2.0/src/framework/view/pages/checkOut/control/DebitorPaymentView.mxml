@@ -1,0 +1,554 @@
+<?xml version="1.0" encoding="utf-8"?>
+<view:VSubWindow
+	xmlns:view="framework.core.view.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:controls="framework.view.components.controls.*"
+	verticalScrollPolicy="off"
+	width="100%">
+	
+	<mx:Script>
+		<![CDATA[
+			import services.events.common.PageEvent;
+			import mx.utils.ObjectUtil;
+			import services.vo.inHouse.InHouseViewVO;
+			import framework.view.pages.inHouse.InHouseView;
+			import services.vo.checkOut.payment.CheckoutPaymentVO;
+			import framework.module.CheckOutModule;
+			import framework.view.pages.checkOut.data.PaymentData;
+			import mx.managers.PopUpManagerChildList;
+			import framework.view.pages.checkOut.popups.AddPaymentPopupView;
+			import framework.managers.PopUpManagerExt;
+			import services.events.cashShift.GetLastOpenShiftEvent;
+			import services.vo.checkOut.itemRouting.PaymentVO;
+			import services.events.checkOut.AddDebitorPaymentEvent;
+			import com.adobe.cairngorm.business.ServiceLocator;
+			import services.Services;
+			import flash.net.navigateToURL;
+			import framework.view.pages.checkOut.renders.DebitorGridItemRenderer;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.business.checkOut.CheckOutDelegate;
+			import services.events.checkOut.PrintDebitReportEvent;
+			import services.vo.backend.VatObjectVO;
+			import services.vo.checkOut.payment.DebitorPaymentVO;
+			import services.vo.checkOut.itemRouting.ItemCheckOutVO;
+			import services.vo.GlobalSettings;
+			import mx.controls.DateField;
+			import mx.collections.ArrayCollection;
+			
+			/**
+			 *  This proeprty is id of payment.
+			 *  
+			 *  @default 0
+			 */
+			private var _paymentId:Number = 0;
+			
+			/**
+			 *  This property is id of attached view.
+			 */
+			private var _id:Number;
+			/**
+			 *  This property is type of account.
+			 */
+			private var _type:int;
+			/**
+			 *  This property is title of attached item. Title contain account
+			 *  data and his address.
+			 *  
+			 *  @default ""
+			 */
+			private var _title:String = "";
+			/**
+			 *  This property is price by all items into the list.
+			 *  
+			 *  @default 0
+			 */
+			private var _price:Number = 0;
+			/**
+			 *  This proeprty is data provider for data grid.
+			 *  
+			 *  @default new ArrayCollection()
+			 */
+			private var _dataProvider:/* ItemCheckOutVO */ArrayCollection = new ArrayCollection();
+			/**
+			 *  This proeprty is VATs collection by items.
+			 *  
+			 *  @default new ArrayCollection()
+			 */
+			private var _vat:ArrayCollection = new ArrayCollection();
+			[Bindable]
+			/**
+			 *  This property is collection of prices summary of items by VAT.
+			 *  
+			 *  @defaukt new Dictionary(true) 
+			 */
+			private var priceByVAT:Dictionary = new Dictionary(true); 
+			
+			[Bindable]
+			public var payments:Array = [];
+			
+			[Bindable]
+			private var _totalDebit:Number = 0;
+			[Bindable]
+			private var _totalCredit:Number = 0;
+			
+			[Bindable]
+			private var _invoiceAmount:Number = 0;
+			
+			[Bindable]
+			private var _totalAmountVAT:Number = 0;
+			
+			[Bindable]
+			private var _totalAmountNet:Number = 0;
+			
+			
+			private var totalItem:DebitorPaymentVO = new DebitorPaymentVO();;
+			
+			private var specialItems:ArrayCollection = new ArrayCollection();
+			
+			private function init():void
+			{
+			}
+			
+			/**
+			 *  @override
+			 */
+			override protected function updateDisplayList(unscaledWidth:Number, unscaledHeight:Number):void
+			{
+				//calculation();
+				
+				super.updateDisplayList(unscaledWidth - 5, unscaledHeight);
+			}
+			
+			private function calculation():void
+			{
+				var item:DebitorPaymentVO;
+				priceByVAT = new Dictionary(true);
+				// calculate debit and credit by each items
+				_totalDebit = 0;
+				_totalCredit = 0;
+				for each(item in _dataProvider)
+				{
+					_totalDebit += item.lDebit;
+					_totalCredit += item.lCredit;
+					// check sum by VAT
+					if (!priceByVAT[item.iVatValue])
+					{
+						priceByVAT[item.iVatValue] = 0;
+					}
+					priceByVAT[item.iVatValue] += item.lDebit;
+				}
+				// calculate all other payments
+				_totalAmountVAT = _totalDebit;
+				_invoiceAmount = Math.round((_totalDebit - _totalCredit) * 100) / 100;
+				
+				var vatPrice:Number = 0;
+				for each(var vat:Number in _vat)
+				{
+					vatPrice += amountVAT(vat);
+				}
+				
+				_totalAmountNet = _totalAmountVAT - vatPrice;
+			}
+			
+			private function updateTotalItem():void
+			{
+				// change total item
+				totalItem.dDate = "";
+				totalItem.sDescription = "Total";
+				totalItem.lCredit = _totalCredit;
+				totalItem.lDebit = _totalDebit;
+				
+				//_dataProvider.addItem(totalItem);
+			}
+			
+			/**
+			 *  Label function for view date by dd/mm/yyyy format.
+			 *  
+			 *  @param item:Object - item of dataprovider for caller table.
+			 *  @param column:DataGridColumn - column in grid.
+			 *  
+			 *  @result formated date as String.
+			 */
+			private function funcDateView(item:Object, column:DataGridColumn):String
+			{
+				var date:Date = DateField.stringToDate((item as DebitorPaymentVO).dDate, GlobalSettings.DATE_SERVER_FORMAT);
+				return DateField.dateToString(date, GlobalSettings.DATE_FORMAT);
+			}
+			
+			private function amountVAT(value:Number):Number
+			{
+				var amount:Number = (priceByVAT[value]) * (value / (100 + value));
+				return Math.round(amount * 100) / 100;
+			}
+			
+			private function amountOutVAT(value:Number):Number
+			{
+				return priceByVAT[value] - amountVAT(value);
+			}
+			/*
+			private function createInvoice():void
+			{
+				var event:PrintDebitReportEvent = new PrintDebitReportEvent(CheckOutDelegate.PRINT_DEBIT_REPORT);
+				event.hotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+				event.paymentId = paymentId;
+				event.isConference = (model.checkOutModule.roomType == InHouseViewVO.TYPE_CONFERENCE);
+				event.roomId = model.checkOutModule.reservationSummary.lRoomId;
+				event.callBack = openInvoice;
+				CairngormEventDispatcher.getInstance().dispatchEvent(event);
+			}
+			*/
+			private function createInvoice():void
+			{
+				var event:PrintDebitReportEvent = new PrintDebitReportEvent(CheckOutDelegate.PRINT_DEBIT_INVOICE_REPORT);
+				event.hotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+				event.paymentId = paymentId;
+				event.isConference = (model.checkOutModule.roomType == InHouseViewVO.TYPE_CONFERENCE);
+				event.roomId = model.checkOutModule.reservationSummary.lRoomId;
+				event.callBack = openInvoice;
+				CairngormEventDispatcher.getInstance().dispatchEvent(event);
+			}
+			
+			private function openInvoice():void
+			{
+				navigateToURL(new URLRequest(model.checkOutModule.invoiceURL));
+			}
+			
+			/**
+			 *  The handle to open popup for add new payment by guest.
+			 */
+			private function openAddPaymentPopup():void
+			{
+				if ( model.cashShiftModule.currOpenShift.iCashierId == 0)
+				{
+					var event:GetLastOpenShiftEvent = new GetLastOpenShiftEvent();
+					event.hotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+					CairngormEventDispatcher.getInstance().dispatchEvent(event);
+				}
+				
+				var pop:AddPaymentPopupView = PopUpManagerExt.createPopUp(this, AddPaymentPopupView) as AddPaymentPopupView;
+				pop.isDebitorPayment = true;
+				pop.paymentId = paymentId;
+				pop.callBack = updatePaymentView;
+			}
+			
+			/**
+			 *  Update payment view by special payment's type.
+			 */
+			private function updatePaymentView():void
+			{
+				updatePayments();
+				// normalize specail items
+				normalizePayments();
+				// update calculation
+				calculation();
+				// update total item
+				updateTotalItem();
+				// apply changes
+				_dataProvider.refresh();
+			}
+			/**
+			 *  Update routed items for current debitor view.
+			 */
+			private function updatePayments():void
+			{
+				payments = [];
+				
+				var routedPayment:ArrayCollection = model.checkOutModule.routedPaymentItems;
+				for each(var debitorPayment:CheckoutPaymentVO in routedPayment)
+				{
+					if (debitorPayment.lAppliedPayment == paymentId)
+					{
+						payments.push(debitorPayment);
+					}
+				}
+			}
+			/**
+			 *  Normalize all not routed items by payments and items.
+			 */
+			private function normalizePayments():void
+			{
+				var payment:DebitorPaymentVO;
+				// clear special payment items
+				for each(payment in specialItems)
+				{
+					payment.lCredit = 0;
+					payment.lDebit = 0;
+				}
+				// check not routed items
+				for each(var routedPayment:CheckoutPaymentVO in payments)
+				{
+					// check item to payment
+					for each(payment in specialItems)
+					{
+						if (payment.iPaymentType == routedPayment.iType)
+						{
+							payment.lCredit += routedPayment.fValue;
+							break;
+						}
+					}
+				}
+			}
+			
+			// ===================================================================== //
+			//                       GETTER AND SETTER HANDLERS                      //
+			// ===================================================================== //
+			[Bindable(event="idChanged")]
+			/**
+			 *  Id of account.
+			 */
+			public function get ind():Number
+			{
+				return _id;
+			}
+			/**
+			 *  @private
+			 */
+			public function set ind(value:Number):void
+			{
+				_id = value;
+				
+				dispatchEvent(new Event("idChanged"));
+			}
+			
+			[Bindable(event="paymentIdChanged")]
+			/**
+			 *  Id of payment by account.
+			 */
+			public function get paymentId():Number
+			{
+				return _paymentId
+			}
+			/**
+			 *  @private
+			 */
+			public function set paymentId(value:Number):void
+			{
+				_paymentId = value;
+				
+				dataProvider = _dataProvider;
+				
+				dispatchEvent(new Event("paymentIdChanged"));
+			}
+			
+			[Bindable(event="typeChanged")]
+			/**
+			 *  Type of account.
+			 */
+			public function get type():int
+			{
+				return _type;
+			}
+			/**
+			 *  @private
+			 */
+			public function set type(value:int):void
+			{
+				_type = value;
+				
+				dispatchEvent(new Event("typeChanged"));
+			}
+			
+			[Bindable(event="titleChanged")]
+			/**
+			 *  The title of attached item.
+			 */
+			public function get title():String
+			{
+				return _title;
+			}
+			/**
+			 *  @private
+			 */
+			public function set title(value:String):void
+			{
+				_title = value;
+				
+				dispatchEvent(new Event("titleChanged"));
+			}
+			
+			[Bindable(event="priceChanged")]
+			/**
+			 *  Type of account.
+			 */
+			public function get price():Number
+			{
+				return _price;
+			}
+			/**
+			 *  @private
+			 */
+			public function set price(value:Number):void
+			{
+				_price = value;
+				
+				dispatchEvent(new Event("priceChanged"));
+			}
+			
+			[Bindable(event="dataProviderChanged")]
+			/**
+			 *  Data provider for data grid.
+			 */
+			public function get dataProvider():ArrayCollection
+			{
+				return _dataProvider;
+			}
+			/**
+			 *  @private
+			 */
+			public function set dataProvider(value:ArrayCollection):void
+			{
+				calculation();
+				
+				var i:int = 0;
+				var payment:DebitorPaymentVO;
+				
+				_dataProvider = value;
+				
+				// delete specail global items
+				for(i = 0; i < _dataProvider.length; i++)
+				{
+					payment = _dataProvider.getItemAt(i) as DebitorPaymentVO;
+					if (payment.lId <= 0)
+					{
+						_dataProvider.removeItemAt(i);
+						i--;
+					}
+				}
+				// make special global items for payments
+				specialItems.removeAll();
+				for(i = 0; i < CheckOutModule.paymentTypes.length; i++)
+				{
+					var type:PaymentData = (CheckOutModule.paymentTypes.getItemAt(i) as PaymentData);
+					var globalItem:DebitorPaymentVO = new DebitorPaymentVO();
+					globalItem.lId = -i;
+					globalItem.iPaymentType = type.type;
+					globalItem.sDescription = type.name;
+					
+					specialItems.addItem(globalItem);
+				}
+				
+				// apply special global items for payments
+				for each(payment in specialItems)
+				{
+					_dataProvider.addItem(payment);
+				}
+				
+				updatePaymentView();
+				
+				dispatchEvent(new Event("dataProviderChanged"));
+			}
+			
+			[Bindable(event="vatChanged")]
+			/**
+			 *  VATs collection by items.
+			 */
+			public function get vat():ArrayCollection
+			{
+				return _vat;
+			}
+			/**
+			 *  @private
+			 */
+			public function set vat(value:ArrayCollection):void
+			{
+				_vat = value;
+				
+				dispatchEvent(new Event("vatChanged"));
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:Label
+		text="{title}"
+		fontWeight="bold"
+		width="100%"/>
+	
+	<controls:ColoredDataGrid id="dgAttachedItems"
+		dataProvider="{dataProvider}"
+		allowMultipleSelection="true"
+		draggableColumns="false"
+		resizableColumns="false"
+		sortableColumns="false"
+		selectable="false"
+		width="100%" height="100%">
+		<controls:columns>
+			<mx:DataGridColumn
+				headerText="{model.locale.CheckOut_Payment_Columns_Date}"
+				labelFunction="funcDateView"
+				width="120"/>
+			<mx:DataGridColumn
+				headerText="{model.locale.CheckOut_Payment_Columns_Description}"
+				itemRenderer="{new ClassFactory(DebitorGridItemRenderer)}"
+				dataField="sDescription"/>
+			<mx:DataGridColumn
+				headerText="{model.locale.CheckOut_Payment_Columns_Debit}"
+				itemRenderer="{new ClassFactory(DebitorGridItemRenderer)}"
+				dataField="lDebit"
+				width="60"/>
+			<mx:DataGridColumn
+				headerText="{model.locale.CheckOut_Payment_Columns_Credit}"
+				itemRenderer="{new ClassFactory(DebitorGridItemRenderer)}"
+				dataField="lCredit"
+				width="60"/>
+		</controls:columns>
+	</controls:ColoredDataGrid>
+	
+	<mx:HBox width="100%" horizontalAlign="right">
+		<mx:Form>
+			<mx:FormItem
+				label="{model.locale.CheckOut_Payment_DebitorPayments_InvoiceAmount}"
+				fontWeight="bold">
+				<mx:Label
+					text="{nfPriceView.format(_invoiceAmount)} {model.locale.Global_CurrencyEuroShort}"/>
+			</mx:FormItem>
+			<mx:FormItem
+				label="{model.locale.CheckOut_Payment_DebitorPayments_TotalAmountVAT}"
+				fontWeight="bold">
+				<mx:Label
+					text="{nfPriceView.format(_totalAmountVAT)} {model.locale.Global_CurrencyEuroShort}"/>
+			</mx:FormItem>
+			<mx:FormItem
+				label="{model.locale.CheckOut_Payment_DebitorPayments_TotalAmountNet}"
+				fontWeight="bold">
+				<mx:Label
+					text="{nfPriceView.format(_totalAmountNet)} {model.locale.Global_CurrencyEuroShort}"/>
+			</mx:FormItem>
+			<mx:Repeater
+				id="rpVATView"
+				dataProvider="{vat}"
+				width="100%">
+					<mx:FormItem
+						label="{model.locale.CheckOut_Payment_DebitorPayments_Vat} {rpVATView.currentItem}%"
+						fontWeight="bold">
+						<mx:Label
+							text="{nfPriceView.format(amountVAT(Number(rpVATView.currentItem)))} {model.locale.Global_CurrencyEuroShort}"/>
+					</mx:FormItem>
+			</mx:Repeater>
+			<mx:Repeater
+				id="rpVATAmoutView"
+				dataProvider="{vat}"
+				width="100%">
+				<mx:FormItem
+					label="{model.locale.CheckOut_Payment_DebitorPayments_TotalAmountVAT} ({rpVATAmoutView.currentItem}% {model.locale.CheckOut_Payment_DebitorPayments_Vat})"
+					fontWeight="bold">
+					<mx:Label
+						text="{nfPriceView.format(amountOutVAT(rpVATAmoutView.currentItem as Number))} {model.locale.Global_CurrencyEuroShort}"/>
+				</mx:FormItem>
+			</mx:Repeater>
+		</mx:Form>
+	</mx:HBox>
+	
+	<mx:HBox width="100%" horizontalAlign="right">
+		<mx:Button
+			label="{model.locale.CheckOut_Payment_Buttons_AddPayment}"
+			click="openAddPaymentPopup()"/>
+		<mx:Button
+			label="{model.locale.CheckOut_Payment_Buttons_PrintInvoice}"
+			click="createInvoice()"/>
+	</mx:HBox>
+	
+	<mx:NumberFormatter id="nfPriceView"
+		precision="2"
+		useThousandsSeparator="false"
+		rounding="none"/>
+</view:VSubWindow>

@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="utf-8"?>
+<popup:DataPopupView
+	xmlns:popup="framework.view.components.popups.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	editTitle="{model.locale.Items_Groups_Popups_EditGroup_SubGroup}"
+	creationComplete="init()"
+	width="350">
+	
+	<mx:Script>
+		<![CDATA[
+			import services.business.items.ItemsDelegate;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.controller.AppController;
+			import services.events.items.itemGroups.SaveSystemSubGroupEvent;
+			import services.vo.items.ItemsGroupVO;
+			import services.vo.GlobalSettings;
+			
+			// ================================================================= //
+			//                             VARIABLES                             //
+			// ================================================================= //
+			/**
+			 *  This property is index of selected system item.
+			 *  
+			 *  @default -1
+			 */
+			private var _selectedIndex:int = -1;
+			
+			// ================================================================= //
+			//                        COMMON METHODS                             //
+			// ================================================================= //
+			/**
+			 *  The initialize handler of current popup view.
+			 */
+			private function init():void
+			{
+				focusManager.setFocus(tiSubGroupName);
+			}
+			
+			/**
+			 *  The handle for saving new added hotel main group.
+			 */
+			private function handleSave():void
+			{
+				// check needs to make request for save. If any data is not changed
+				// close popup.
+				if (!isDirty)
+				{
+					completeCall();
+					return;
+				}
+				
+				var item:ItemsGroupVO = (isEdit) ? data as ItemsGroupVO : new ItemsGroupVO();
+				item.sName = tiSubGroupName.text;
+				// save changes
+				var event:SaveSystemSubGroupEvent = new SaveSystemSubGroupEvent(ItemsDelegate.SAVE_SYSTEM_SUB_GROUP);
+				event.groupId = (cmbMainGroupNames.selectedItem as ItemsGroupVO).lId;
+				event.groupIndex = cmbMainGroupNames.selectedIndex;
+				event.subGroups = item;
+				event.subGroupIndex = _selectedIndex;
+				event.callBack = completeCall;
+				CairngormEventDispatcher.getInstance().dispatchEvent(event);
+			}
+			
+			// ================================================================= //
+			//                        GETTERS AND SETTERS                        //
+			// ================================================================= //
+			/**
+			 *  The index of selected system item.
+			 */
+			public function get selectedIndex():int
+			{
+				return _selectedIndex;
+			}
+			/**
+			 *  @private
+			 */
+			public function set selectedIndex(value:int):void
+			{
+				_selectedIndex = value;
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:Form width="100%">
+		<mx:FormItem
+			label="{model.locale.Items_Groups_Popups_EditGroup_MainGroup}:"
+			width="100%">
+			<mx:ComboBox id="cmbMainGroupNames"
+				enabled="false"
+				labelField="sName"
+				width="100%"/>
+		</mx:FormItem>
+		<mx:FormItem
+			label="{model.locale.Items_Groups_Popups_EditGroup_SubGroup}:"
+			width="100%">
+			<mx:TextInput id="tiSubGroupName"
+				text="{(data as ItemsGroupVO).sName}"
+				maxChars="25"
+				enter="handleSave()"
+				width="100%"/>
+		</mx:FormItem>
+	</mx:Form>
+	<mx:HBox width="100%">
+		<mx:Button
+			label="{model.locale.Global_Button_Save}"
+			enabled="{tiSubGroupName.text.length != 0}"
+			click="handleSave()"
+			width="{GlobalSettings.BUTTON_WIDTH_APPLY}"/>
+		<mx:Spacer width="100%" />
+		<mx:Button
+			label="{model.locale.Global_Button_Cancel}"
+			click="close()"
+			width="{GlobalSettings.BUTTON_WIDTH}"/>
+	</mx:HBox>
+</popup:DataPopupView>

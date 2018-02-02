@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:HBox xmlns:mx="http://www.adobe.com/2006/mxml" 
+	creationComplete="init()">
+	<mx:Script>
+		<![CDATA[
+			import services.vo.response.StackTraceVO;
+			import mx.messaging.AbstractConsumer;
+			import mx.collections.ArrayCollection;
+			import mx.collections.XMLListCollection;
+			import framework.model.AppModelLocator;
+			
+			[Bindable]
+			private var stackProvider:ArrayCollection = new ArrayCollection();
+			
+			public var value:StackTraceVO;
+			
+			public function init():void
+			{
+				stackProvider = new ArrayCollection();
+				// if item is <code>null</code>...
+				if (value == null)
+				{
+					stackProvider.addItem({ label:"Stack trace is empty", children:[] });
+				} else {
+					// add description of stack trace to view by tree
+					stackProvider.addItem({ label:"Message:", children:[String(value.sExceptionMessage)] });
+					stackProvider.addItem({ label:"Date:", children:[String(value.sExceptionDate)] });
+					stackProvider.addItem({ label:"File name:", children:[String(value.sFileName)] });
+					stackProvider.addItem({ label:"Method name:", children:[String(value.sMethodName)] });
+					stackProvider.addItem({ label:"Line number:", children:[String(value.iLineNumber)] });
+					stackProvider.addItem({ label:"Decription:", children:[String(value.sMapMold)] });
+				}
+				
+				stackDescription.text = "";
+				for(var i:int = 0; i < stackProvider.length; i++)
+				{
+					var stackItem:Object = stackProvider.getItemAt(i);
+					stackDescription.text += stackItem.label + ": " + stackItem.children[0] + "\n";
+				}
+			}
+		]]>
+	</mx:Script>
+	<mx:TextArea id="stackDescription" width="100%" height="100%"/>
+	<!--mx:Tree id="stackTree" width="100%" height="100%"
+			 showRoot="false" dataProvider="{stackProvider}" labelField="label"
+			 defaultLeafIcon="{null}" folderClosedIcon="{null}" folderOpenIcon="{null}"/-->
+</mx:HBox>

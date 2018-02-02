@@ -1,0 +1,365 @@
+<?xml version="1.0" encoding="utf-8"?>
+<control:PopUpWindow
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:control="h2olib.control.*"
+	xmlns:rhythmList="framework.components.rhythmList.*"
+	width="750" height="710"
+	paddingBottom="0" paddingLeft="0" paddingRight="0" paddingTop="0"
+	title="Add Transaction"
+	creationComplete="init()" >
+
+<mx:Script>
+	<![CDATA[
+		import framework.core.utils.UtilsMXML;
+		import mx.events.CollectionEventKind;
+		import mx.events.CollectionEvent;
+		import mx.collections.ArrayCollection;
+		import services.vo.common.DataListVO;
+		import services.events.common.GetDataListByTypeCodeEvent;
+		import framework.managers.PopUpManagerExt;
+		import services.events.rates.packages.SaveTransactionEvent;
+		import services.vo.backend.PackageItemVO;
+		import mx.controls.dataGridClasses.DataGridColumn;
+		import services.events.rates.packages.GetTransactionItemCountEvent;
+		import services.events.rates.packages.GetTransactionItemPageEvent;
+		import services.vo.items.ItemsGroupVO;
+		import services.vo.items.HotelItemVO;
+		import mx.events.ListEvent;
+		import com.adobe.cairngorm.control.CairngormEventDispatcher;
+		import services.controller.AppController;
+		import services.command.rates.packages.GetTransactionGroupListCommand;
+		import services.events.rates.packages.GetTransactionGroupListEvent;
+		import framework.model.AppModelLocator;
+		import mx.controls.advancedDataGridClasses.AdvancedDataGridColumn;
+		import framework.utils.TransactionSplittingUtils;
+
+		[Bindable]
+		private var model:AppModelLocator= AppModelLocator.getInstance();
+		
+		private function init():void
+		{
+			var ac:ArrayCollection;
+			
+			addEventListener(PopUpWindow.IS_NEW_STATE_CHANGE,isNewStatusChangeHandler);
+			initData();
+			getGroupList();
+
+
+			var e:GetDataListByTypeCodeEvent = new GetDataListByTypeCodeEvent(AppController.GET_DATA_LIST_BY_TYPE_CODE_EVENT);
+			e.sListTypeCode = "RHYTHM";
+			CairngormEventDispatcher.getInstance().dispatchEvent(e);
+		}
+
+		private function isNewStatusChangeHandler(event:Event):void
+		{
+			initData();
+		}
+
+		private function initData():void
+		{
+			if(isNew)
+			{
+				title = model.locale.Rates_Packages_TransactionDetails_NewTitle;
+			}
+			else
+			{
+				title = model.locale.Rates_Packages_TransactionDetails_EditTitle + txtTransactionName.text;
+				var rhythm:DataListVO = new DataListVO();
+				rhythm.sCode = model.ratesModule.barModule.currentPackageItem.sRhythmCode;
+				rhythm.sName = model.ratesModule.barModule.currentPackageItem.sRhythm;
+				trRhuthm.rhythm = rhythm;
+				if(model.ratesModule.barModule.currentPackageItem.sCodeDirect == "ACCOMODATION")
+				{
+					chbInclude.selected = true;
+					chbInclude.enabled = false;
+				}
+				else
+				{
+					chbInclude.selected = model.ratesModule.barModule.currentPackageItem.bPtmIsIncluded;
+					chbInclude.enabled = true;
+				}
+			}
+		}
+
+		private function getGroupList():void
+		{
+			var getTransactionGroupListEvent:GetTransactionGroupListEvent = new GetTransactionGroupListEvent(AppController.PACKAGES_GET_TRANSACTION_GROUP_LIST_EVENT);
+			getTransactionGroupListEvent.iHotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+			getTransactionGroupListEvent.sGroupName = txtGroupName.text;
+			CairngormEventDispatcher.getInstance().dispatchEvent(getTransactionGroupListEvent);
+		}
+
+		private var selectedGroup:ItemsGroupVO;
+
+		private function trGroupsClick(event:ListEvent):void
+		{
+			if((event.itemRenderer.data as ItemsGroupVO).children == null)
+			{
+				selectedGroup = event.itemRenderer.data as ItemsGroupVO;
+				var getTransactionItemCountEvent:GetTransactionItemCountEvent = new GetTransactionItemCountEvent();
+				getTransactionItemCountEvent.iGroupId = selectedGroup.lId;
+				getTransactionItemCountEvent.sItemName = txtTransaction.text;
+				getTransactionItemCountEvent.callBack = getGroupItem;
+				CairngormEventDispatcher.getInstance().dispatchEvent(getTransactionItemCountEvent);
+			}
+		}
+
+		private function getGroupItem():void
+		{
+				var getTransactionItemPageEvent:GetTransactionItemPageEvent = new GetTransactionItemPageEvent();
+				getTransactionItemPageEvent.iGroupId = selectedGroup.lId;
+				getTransactionItemPageEvent.sItemName = txtTransaction.text;
+				getTransactionItemPageEvent.iPage = 1;
+				getTransactionItemPageEvent.iCount = model.ratesModule.barModule.groupItemCount;
+				CairngormEventDispatcher.getInstance().dispatchEvent(getTransactionItemPageEvent);
+		}
+
+		private function transactionLabelFunction(item:Object,column:DataGridColumn):String
+		{
+			return (item as HotelItemVO).bIsArticle ? (item as HotelItemVO).sParentName + "/" + (item as HotelItemVO).sName : (item as HotelItemVO).sName;
+		}
+
+		/**
+		 * set hotel item
+		 */ 
+		private function setHotelItem():void
+		{
+			var selectedItem:HotelItemVO = dgTransactions.selectedItem as HotelItemVO;
+			var currentPackageItem:PackageItemVO = new PackageItemVO();
+			currentPackageItem.sName = selectedItem.bIsArticle ? (dgTransactions.selectedItem as HotelItemVO).sParentName + "/" + (dgTransactions.selectedItem as HotelItemVO).sName : (dgTransactions.selectedItem as HotelItemVO).sName;
+			currentPackageItem.sCode = selectedItem.sTransactionCode;
+			currentPackageItem.fPrice = selectedItem.fPrice;
+			currentPackageItem.iItemId = selectedItem.lId;
+			model.ratesModule.barModule.currentPackageItem = currentPackageItem;
+		}
+
+		/**
+		 * save Transaction
+		 */
+		private function save():void
+		{
+			var rhythm:DataListVO = trRhuthm.rhythm;
+
+			var currentPackageItem:PackageItemVO = model.ratesModule.barModule.currentPackageItem;
+			currentPackageItem.sRhythm = rhythm.sName;//"010111011001100100011010";
+			currentPackageItem.sRhythmCode = rhythm.sCode;//"RHYTHM_EVERY_NIGHT";
+
+			currentPackageItem.fPrice = ntiPrice.value;
+			currentPackageItem.bPerPerson = rbPerPerson.selected;
+
+			if(rbPerPerson.selected)
+			{
+				 currentPackageItem.fPriceChildBefore = ntiPriceChildBefore.value;
+				 currentPackageItem.fPriceChildMiddle = ntiPriceChildMiddle.value;
+				 currentPackageItem.fPriceChildAfter = ntiPriceChildAfter.value;
+
+				 currentPackageItem.bPerChildBefore = chkPriceChildBefore.selected;
+				 currentPackageItem.bPerChildMiddle = chkPriceChildMiddle.selected;
+				 currentPackageItem.bPerChildAfter = chkPriceChildAfter.selected;
+
+			}
+
+			currentPackageItem.sDescription = txtDescription.text;
+			currentPackageItem.bPtmIsIncluded = chbInclude.selected;
+			
+			var saveTransactionEvent:SaveTransactionEvent = new SaveTransactionEvent();
+			saveTransactionEvent.iPackageId = model.ratesModule.barModule.currentPackage.iPackageId;
+			saveTransactionEvent.oMapTransaction = currentPackageItem;
+			saveTransactionEvent.callBack = closeMe;
+			CairngormEventDispatcher.getInstance().dispatchEvent(saveTransactionEvent);
+		}
+
+		private function rhythmTreeSetHeight():void
+		{
+			try
+			{
+				trRhuthm.height = pnTransaction != null ? pnTransaction.height - 100 : 0;
+			} catch(e:Error){}
+		}
+		
+		private function showTransactionCodes(item:Object, column:DataGridColumn):String
+		{
+           var transaction:HotelItemVO = item as HotelItemVO;
+			if(transaction && transaction.aArrgCodes && transaction.aArrgCodes.length != 0)
+			{
+				var codesList:Array = transaction.aArrgCodes;
+				var arrCodeObjList:ArrayCollection = TransactionSplittingUtils.selectArrgCodeById(codesList, model.transactionModule.arrangementCodesList);
+				var str:String = "";
+				for(var i:int = 0; i < arrCodeObjList.length; i++)
+				{
+					str += arrCodeObjList.getItemAt(i).sCode + ((arrCodeObjList.length - 1 == i)? "":", ")
+				}
+				return str;
+			}
+			else
+			{
+				return "";
+			}	
+		}
+	]]>
+</mx:Script>
+
+	<control:CollapsiblePanel
+		title="{model.locale.Rates_Packages_TransactionDetails_Search_Title}"
+		enabled="{isNew}"
+		open="{isNew}"
+		height="100" width="100%">
+		<mx:HBox
+			width="100%" height="100%">
+			<mx:VBox
+				width="200" height="100%">
+				<control:PromptingTextInput id="txtGroupName"
+					prompt="{model.locale.Rates_Packages_TransactionDetails_Search_Group}"
+					width="100%"
+					change="{getGroupList()}"/>
+				<mx:Tree id="trGrops"
+					labelField="sName"
+					itemClick="{trGroupsClick(event)}"
+					dataProvider="{model.ratesModule.barModule.itemGroupList}"
+					width="100%" height="100%"/>
+			</mx:VBox>
+
+			<mx:VBox
+				width="100%" height="100%">
+				<mx:HBox
+					width="100%">
+					<control:PromptingTextInput id="txtTransaction"
+						prompt="{model.locale.Rates_Packages_TransactionDetails_Search_Transaction}"
+						width="200"/>
+					<mx:Spacer width="100%"/>
+				</mx:HBox>
+
+				<mx:DataGrid id="dgTransactions"
+					dataProvider="{model.ratesModule.barModule.hotelItemList}"
+					itemClick="{setHotelItem()}"
+					width="100%" height="100%">
+					<mx:columns>
+						<mx:DataGridColumn
+							headerText="{model.locale.Rates_Packages_TransactionDetails_Search_Columns_Transaction}"
+							labelFunction="transactionLabelFunction"/>
+						<mx:DataGridColumn
+							headerText="{model.locale.Rates_Packages_TransactionDetails_Search_Columns_Code}"
+							dataField="sTransactionCode"
+							width="50"/>
+						<mx:DataGridColumn
+							headerText="{model.locale.Rates_Packages_TransactionDetails_Search_Columns_Price}"
+							dataField="fPrice"
+							width="50"/>
+						<mx:DataGridColumn
+							headerText="{model.locale.Rates_Packages_TransactionDetails_Search_Columns_Vat}"
+							dataField="lVatId"
+							width="50"/>
+						<mx:DataGridColumn
+							headerText="{model.locale.Rates_Packages_TransactionDetails_Search_Columns_ArrangementCode}"
+							labelFunction="showTransactionCodes"
+							dataField="aArrgCodes"/>
+					</mx:columns>
+				</mx:DataGrid>
+			</mx:VBox>
+		</mx:HBox>
+
+	</control:CollapsiblePanel>
+	<mx:Panel id="pnTransaction"
+		resize="{rhythmTreeSetHeight()}"
+		title="{model.locale.Rates_Packages_TransactionDetails_Details_Title}"
+		height="100%" width="100%">
+
+		<mx:HBox
+			width="100%" height="100%">
+			<mx:Form width="100%" height="100%">
+				<mx:FormItem label="{model.locale.Rates_Packages_TransactionDetails_Details_TransactionName}">
+					<mx:TextInput id="txtTransactionName"
+						text="{model.ratesModule.barModule.currentPackageItem.sName}"
+						enabled="false"/>
+				</mx:FormItem>
+				<mx:FormItem label="{model.locale.Rates_Packages_TransactionDetails_Details_Code}">
+					<mx:TextInput id="txtCode"
+						text="{model.ratesModule.barModule.currentPackageItem.sCode}"
+						enabled="false"/>
+				</mx:FormItem>
+				<mx:FormItem label="{model.locale.Rates_Packages_TransactionDetails_Details_Price}">
+					<mx:VBox>
+						<mx:HBox>
+							<control:NumericTextInput id="ntiPrice"
+								value="{model.ratesModule.barModule.currentPackageItem.fPrice}"/>
+							<mx:Label text="{model.locale.Rates_Packages_TransactionDetails_Details_Euro}"/>
+						</mx:HBox>
+						<mx:HBox>
+							<mx:RadioButton id="rbPerRoom"
+								selected="{!model.ratesModule.barModule.currentPackageItem.bPerPerson}"
+								label="{model.locale.Rates_Packages_TransactionDetails_Details_PerRoom}"/>
+						</mx:HBox>
+						<mx:HBox>
+							<mx:RadioButton id="rbPerPerson"
+								selected="{model.ratesModule.barModule.currentPackageItem.bPerPerson}"
+								label="{model.locale.Rates_Packages_TransactionDetails_Details_PerPerson}"/>
+						</mx:HBox>
+						<mx:FormItem>
+							<mx:VBox  enabled="{rbPerPerson.selected}">
+								<mx:HBox>
+									<mx:CheckBox id="chkPriceChildBefore"
+										label="{model.locale.Rates_Packages_TransactionDetails_Details_PerChild  + model.hotelsModule.hotelTotalInfo.iChildAge1}"
+										selected="{model.ratesModule.barModule.currentPackageItem.bPerChildBefore}"/>
+									<control:NumericTextInput
+										id="ntiPriceChildBefore"
+										value="{model.ratesModule.barModule.currentPackageItem.fPriceChildBefore}"
+										enabled="{chkPriceChildBefore.selected}"/>
+									<mx:Label text="{model.locale.Rates_Packages_TransactionDetails_Details_Euro}"/>
+								</mx:HBox>
+								<mx:HBox>
+									<mx:CheckBox id="chkPriceChildMiddle"
+										label="{model.locale.Rates_Packages_TransactionDetails_Details_PerChild  + model.hotelsModule.hotelTotalInfo.iChildAge2}"
+										selected="{model.ratesModule.barModule.currentPackageItem.bPerChildMiddle}"/>
+									<control:NumericTextInput id="ntiPriceChildMiddle"
+										value="{model.ratesModule.barModule.currentPackageItem.fPriceChildMiddle}"
+										enabled="{chkPriceChildMiddle.selected}"/>
+									<mx:Label text="{model.locale.Rates_Packages_TransactionDetails_Details_Euro}"/>
+								</mx:HBox>
+
+								<mx:HBox>
+									<mx:CheckBox id="chkPriceChildAfter"
+										label="{model.locale.Rates_Packages_TransactionDetails_Details_PerChild + model.hotelsModule.hotelTotalInfo.iChildAge3}"
+										selected="{model.ratesModule.barModule.currentPackageItem.bPerChildAfter}"/>
+									<control:NumericTextInput id="ntiPriceChildAfter"
+										value="{model.ratesModule.barModule.currentPackageItem.fPriceChildAfter}"
+										enabled="{chkPriceChildAfter.selected}"/>
+									<mx:Label text="{model.locale.Rates_Packages_TransactionDetails_Details_Euro}"/>
+								</mx:HBox>
+							</mx:VBox>
+						</mx:FormItem>
+						<mx:FormItem width="100%" >
+							<mx:CheckBox id="chbInclude"  selected="true" label="{model.locale.Rates_CompanyRates_AddTransaction_Included}"/>
+						</mx:FormItem>						
+					</mx:VBox>
+				</mx:FormItem>
+				<mx:FormItem label="{model.locale.Rates_Packages_TransactionDetails_Details_Description}" width="100%" height="100%">
+					<mx:TextArea id="txtDescription"
+						height="100%"
+						text="{model.ratesModule.barModule.currentPackageItem.sDescription}" width="100%"/>
+				</mx:FormItem>
+			</mx:Form>
+
+			<mx:VBox height="100%" width="100%">
+				<mx:Label text="{model.locale.Rates_Packages_TransactionDetails_Details_BookingRhythm}"/>
+				<rhythmList:RhythmList id="trRhuthm"
+					width="100%"
+
+					dataProvider="{model.rhythmsList}"/>
+			</mx:VBox>
+
+		</mx:HBox>
+
+	</mx:Panel>
+	<mx:ApplicationControlBar
+		width="100%">
+		<mx:Spacer width="100%"/>
+		<mx:Button id="btnOk"
+			label="{model.locale.Global_Button_Ok}"
+			enabled="{UtilsMXML.and(txtTransactionName.text != '',txtCode.text != '')}"
+			click="{save()}"/>
+		<mx:Button id="btnCancel"
+			label="{model.locale.Global_Button_Cancel}"
+			click="{closeMe()}"/>
+	</mx:ApplicationControlBar>
+
+</control:PopUpWindow>

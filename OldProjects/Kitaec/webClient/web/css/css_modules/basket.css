@@ -1,0 +1,31 @@
+/* Basket
+ ------------------------------------------------- */
+.basket {
+    display: block;
+    /*background: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAMAAAADCAYAAABWKLW/AAAAHElEQVQIW2O8evVqmra29iwGIGAEETABMAcmAADfgArpM7FK2AAAAABJRU5ErkJggg==) repeat;   */
+    float: right;
+    position: relative;
+    width: 185px;
+    height: 35px;
+
+    padding: 5px 5px 5px 50px;
+
+}
+
+.basket .basket-icon {
+    background: url(http://kitaec-avaprojects.rhcloud.com/css/images/basket.png) no-repeat;
+    position: absolute;
+    left: 2px;
+    top: 5px;
+    width: 48px;
+    height: 48px;
+}
+
+.basket p {
+    display: block;
+    width: 70px;
+    line-height: 16px;
+    float: left;
+    color: #fff;
+}
+

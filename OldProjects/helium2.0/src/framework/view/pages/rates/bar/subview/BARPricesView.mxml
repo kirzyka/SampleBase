@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox xmlns:mx="http://www.adobe.com/2006/mxml" width="100%" paddingLeft="5">
+	
+	<mx:Script>
+		<![CDATA[
+			import services.vo.rates.bar.BARItemPricesObjectVO;
+			import services.vo.GlobalFunctions;
+			import framework.model.AppModelLocator;
+			
+			[Bindable]
+			private var model:AppModelLocator = AppModelLocator.getInstance();
+			
+			/* override public function set data(value:Object):void
+			{
+				
+			} */
+			/**
+			 *	Set new prices from fields to BAR Item object.
+			*/
+			private function handleSavePriceValues():void
+			{
+				var prevBarPrice:BARItemPricesObjectVO = data as BARItemPricesObjectVO;
+				
+				prevBarPrice.fPriceOneAdult = GlobalFunctions.stringToNumber(oneATxt.text);
+				prevBarPrice.fPriceTwoAdults = GlobalFunctions.stringToNumber(twoATxt.text);
+				
+				//prevBarPrice.fPriceThreeAdults = GlobalFunctions.stringToNumber(threeATxt.text);
+				prevBarPrice.fPriceExtraAdult = GlobalFunctions.stringToNumber(extraATxt.text);
+				
+				prevBarPrice.fPriceChildAbove = GlobalFunctions.stringToNumber(childrenMTxt.text);
+				prevBarPrice.fPriceChildBefore = GlobalFunctions.stringToNumber(childreLessTxt.text); 
+				
+				//calculateThreeAdults();
+			}
+			/**
+			 *	Set new prices from fields to BAR Item object.
+			*/
+			private function handleExtraAdultChange():void
+			{
+				//calculateThreeAdults();
+				handleSavePriceValues();
+			}
+			
+			/* private function calculateThreeAdults():void
+			{
+				threeATxt.text = String(Number(twoATxt.text) + Number(extraATxt.text));
+			} */
+			/**
+			 *	Updated Price values.
+			*/
+			private function handleOneAdultChange():void
+			{
+				if(extraATxt.text.length == 0) return;
+				
+				handleExtraAdultChange();
+			}
+			/**
+			 *	Clear all data and fields.
+			*/ 
+			public function clearData():void
+			{
+				 var prevBarPrice:BARItemPricesObjectVO = data as BARItemPricesObjectVO;
+				
+				prevBarPrice.fPriceOneAdult = 0;
+				prevBarPrice.fPriceTwoAdults = 0;
+				//prevBarPrice.fPriceThreeAdults = 0;
+				prevBarPrice.fPriceExtraAdult = 0;
+				prevBarPrice.fPriceChildAbove = 0;
+				prevBarPrice.fPriceChildBefore = 0; 
+				
+				oneATxt.text = prevBarPrice.fPriceOneAdult.toString();
+				twoATxt.text = prevBarPrice.fPriceTwoAdults.toString();
+				//threeATxt.text = prevBarPrice.fPriceThreeAdults.toString();
+				extraATxt.text = prevBarPrice.fPriceExtraAdult.toString();
+				childreLessTxt.text = prevBarPrice.fPriceChildBefore.toString();
+				childrenMTxt.text = prevBarPrice.fPriceChildAbove.toString();
+			}
+			/**
+			 *	Remote Update Price values.
+			*/
+			public function updateAdultPrices():void
+			{
+				if(GlobalFunctions.stringToNumber(twoATxt.text) == 0)
+				{
+					twoATxt.text = oneATxt.text;
+					(data as BARItemPricesObjectVO).fPriceTwoAdults = GlobalFunctions.stringToNumber(twoATxt.text);
+				} 
+			}
+			
+		]]>
+	</mx:Script>
+	
+	<mx:Label text="Price for {(data as BARItemPricesObjectVO).sRQualityName} (€)" fontWeight="bold"/>
+	<mx:HBox>
+		<mx:VBox>
+			<mx:Form width="100%">
+				<mx:FormItem label="One Adult:">
+					<mx:TextInput id="oneATxt" text="{(data as BARItemPricesObjectVO).fPriceOneAdult}" width="40" change="handleOneAdultChange()" restrict="0-9" maxChars="4"/>
+				</mx:FormItem>
+				<mx:FormItem label="Two Adult:">
+					<mx:TextInput id="twoATxt" width="40" text="{(data as BARItemPricesObjectVO).fPriceTwoAdults}" change="handleSavePriceValues()" restrict="0-9" maxChars="4"/>
+				</mx:FormItem>
+				<mx:FormItem label="Extra Adult:">
+					<mx:TextInput id="extraATxt" width="40" text="{(data as BARItemPricesObjectVO).fPriceExtraAdult}" change="handleExtraAdultChange()" restrict="0-9" maxChars="4"/>
+				</mx:FormItem>
+			</mx:Form>	
+		</mx:VBox>
+		<mx:VBox>
+			<mx:Form>
+				<mx:FormItem label="One Child > X:">
+					<mx:TextInput id="childrenMTxt" text="{(data as BARItemPricesObjectVO).fPriceChildAbove}" width="40" change="handleSavePriceValues()" restrict="0-9" maxChars="4"/>
+				</mx:FormItem>
+				<mx:FormItem label="One Child &lt; X:">
+					<mx:TextInput id="childreLessTxt" text="{(data as BARItemPricesObjectVO).fPriceChildBefore}" width="40" change="handleSavePriceValues()" restrict="0-9" maxChars="4"/>
+				</mx:FormItem>
+			</mx:Form>		
+		</mx:VBox>		
+	</mx:HBox>
+</mx:VBox>

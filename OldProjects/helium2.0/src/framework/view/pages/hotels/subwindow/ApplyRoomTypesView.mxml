@@ -1,0 +1,509 @@
+<?xml version="1.0" encoding="utf-8"?>
+<subwindow:VSubWindow
+	xmlns:subwindow="framework.core.view.*" 
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	width="100%" height="100%" 
+	creationComplete="handleInit()">
+	
+	<mx:Script>
+		<![CDATA[
+			import framework.view.pages.hotels.data.HotelStatus;
+			import services.events.backend.GetHotelDictionariesEvent;
+			import services.events.roomTypes.GetRoomTypesDataEvent;
+			import services.events.hotels.SaveHotelRoomTypesEvent;
+			import services.events.hotels.GetHotelRoomTypesEvent;
+			import services.vo.hotels.HotelRoomWithBedTypesObjectVO;
+			import services.vo.hotels.HotelRoomTypeObjectVO;
+			import services.events.hotels.AddRoomTypesToHotelEvent;
+			import framework.core.utils.UtilsMXML;
+			import mx.core.MXMLObjectAdapter;
+			import services.vo.GlobalSettings;
+			import framework.view.pages.hotels.events.HotelBaseClickEvent;
+			import services.vo.GlobalStorage;
+			import mx.events.CollectionEvent;
+			import services.vo.GlobalFunctions;
+			import mx.controls.Alert;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.controller.AppController;
+			import services.vo.backend.RoomTypeRowVO;
+			import services.vo.backend.RoomWithBedTypesObjectVO;
+			import mx.collections.ArrayCollection;
+			import mx.managers.DragManager;
+			import mx.events.DragEvent;
+			import services.vo.backend.RoomTypesObjectVO;
+			import framework.model.AppModelLocator;
+			
+			[Bindable]
+			private var selectBase:Boolean = true;
+			[Bindable]
+			private var idSelectBase:int = 0;
+			
+			private var hotelId:Number = -1;
+		
+			private var roomTypeIndex:int;			
+			
+			/**
+			 * inirialize
+			 */ 
+			private function handleInit():void
+			{				
+				totalList.addEventListener(AddRoomTypesToHotelEvent.MOVE_ROOM_TYPE, handleAddRoomType);
+				hotelTypesList.addEventListener(AddRoomTypesToHotelEvent.MOVE_ROOM_TYPE, handleRemoveRoomType);
+				hotelTypesList.addEventListener(HotelBaseClickEvent.BASE_CLICK, updateBaseList);				
+			}
+			
+			/**
+			 *  @override
+			 *  Open page for view. Update view list of Room Types if it needs.
+			 */
+			override public function open():void
+			{
+				super.open(); 
+				if(model.roomTypesModule.roomTypesDP.length == 0)
+				{
+					var roomEvt:GetRoomTypesDataEvent = new GetRoomTypesDataEvent( AppController.GET_ROOM_TYPES_DATA_EVENT );
+					CairngormEventDispatcher.getInstance().dispatchEvent( roomEvt );
+				}
+								
+				var evt:GetHotelDictionariesEvent = new GetHotelDictionariesEvent(AppController.GET_PAGE_OF_START_HOTEL);
+				evt.hotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+				CairngormEventDispatcher.getInstance().dispatchEvent(evt);
+			}	
+					
+			/**
+			 * Update select apply. 
+			 */ 
+			private function updateSelectApply():void
+			{
+				var standTemp:Boolean = false;
+				var defTemp:Boolean = false;
+				selectBase = false;
+				var hotelRoomTypesLength:int = 	model.hotelsModule.hotelRoomTypes.length;
+				var hotelRoomWithBedTypes:HotelRoomWithBedTypesObjectVO = new HotelRoomWithBedTypesObjectVO();
+				for (var i:int = 0; i < hotelRoomTypesLength; i++)
+				{
+					hotelRoomWithBedTypes = model.hotelsModule.hotelRoomTypes.getItemAt(i) as HotelRoomWithBedTypesObjectVO;
+					standTemp = hotelRoomWithBedTypes.oRoomQuality.bIsUsedStandalone;
+					if (standTemp)
+						{
+							defTemp = hotelRoomWithBedTypes.flx_oRoomStandalone.bDefaultRoomType;
+						}
+					else
+						{
+							defTemp = hotelRoomWithBedTypes.aRoomWithBedTypes[0].bDefaultRoomType;
+						}
+					if (defTemp)
+					{
+					selectBase = true;
+					idSelectBase = hotelRoomWithBedTypes.oRoomQuality.lQualityId;
+					}					
+				}				
+			}
+			
+			/**
+			 * Update base list
+			 * @param evt:HotelBaseClickEvent - Click to hotel
+			 */ 
+			public function updateBaseList(evt:HotelBaseClickEvent):void
+			{
+				var tempLength:int = model.hotelsModule.hotelRoomTypes.length;
+				for (var i:int = 0; i < tempLength; i++)
+				{
+					var tempRoomType: HotelRoomWithBedTypesObjectVO = (model.hotelsModule.hotelRoomTypes.getItemAt(i) as HotelRoomWithBedTypesObjectVO);
+					if (tempRoomType.oRoomQuality.lQualityId == evt.qualityId)
+					{
+						if (tempRoomType.oRoomQuality.bIsUsedStandalone)
+							tempRoomType.flx_oRoomStandalone.bDefaultRoomType = true;
+						else
+							for (var j:int = 0; j < tempRoomType.aRoomWithBedTypes.length; j++)
+							{
+								(tempRoomType.aRoomWithBedTypes[j] as HotelRoomTypeObjectVO).bDefaultRoomType = true;
+							}
+						idSelectBase = 	tempRoomType.oRoomQuality.lQualityId;					
+					}
+					else
+					{
+						if (tempRoomType.oRoomQuality.bIsUsedStandalone)
+							tempRoomType.flx_oRoomStandalone.bDefaultRoomType = false;
+						else
+							for (j = 0; j < tempRoomType.aRoomWithBedTypes.length; j++)
+							{
+								(tempRoomType.aRoomWithBedTypes[j] as HotelRoomTypeObjectVO).bDefaultRoomType = false;
+							}
+					}
+				}
+				selectBase = true;				
+				hotelTypesList.dataProvider.refresh();
+			}
+					
+			/**
+			 * adding of the room type to the rigth part of hotel room types 
+			 * @param evt:AddRoomTypesToHotelEvent - get instance of target by AddRoomTypesToHotelEvent
+			 */ 
+			private function handleAddRoomType(evt:AddRoomTypesToHotelEvent = null):void
+			{
+				manageItems(model.roomTypesModule.roomTypesDP,
+							model.hotelsModule.hotelRoomTypes,
+							totalList, false);
+			}
+			
+			/**
+			 * removing of the room type from the right part of hotel room types
+			 * @param evt:AddRoomTypesToHotelEvent - get instance of target by AddRoomTypesToHotelEvent
+			 */ 
+			private function handleRemoveRoomType(evt:AddRoomTypesToHotelEvent = null):void
+			{
+				manageItems(model.hotelsModule.hotelRoomTypes,
+						   model.roomTypesModule.roomTypesDP,
+							hotelTypesList, true);
+			}
+			
+			/**
+			 * Transforming of the system bed type to the hotel bed type
+			 * @param sysBedType:RoomTypesObjectVO - system bed type
+			 * 
+			 * @return HotelRoomTypeObjectVO - hotel bed type
+			 */ 
+			private function sysToHotel(sysBedType:RoomTypesObjectVO):HotelRoomTypeObjectVO
+			{
+				var newHotelBedType: HotelRoomTypeObjectVO = new HotelRoomTypeObjectVO;
+				newHotelBedType.oRoomType = sysBedType;
+				newHotelBedType.iRoomCapacity = sysBedType.iRoomCapacity;
+				newHotelBedType.iLocaleId = sysBedType.iDescription;
+				newHotelBedType.sLocale = sysBedType.sDescription;
+				newHotelBedType.iRoomTypeId = sysBedType.iId;
+				return newHotelBedType;
+			}
+			
+			/**
+			 * Management of the moving room types with all checking inforamtion
+			 * @param dataFrom:ArrayCollection
+			 * @param dataTo:ArrayCollection
+			 * @param grid:AdvancedDataGrid
+			 * @param forDelete:Boolean
+			 */ 
+			private function manageItems(dataFrom:ArrayCollection, dataTo:ArrayCollection, grid:AdvancedDataGrid, forDelete:Boolean):void
+			{
+				var k:int = 0;
+				var i:int = 0;
+				var currRow:HotelRoomWithBedTypesObjectVO;
+				
+				if(!forDelete)
+				{
+					if (grid.selectedItem as RoomWithBedTypesObjectVO)// if select item is Room Type (Quality)
+					{
+						var selectedSysRoomType:RoomWithBedTypesObjectVO = grid.selectedItem as RoomWithBedTypesObjectVO;
+						for(k = 0;k<model.hotelsModule.hotelRoomTypes.length;k++)
+						{
+							currRow = model.hotelsModule.hotelRoomTypes.getItemAt(k) as HotelRoomWithBedTypesObjectVO;
+							
+							if(currRow.oRoomQuality.lQualityId == selectedSysRoomType.oRoomQuality.lQualityId)
+							{
+								Alert.show("This Room Type already applied");
+								return;
+							}							
+						}
+						var newHotelRoomType:HotelRoomWithBedTypesObjectVO = new HotelRoomWithBedTypesObjectVO();
+						if (selectedSysRoomType.flx_oRoomStandalone)newHotelRoomType.flx_oRoomStandalone = sysToHotel(selectedSysRoomType.flx_oRoomStandalone);
+						else newHotelRoomType.flx_oRoomStandalone = null;
+						newHotelRoomType.oRoomQuality = selectedSysRoomType.oRoomQuality;
+						if (selectedSysRoomType.aRoomWithBedTypes)
+						{
+							for (i = 0; i < selectedSysRoomType.aRoomWithBedTypes.length; i++)
+								newHotelRoomType.aRoomWithBedTypes.push(sysToHotel(selectedSysRoomType.aRoomWithBedTypes[i] as RoomTypesObjectVO));										
+						}
+						else newHotelRoomType.aRoomWithBedTypes = null;
+						model.hotelsModule.hotelRoomTypes.addItem(newHotelRoomType);
+					}
+					
+					if (grid.selectedItem as RoomTypesObjectVO) // select bed type (room type)
+					{
+						var selectedSysBedType:RoomTypesObjectVO = grid.selectedItem as RoomTypesObjectVO;
+						for(k = 0;k < model.hotelsModule.hotelRoomTypes.length;k++)
+						{
+							currRow = model.hotelsModule.hotelRoomTypes.getItemAt(k) as HotelRoomWithBedTypesObjectVO;
+							
+							if (currRow.aRoomWithBedTypes) // if currRow.aRoomWithBedTypes exist
+							for (i = 0; i < currRow.aRoomWithBedTypes.length; i++)
+							if(((currRow.aRoomWithBedTypes[i] as HotelRoomTypeObjectVO).oRoomType.iBedType == selectedSysBedType.iBedType)&&((currRow.aRoomWithBedTypes[i] as HotelRoomTypeObjectVO).oRoomType.iRoomQuality == selectedSysBedType.iRoomQuality))
+							{
+								Alert.show("This Bed Type already applied");
+								return;
+							}							
+						}
+						// it's new bed type in Hotel, so we search when it past
+						var searchQuality:RoomWithBedTypesObjectVO;
+						for(k = 0; k < model.roomTypesModule.roomTypesDP.length;k++)
+						{
+							var currSysRT:RoomWithBedTypesObjectVO = model.roomTypesModule.roomTypesDP.getItemAt(k) as RoomWithBedTypesObjectVO;
+							
+							if (currSysRT.aRoomWithBedTypes) // if currRow.aRoomWithBedTypes exist
+							for (i = 0; i < currSysRT.aRoomWithBedTypes.length; i++)
+							if((currSysRT.aRoomWithBedTypes[i] as RoomTypesObjectVO).iRoomQuality == selectedSysBedType.iRoomQuality)
+							{
+								searchQuality = currSysRT;
+							}							
+						}
+						
+						// We have id quality, what have current bed type. Now we mast serch this Quality in Hotel, or add This Quality in hotel
+						var qualityExistInHotel:Boolean = false;
+						
+						// If this Qulity is in Hotel
+						for (k = 0; k < model.hotelsModule.hotelRoomTypes.length; k++)
+							if ((model.hotelsModule.hotelRoomTypes[k] as HotelRoomWithBedTypesObjectVO).oRoomQuality.lQualityId == searchQuality.oRoomQuality.lQualityId)
+							{
+								qualityExistInHotel = true;
+								(model.hotelsModule.hotelRoomTypes[k] as HotelRoomWithBedTypesObjectVO).aRoomWithBedTypes.push(sysToHotel(selectedSysBedType));
+								hotelTypesList.dataProvider.refresh();							
+							}
+							
+						// If this Quality isn't in Hotel
+						if (!qualityExistInHotel)
+						{
+							newHotelRoomType = new HotelRoomWithBedTypesObjectVO();
+							newHotelRoomType.flx_oRoomStandalone = null;
+							newHotelRoomType.oRoomQuality = searchQuality.oRoomQuality;
+							
+								for (i = 0; i < searchQuality.aRoomWithBedTypes.length; i++)
+									if ((searchQuality.aRoomWithBedTypes[i] as RoomTypesObjectVO).iBedType == (grid.selectedItem as RoomTypesObjectVO).iBedType)
+									newHotelRoomType.aRoomWithBedTypes.push(sysToHotel(searchQuality.aRoomWithBedTypes[i] as RoomTypesObjectVO));										
+
+							model.hotelsModule.hotelRoomTypes.addItem(newHotelRoomType);
+						}
+					}
+				}				
+				else
+				{
+					if (grid.selectedItem as HotelRoomWithBedTypesObjectVO)// if select item is Room Type (Quality)
+					{
+						for(k = 0;k < model.hotelsModule.hotelRoomTypes.length;k++)
+						{
+							if ((model.hotelsModule.hotelRoomTypes.getItemAt(k) as HotelRoomWithBedTypesObjectVO).oRoomQuality.lQualityId == (grid.selectedItem as HotelRoomWithBedTypesObjectVO).oRoomQuality.lQualityId)
+							{
+								if (idSelectBase == (model.hotelsModule.hotelRoomTypes.getItemAt(k) as HotelRoomWithBedTypesObjectVO).oRoomQuality.lQualityId)
+									{
+										idSelectBase = 0;
+										selectBase = false;
+									}
+								dataFrom.removeItemAt(k);								
+								break;
+							}
+						}
+					}
+					if (grid.selectedItem as HotelRoomTypeObjectVO) // select bed type (room type)
+					{
+						var selectedHotelBedType:HotelRoomTypeObjectVO = grid.selectedItem as HotelRoomTypeObjectVO;
+						for(k = 0;k < model.hotelsModule.hotelRoomTypes.length;k++)
+						{
+							currRow = model.hotelsModule.hotelRoomTypes.getItemAt(k) as HotelRoomWithBedTypesObjectVO;
+							
+							if (currRow.aRoomWithBedTypes) // if currRow.aRoomWithBedTypes exist
+							for (i = 0; i < currRow.aRoomWithBedTypes.length; i++)
+							if(((currRow.aRoomWithBedTypes[i] as HotelRoomTypeObjectVO).oRoomType.iBedType == selectedHotelBedType.oRoomType.iBedType)&&((currRow.aRoomWithBedTypes[i] as HotelRoomTypeObjectVO).oRoomType.iRoomQuality == selectedHotelBedType.oRoomType.iRoomQuality))
+							{
+								model.hotelsModule.hotelRoomTypes[k].aRoomWithBedTypes.splice(i, 1);
+								hotelTypesList.dataProvider.refresh();	
+								return;
+							}							
+						}
+					}
+				}
+			}
+			
+			/**
+			 * Request to server for save the changing of hotel room type 
+			 */ 
+			private function handleApply():void
+			{
+				var evt:SaveHotelRoomTypesEvent = new SaveHotelRoomTypesEvent( AppController.SAVE_HOTEL_ROOM_TYPES );
+				CairngormEventDispatcher.getInstance().dispatchEvent( evt ); 
+				
+				hotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+				var statusId:int;
+				statusId = model.hotelsModule.hotelTotalInfo.iHotelStatusId;
+				if (statusId != HotelStatus.CODE_COMPLETE)
+				{
+					statusId= HotelStatus.CODE_ROOM_TYPE_COMPLETE;
+					GlobalStorage.changeEnabledHotelTubs();
+					statusId = HotelStatus.CODE_ROOM_TYPE_COMPLETE;
+				}
+				var getRTevt:GetHotelRoomTypesEvent = new GetHotelRoomTypesEvent( AppController.GET_HOTEL_ROOM_TYPES );
+				CairngormEventDispatcher.getInstance().dispatchEvent( getRTevt );
+			}
+			
+			/**
+			 * handle data drag enter
+			 */ 
+			private function handleDataDragEnter(evt:DragEvent):void
+			{
+				if(evt.currentTarget as AdvancedDataGrid)
+				{
+					DragManager.acceptDragDrop(evt.currentTarget as AdvancedDataGrid);	
+				}
+			}
+			
+			/**
+			 * handle data drag drop
+			 */ 
+			private function handleDataDragDrop(event:DragEvent):void 
+			{
+				manageItems(model.roomTypesModule.roomTypesDP,
+							model.hotelsModule.hotelRoomTypes,
+							totalList, false);	
+            }
+            
+             // ----------------------------------------------------------------- //
+			//                         LABEL FUNCTIONS                           //
+			// ----------------------------------------------------------------- //
+             
+             /**
+			 *  Label function for room type lable.
+			 *  
+			 *  @param item:Object as RoomWithBedTypesObjectVO.
+			 *  
+			 *  @return name of room type.
+			 */
+			private function getRoomTypeLabel(item:Object):String
+			{
+				var evtItem:RoomWithBedTypesObjectVO = item as RoomWithBedTypesObjectVO;				
+				return evtItem.oRoomQuality.sQualityName;
+			}
+			
+             /**
+			 *  Label function for system room type lable.
+			 *  
+			 *  @param item:Object.
+			 * 	@param column:AdvancedDataGridColumn 
+			 * 
+			 *  @return name of room type or bed type.
+			 */
+             private function roomTypeLabelFunctionSys(item:Object, column:AdvancedDataGridColumn):String
+			   {
+			    if(item.hasOwnProperty("flx_oRoomStandalone")) return item.oRoomQuality.sQualityName;
+			    if(item.hasOwnProperty("oBedType")) return item.oBedType.sTypeName;
+			    return "";
+			   }
+			   
+			  private function roomTypeLabelFunctionHot(item:Object, column:AdvancedDataGridColumn):String
+			   {
+			    if(item.hasOwnProperty("oRoomQuality")) return item.oRoomQuality.sQualityName;
+			    if(item.hasOwnProperty("bDefaultRoomType") && item.iRoomTypeId)  return item.oRoomType.oBedType.sTypeName;
+			    return "";
+			   }
+			   
+			 /**
+			 * Label function for other columns in advanced data grid of system room types
+			 * @param item:Object 
+			 * @param column:AdvancedDataGridColumn
+			 * @return String for corresponding column 
+			 */ 
+			 private function otherLabelFunctionSys(item:Object, column:AdvancedDataGridColumn):String
+			   {
+			   	if(item.hasOwnProperty("oBedType"))
+			   	{
+				 	if(column.dataField == "shortName") 
+				    	return item.sShortName;
+				    if(column.dataField == "description") 
+				    	return item.sDescription;
+				    if(column.dataField == "capacity") 
+				    	return item.iRoomCapacity;  
+			    }
+			    if(item.hasOwnProperty("flx_oRoomStandalone") && item.flx_oRoomStandalone!=null)
+			    {
+			    	if(column.dataField == "shortName") 
+				    	return item.flx_oRoomStandalone.sShortName;
+				    if(column.dataField == "description") 
+				    	return item.flx_oRoomStandalone.sDescription;
+				    if(column.dataField == "capacity") 
+				    	return item.flx_oRoomStandalone.iRoomCapacity;  
+			    }
+			    return "";
+			   }
+			   
+			  /**
+			  * Label function for other columns in advanced data grid of hotel room types
+			  * @param item:Object 
+			  * @param column:AdvancedDataGridColumn
+			  * @return String for corresponding column 
+			  */ 
+			   private function otherLabelFunctionHot(item:Object, column:AdvancedDataGridColumn):String
+			   {
+			   	if(item.hasOwnProperty("bDefaultRoomType"))
+			   	{
+				 	if(column.dataField == "shortName") 
+				    	return item.oRoomType.sShortName;
+				    if(column.dataField == "description") 
+				    	return item.sLocale;
+				    if(column.dataField == "capacity") 
+				    	return item.iRoomCapacity; 				    
+			    }
+			    if(item.hasOwnProperty("flx_oRoomStandalone") && item.flx_oRoomStandalone!=null)
+			    {
+			    	if(column.dataField == "shortName") 
+				    	return item.flx_oRoomStandalone.oRoomType.sShortName;
+				    if(column.dataField == "description") 
+				    	return item.flx_oRoomStandalone.sLocale;
+				    if(column.dataField == "capacity") 
+				    	return item.flx_oRoomStandalone.iRoomCapacity;  
+			    }
+			    return "";
+			   } 
+			
+		]]>
+	</mx:Script>
+	
+	<mx:HBox width="100%" height="100%" verticalAlign="middle">
+		<mx:AdvancedDataGrid id="totalList" 
+			width="100%" height="100%" 
+			dragEnabled="true"
+			folderClosedIcon="{null}" 
+        	folderOpenIcon="{null}" 
+        	defaultLeafIcon="{null}" headerHeight="22" rowHeight="33" styleName="grid">
+			<mx:dataProvider>
+				<mx:HierarchicalData id="totalHD" source="{model.roomTypesModule.roomTypesDP}" childrenField="aRoomWithBedTypes"/>
+			</mx:dataProvider>
+			<mx:columns>
+				<mx:AdvancedDataGridColumn headerStyleName="HeaderDataGrid" headerText="Room Type" dataField="bedName" fontWeight="bold" labelFunction="roomTypeLabelFunctionSys"/>
+				<mx:AdvancedDataGridColumn headerStyleName="HeaderDataGrid" headerText="Short Name" dataField="shortName" labelFunction="otherLabelFunctionSys"/>
+				<mx:AdvancedDataGridColumn headerStyleName="HeaderDataGrid" headerText="Description" dataField="description" labelFunction="otherLabelFunctionSys"/>
+				<mx:AdvancedDataGridColumn headerStyleName="HeaderDataGrid" headerText="Capacity" textAlign="right" paddingRight="10" dataField="capacity" labelFunction="otherLabelFunctionSys" />
+			</mx:columns>
+		</mx:AdvancedDataGrid>
+		
+		<mx:VBox >
+			<mx:Button id="leftToRight" 
+				enabled="{totalList.selectedIndex != -1}" 
+				click="handleAddRoomType()" 
+				label=">>"/>
+			<mx:Button id="rightToLeft" 
+				enabled="{hotelTypesList.selectedIndex != -1}" 
+				click="handleRemoveRoomType()" 
+				label="&lt;&lt;"/>
+		</mx:VBox>
+		
+		<mx:AdvancedDataGrid id="hotelTypesList" 
+			width="100%" height="100%" 
+			dragEnter="handleDataDragEnter(event)" dragDrop="handleDataDragDrop(event)"
+			folderClosedIcon="{null}" 
+        	folderOpenIcon="{null}" 
+        	defaultLeafIcon="{null}" 
+        	headerHeight="22" rowHeight="33" styleName="grid">
+			<mx:dataProvider>
+				<mx:HierarchicalData id="hotelHD" 
+					source="{model.hotelsModule.hotelRoomTypes}" 
+					childrenField="aRoomWithBedTypes"/>
+			</mx:dataProvider>
+			<mx:columns>
+				<mx:AdvancedDataGridColumn headerStyleName="HeaderDataGrid" headerText="Room Type" dataField="bedName" fontWeight="bold" labelFunction="roomTypeLabelFunctionHot"/>
+				<mx:AdvancedDataGridColumn headerStyleName="HeaderDataGrid" headerText="Short Name" dataField="shortName" labelFunction="otherLabelFunctionHot" />
+				<mx:AdvancedDataGridColumn headerStyleName="HeaderDataGrid" headerText="Description" dataField="description" labelFunction="otherLabelFunctionHot"/>
+				<mx:AdvancedDataGridColumn headerStyleName="HeaderDataGrid" headerText="Capacity" textAlign="right" paddingRight="10" dataField="capacity"  labelFunction="otherLabelFunctionHot"/>
+				<mx:AdvancedDataGridColumn headerStyleName="HeaderDataGrid" headerText="Base" editorDataField="" dataField="default" itemRenderer="framework.view.pages.hotels.renderer.RoomTypeBaseItemRendererView"/>
+			</mx:columns>
+			</mx:AdvancedDataGrid>
+	</mx:HBox>
+	
+	<mx:HBox width="100%" horizontalAlign="right">
+		<mx:Button label="Apply" click="handleApply()" width="120" enabled="{UtilsMXML.and(model.hotelsModule.hotelRoomTypes.length > 0, selectBase)}"/>
+	</mx:HBox>
+</subwindow:VSubWindow>

@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	horizontalAlign="center"
+	verticalAlign="middle"
+	width="100%" height="100%" paddingTop="0" paddingBottom="0">
+	
+	<mx:Script>
+		<![CDATA[
+			import services.vo.inHouse.InHouseViewVO;
+			import framework.view.pages.inHouse.events.InHouseStateEvent;
+			import services.vo.GlobalImageAssets;
+			
+			private function showMessages():void
+			{
+				var event:InHouseStateEvent = new InHouseStateEvent(InHouseStateEvent.SHOW_GUEST_MESSAGES);
+				owner.dispatchEvent(event);
+			}
+			
+			private function addMessage():void
+			{
+				var event:InHouseStateEvent = new InHouseStateEvent(InHouseStateEvent.ADD_GUEST_MESSAGE);
+				owner.dispatchEvent(event);
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:HBox>
+		<mx:LinkButton
+			icon="@Embed(source='/assets/assets.swf', symbol='UnreadEmailIcon')"
+			enabled="{(data as InHouseViewVO).iType == InHouseViewVO.TYPE_NORMAL}"
+			click="showMessages()"
+			width="16" height="29"/>
+		<mx:LinkButton
+			icon="@Embed(source='/assets/assets.swf', symbol='AddIcon')"
+			enabled="{(data as InHouseViewVO).iType == InHouseViewVO.TYPE_NORMAL}"
+			click="addMessage()"
+			width="16" height="29"/>
+	</mx:HBox>
+</mx:VBox>

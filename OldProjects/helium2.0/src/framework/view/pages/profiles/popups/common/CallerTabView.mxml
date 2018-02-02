@@ -1,0 +1,429 @@
+<?xml version="1.0" encoding="utf-8"?>
+<tab:VSubWindow
+	xmlns:tab="framework.core.view.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:control="h2olib.control.*"
+	xmlns:controls="framework.view.components.controls.*"
+	xmlns:address="framework.view.components.address.*"
+	label="{model.locale.Profiles_Callers_Title}"
+	width="100%" height="100%">
+	
+	<mx:Script>
+		<![CDATA[
+			import framework.module.CommonModule;
+			import services.vo.GlobalFunctions;
+			import mx.utils.ObjectUtil;
+			import framework.view.components.address.data.LocationData;
+			import mx.core.IChildList;
+			import mx.core.UIComponent;
+			import services.events.miscellaneous.salutation.GetSalutationEvent;
+			import services.events.miscellaneous.countries.GetRegionEvent;
+			import framework.core.utils.UtilsMXML;
+			import services.vo.profiles.ProfilePersonViewVO;
+			import services.vo.common.SalutationVO;
+			import services.vo.common.CityVO;
+			import services.vo.common.ContactVO;
+			import services.vo.common.LanguageVO;
+			import services.vo.profiles.ProfilePersonalVO;
+			import services.vo.profiles.ProfileAddressPersonalVO;
+			import services.vo.profiles.company.CompanyCallerVO;
+			import services.vo.frontend.CallerVO;
+			import mx.collections.ArrayCollection;
+			import mx.binding.utils.ChangeWatcher;
+			import services.vo.profiles.CompanyProfileVO;
+			import services.vo.common.RegionVO;
+			import services.vo.common.CountryVO;
+			import services.controller.AppController;
+			import services.events.frontend.GetCityEvent;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.vo.GlobalStorage;
+			import framework.model.AppModelLocator;
+			
+			// ===================================================================== //
+			//                         VARIABLES AND CONSTANTS                       //
+			// ===================================================================== //
+			/**
+			 *  The prefix for localization by popup.
+			 */
+			private const localePrefix:String = "tabs.callers.";
+			 
+			[Bindable]
+			/**
+			 *  This property is caller's list.
+			 *  
+			 *  @default new ArrayCollection()
+			 */
+			private var _callerList:ArrayCollection = new ArrayCollection;
+			
+			[Bindable]
+			/**
+			 *  This property is all existed in the system languages.
+			 *  
+			 *  @default new ArrayCollection()
+			 */
+			private var _language:ArrayCollection = new ArrayCollection();
+			
+			[Bindable]
+			/**
+			 *  This property is all existed in the system salutations by language.
+			 *  
+			 *  @default new ArrayCollection()
+			 */
+			private var _salutation:ArrayCollection = new ArrayCollection();
+			/**
+			 *  This property is <code>true</code> if selected caller.
+			 *  
+			 *  @default false
+			 */
+			private var _isCallerEdit:Boolean = false;
+			
+			// ===================================================================== //
+			//                      COMMON METHODS AND HANDLERS                      //
+			// ===================================================================== //
+			
+			private function init():void
+			{
+				lcLocation.show();
+				
+				_language = CommonModule.validateLanguage(GlobalStorage.language);
+				cmbLanguage.setItemByField("lId", 0);
+				// update salutation
+				validateSalutation();
+			}
+			
+			private function validateSalutation():void
+			{
+				// create and add none item for LANGUAGE
+				_salutation = CommonModule.validateSalutation(GlobalStorage.salutation);
+				cmbSalutation.setItemByField("lId", 0);
+			}
+			
+			// ================================================================= //
+			//                 LABEL FUNCTIONS FOR CALLER TABLE                  //
+			// ================================================================= //
+			/**
+			 *  Label function for view first name of caller.
+			 *  
+			 *  @param item:Object - item of dataprovider for caller table.
+			 *  
+			 *  @result first name of caller.
+			 */
+			private function funcCallerFirstName(item:Object, column:DataGridColumn):String
+			{
+				var caller:CompanyCallerVO = item as CompanyCallerVO;
+				return (caller.oMapProfilePersonal as ProfilePersonalVO).sName;
+			}
+			/**
+			 *  Label function for view last name of caller.
+			 *  
+			 *  @param item:Object - item of dataprovider for caller table.
+			 *  
+			 *  @result last name of caller.
+			 */
+			private function funcCallerLastName(item:Object, column:DataGridColumn):String
+			{
+				var caller:CompanyCallerVO = item as CompanyCallerVO;
+				return (caller.oMapProfilePersonal as ProfilePersonalVO).sSurname;
+			}
+			/**
+			 *  Label function for view language of caller.
+			 *  
+			 *  @param item:Object - item of dataprovider for caller table.
+			 *  
+			 *  @result language of caller.
+			 */
+			private function funcCallerLanguageName(item:Object, column:DataGridColumn):String
+			{
+				var caller:CompanyCallerVO = item as CompanyCallerVO;
+				var languageId:Number = (caller.oMapProfilePersonal as ProfilePersonalVO).lLanguageId;
+				for(var i:int = 0; i < GlobalStorage.language.length; i++)
+				{
+					var languageItem:LanguageVO = GlobalStorage.language.getItemAt(i) as LanguageVO;
+					if (languageId == languageItem.lId)
+					{
+						return languageItem.sName;
+					}
+				}
+				return "";
+			}
+			/**
+			 *  Label function for view phone of caller.
+			 *  
+			 *  @param item:Object - item of dataprovider for caller table.
+			 *  
+			 *  @result phone of caller.
+			 */
+			private function funcCallerPhoneName(item:Object, column:DataGridColumn):String
+			{
+				var caller:CompanyCallerVO = item as CompanyCallerVO;
+				var contacts:Array = (caller.oMapProfilePersonal as ProfilePersonalVO).aContacts;
+				
+				if (contacts.length == 0) return "";
+				
+				for(var i:int = 0; i < contacts.length; i++)
+				{
+					var contact:ContactVO = contacts[i] as ContactVO;
+					if (contact.iContactType == ContactVO.CONTACT_WORK_PHONE)
+					{
+						return contact.sContactData;
+					}
+				}
+				return "";
+			}
+			/**
+			 *  Label function for view e-mail of caller.
+			 *  
+			 *  @param item:Object - item of dataprovider for caller table.
+			 *  
+			 *  @result e-mail of caller.
+			 */
+			private function funcCallerEmailName(item:Object, column:DataGridColumn):String
+			{
+				var caller:CompanyCallerVO = item as CompanyCallerVO;
+				var contacts:Array = (caller.oMapProfilePersonal as ProfilePersonalVO).aContacts;
+				
+				if (contacts.length == 0) return "";
+				
+				for(var i:int = 0; i < contacts.length; i++)
+				{
+					var contact:ContactVO = contacts[i] as ContactVO;
+					if (contact.iContactType == ContactVO.CONTACT_WORK_EMAIL)
+					{
+						return contact.sContactData;
+					}
+				}
+				return "";
+			}
+			// ================================================================= //
+			//                         CONTROL FOR CALLER                        //
+			// ================================================================= //
+			/**
+			 *  The handler to add new caller into caller's list.
+			 *  For save caller's profile have to make address and contacts for
+			 *  caller.
+			 */
+			private function addCaller():void
+			{
+				// make person profile for caller
+				//   - first and last name;
+				//   - address information;
+				//   - contact data (phone, fax, email, etc.)
+				var profile:ProfilePersonalVO = new ProfilePersonalVO();
+				profile.sName = tiCallerFirstName.text;
+				profile.sSurname = tiCallerLastName.text;
+				profile.aAddresses[0] = lcLocation.location.toProfileAddress();
+				profile.aContacts = lcLocation.contacts;
+				
+				profile.lLanguageId = (cmbLanguage.selectedItem as LanguageVO).lId;
+				profile.lSalutationId = (cmbSalutation.selectedItem as SalutationVO).lId;
+				
+				// make caller profile
+				var caller:CompanyCallerVO = new CompanyCallerVO();
+				caller.bIsPrimary = false;
+				caller.oMapProfilePersonal = profile;
+				// change caller's profile or add new caller profile
+				if (_isCallerEdit)
+				{
+					callers.setItemAt(caller, dgCallers.selectedIndex);
+				}
+				else
+				{
+					callers.addItem(caller);
+				}
+				dispatchEvent(new Event("callersChanged"));
+				// clear input fields
+				clearCallerInfo();
+			}
+			
+			/**
+			 *  The handler to edit selected caller into caller's list.
+			 */
+			private function editCaller():void
+			{
+				// clear address fields
+				clearCallerInfo();
+				
+				var caller:CompanyCallerVO = dgCallers.selectedItem as CompanyCallerVO;
+				var profile:ProfilePersonalVO = caller.oMapProfilePersonal;
+				
+				tiCallerFirstName.text = profile.sName;
+				tiCallerLastName.text = profile.sSurname;
+				// set new address by selected caller
+				lcLocation.location = LocationData.convert(profile.aAddresses[0] as ProfileAddressPersonalVO);
+				// contact's information
+				lcLocation.contacts = profile.aContacts;
+				
+				cmbSalutation.salutationId = profile.lSalutationId;
+				cmbLanguage.setItemByField("lId", profile.lLanguageId);
+				// set status of caller's profile as edit
+				_isCallerEdit = true;
+			}
+			
+			public function changeLanguage():void
+			{
+				var lanId:Number = cmbLanguage.selectedItem.lId;
+				// get salutations
+				if (lanId > 0)
+				{
+					var event:GetSalutationEvent = new GetSalutationEvent(AppController.GET_SALUTATION_EVENT);
+					event.languageId = lanId;
+					event.callBack = validateSalutation;
+					CairngormEventDispatcher.getInstance().dispatchEvent(event);
+				}
+				else
+				{
+					GlobalStorage.salutation.removeAll();
+					validateSalutation();
+				}
+			}
+			
+			// ================================================================= //
+			//                     CONTROL PANEL FOR CALLER                      //
+			// ================================================================= //
+			private function clearCallerInfo():void
+			{
+				// clear all text fileds
+				tiCallerFirstName.text = tiCallerLastName.text = "";
+				lcLocation.clear();
+				// clear language and salutation
+				cmbLanguage.setItemByField("lId", 0);
+				cmbSalutation.setItemByField("lId", 0);
+				// clear status (add or edit) of caller
+				_isCallerEdit = false;
+			}
+			/**
+			 *  The handler to remove selected caller's profile.
+			 */
+			private function deleteCaller():void
+			{
+				_callerList.removeItemAt(dgCallers.selectedIndex);
+			}
+			/**
+			 *  The handler for set primary state as <code>true</code>.
+			 */
+			private function setAsPrimary():void
+			{
+				(dgCallers.selectedItem as CompanyCallerVO).bIsPrimary = true;
+			}
+			
+			// ================================================================= //
+			//                       GETTERS AND SETTERS                         //
+			// ================================================================= //
+			[Bindable(event="callersChanged")]
+			/**
+			 *  The list of caller's profiles.
+			 */
+			public function get callers():ArrayCollection
+			{
+				return _callerList;
+			}
+			/**
+			 *  @private
+			 */
+			public function set callers(value:ArrayCollection):void
+			{
+				_callerList = value;
+				
+				dispatchEvent(new Event("callersChanged"));
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:DataGrid
+		id="dgCallers"
+		dataProvider="{_callerList}"
+		itemClick="editCaller()"
+		width="100%" height="100%">
+		<mx:columns>
+			<mx:DataGridColumn
+				headerText="{model.locale.Profiles_Callers_Columns_FirstName}"
+				labelFunction="funcCallerFirstName"/>
+			<mx:DataGridColumn
+				headerText="{model.locale.Profiles_Callers_Columns_LastName}"
+				labelFunction="funcCallerLastName"/>
+			<mx:DataGridColumn
+				headerText="{model.locale.Profiles_Callers_Columns_Language}"
+				labelFunction="funcCallerLanguageName"/>
+			<mx:DataGridColumn
+				headerText="{model.locale.Profiles_Callers_Columns_Phone}"
+				labelFunction="funcCallerPhoneName"/>
+			<mx:DataGridColumn
+				headerText="{model.locale.Profiles_Callers_Columns_Email}"
+				labelFunction="funcCallerEmailName"/>
+		</mx:columns>
+	</mx:DataGrid>
+	
+	<mx:HBox width="100%">
+		<mx:Button
+			label="{model.locale.Profiles_Callers_Buttons_AddNewCaller}"
+			click="clearCallerInfo()"/>
+		<mx:Button
+			label="{model.locale.Profiles_Callers_Buttons_SetAsPrimary}"
+			enabled="{dgCallers.selectedItem}"
+			click="setAsPrimary()"/>
+		<mx:Button
+			label="{model.locale.Global_Button_Delete}"
+			enabled="{dgCallers.selectedItem}"
+			click="deleteCaller()"/>
+	</mx:HBox>
+	
+	<control:Frame id="ifAddressInfo"
+		label="{model.locale.Profiles_Callers_Frames_CallerInfo_Title}"
+		width="100%">
+		<mx:HBox width="100%" height="100%">
+			<mx:Form width="100%" height="100%"
+				labelWidth="150">
+				<mx:FormItem
+					required="true"
+					label="{model.locale.Global_PersonalInformation_LastName}:"
+					width="100%">
+					<mx:TextInput
+						id="tiCallerLastName"
+						maxChars="30"/>
+				</mx:FormItem>
+				<mx:FormItem
+					label="{model.locale.Global_PersonalInformation_FirstName}:"
+					width="100%">
+					<mx:TextInput
+						id="tiCallerFirstName"
+						maxChars="30"/>
+				</mx:FormItem>
+				
+				<address:LocationChooser id="lcLocation"
+					countries="{storage.countries}"
+					phoneRequired="true"
+					creationComplete="init()"/>
+			</mx:Form>
+			
+			<mx:Form height="100%">
+				<!-- Choose language -->
+				<mx:FormItem
+					label="{model.locale.Global_PersonalInformation_Language}:"
+					width="100%">
+					<control:ComboBoxEx id="cmbLanguage"
+						dataProvider="{_language}"
+						labelField="sCode"
+						change="{changeLanguage()}"
+						width="80"/>
+				</mx:FormItem>
+				<!-- Choose salutation -->
+				<mx:FormItem
+					label="{model.locale.Global_PersonalInformation_Salutation}:"
+					width="100%">
+					<controls:SalutationComboBox id="cmbSalutation"
+						dataProvider="{_salutation}"
+						labelField="sName"
+						width="80"/>
+				</mx:FormItem>
+			</mx:Form>
+		</mx:HBox>
+	</control:Frame>
+	
+	<mx:HBox width="100%" horizontalAlign="right">
+		<mx:Button
+			label="Add Caller"
+			enabled="{UtilsMXML.and(tiCallerLastName.text.length != 0,
+						lcLocation.isFillFields)}"
+			click="addCaller()"/>
+	</mx:HBox>
+</tab:VSubWindow>

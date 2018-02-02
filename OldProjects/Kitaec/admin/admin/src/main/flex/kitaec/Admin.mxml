@@ -1,0 +1,60 @@
+<?xml version="1.0"?>
+<s:Application
+        xmlns:fx="http://ns.adobe.com/mxml/2009"
+        xmlns:s="library://ns.adobe.com/flex/spark"
+        xmlns:view="kitaec.view.*"
+
+        creationComplete="onCreationComplete()">
+
+    <fx:Script>
+        <![CDATA[
+        import kitaec.controller.Controller;
+        import kitaec.model.Model;
+        import kitaec.view.WaitPopup;
+
+        import mx.binding.utils.BindingUtils;
+
+        protected var controller:Controller = Controller.getInstance();
+
+        private static const IS_SHOW_LOADING:String = "isShowLoading";
+
+        protected var waitPopup:WaitPopup;
+
+        private function onCreationComplete():void {
+            /* Watchers */
+            BindingUtils.bindSetter(showLoadingPopup, Model.getInstance(), IS_SHOW_LOADING);
+
+            controller.addEventListener(Controller.LOGIN_SUCCESS_EVENT, onLogin);
+        }
+
+        // Loading Popup
+        public function showLoadingPopup(isShow:Boolean):void {
+            if (isShow) {
+                waitPopup = new WaitPopup();
+                waitPopup.show();
+            } else if (waitPopup) {
+                waitPopup.hide();
+            }
+        }
+
+        // Login
+        private function onLogin(event:Event):void {
+            currentState = "workspace";
+        }
+        ]]>
+    </fx:Script>
+
+    <s:layout>
+        <s:HorizontalLayout verticalAlign="middle" horizontalAlign="center"/>
+    </s:layout>
+
+
+    <s:states>
+        <s:State name="login"/>
+        <s:State name="workspace"/>
+    </s:states>
+
+    <view:LoginForm includeIn="login"/>
+    <view:MainView includeIn="workspace"/>
+
+</s:Application>

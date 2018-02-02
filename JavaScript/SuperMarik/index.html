@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Супер Марик 1.0</title>
+
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+        <link rel="stylesheet" href="css/style.css"/>
+
+    </head>
+
+    <body style="background-color: #999;">
+
+        <div id="base-box">
+            <div id="loading-box">
+                ЗАГРУЗКА...
+                <div id="loading-full">
+                    <div id="loading-progress"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="game-box">
+            <div id="stats-box">
+                <p><span id="lives-icon" class="element icon"></span><span id="lives-label" class="element label"></span></p>
+                <p><span id="coins-icon" class="element icon"></span><span id="coins-label" class="element label"></span></p>
+            </div>
+        </div>
+
+        <script src='lib/quintus.js'></script>
+        <script src='lib/quintus_sprites.js'></script>
+        <script src='lib/quintus_scenes.js'></script>
+        <script src='lib/quintus_input.js'></script>
+        <script src='lib/quintus_anim.js'></script>
+        <script src='lib/quintus_2d.js'></script>
+        <script src='lib/quintus_touch.js'></script>
+        <script src='lib/quintus_ui.js'></script>
+        <script src='lib/quintus_audio.js'></script>
+
+        <script src="app.js"></script>
+        <script src="js/player.js"></script>
+        <script src="js/enemy.js"></script>
+        <script src="js/bullet.js"></script>
+        <script src="js/finish.js"></script>
+
+        <script src="js/scene/gameStart.js"></script>
+        <script src="js/scene/gameEnd.js"></script>
+        <script src="js/scene/ui.js"></script>
+        <script src="js/scene/levelBase.js"></script>
+        <script src="js/scene/levels.js"></script>
+    </body>
+</html>

@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<BasePopupView 
+	xmlns="framework.view.components.popups.*" 
+	xmlns:mx="http://www.adobe.com/2006/mxml" 
+	width="450" height="300"
+	creationComplete="onCreationComplete()"
+	title="Warning">
+
+<mx:Script>
+	<![CDATA[
+		import mx.collections.ArrayCollection;
+		import services.vo.checkOut.AccountVO;
+		import services.events.checkOut.AddAccountEvent;
+		import framework.core.utils.UtilsMXML;
+		import framework.view.pages.checkOut.data.AccountListItem;
+		import services.events.checkOut.GetAddressListEvent;
+	
+		[Bindable]
+		public var dirtyRoomsDP:ArrayCollection = new ArrayCollection();
+	
+		private function onCreationComplete():void
+		{
+			
+		}		
+		
+		private function onOk():void
+		{
+			this.close();
+		}
+	]]>
+</mx:Script>
+	<mx:Label text="Check in is impossible"/>
+	
+	<mx:DataGrid id="ditryRooms"
+		dataProvider="{dirtyRoomsDP}"		
+		width="100%" height="100%">
+		<mx:columns>
+			<mx:DataGridColumn width="80" headerText="Room" dataField="room"/>
+			<mx:DataGridColumn headerText="Guest" dataField="guest"/>
+			<mx:DataGridColumn width="80" headerText="Status" dataField="status"/>
+		</mx:columns>
+	</mx:DataGrid>
+	
+	<mx:ApplicationControlBar width="100%" horizontalAlign="right">		
+		<mx:Button id="btnClose"
+			label="{model.locale.Global_Button_Cancel}"
+			click="{close(null)}"/>
+	</mx:ApplicationControlBar>
+</BasePopupView>

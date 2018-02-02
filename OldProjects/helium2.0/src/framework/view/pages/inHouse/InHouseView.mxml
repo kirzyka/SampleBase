@@ -1,0 +1,802 @@
+<?xml version="1.0" encoding="utf-8"?>
+<window:BaseWindow
+	xmlns:window="framework.core.view.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:dataGrid="h2olib.control.itemRenderer.dataGrid.*"
+	xmlns:pager="h2olib.control.pager.*"
+	xmlns:searchBox="h2olib.control.searchBox.*"
+	xmlns:controls="framework.view.components.controls.*"
+	xmlns:subview="framework.view.pages.reservationCreate.subview.*"
+	creationComplete="{init()}">	
+	<mx:Script>
+		<![CDATA[
+			import mx.controls.advancedDataGridClasses.AdvancedDataGridColumn;
+			import framework.view.pages.reservationCreate.subview.*;
+			import framework.utils.SkinHelper;
+			import services.events.search.GetReservationByIdEvent;
+			import framework.view.pages.reservationEdit.popups.ReservationEditView;
+			import h2olib.utils.DateUtils;
+			import mx.utils.ObjectUtil;
+			import mx.controls.dataGridClasses.DataGridColumn;
+			import h2olib.control.enum.MessageKind;
+			import h2olib.control.enum.MessageShowType;
+			import services.events.MsgEvent;
+			import mx.utils.StringUtil;
+			import h2olib.utils.StringUtils;
+			import framework.core.utils.UtilsMXML;
+			import services.events.inHouse.GetVirtualRoutingEvent;
+			import services.cairngorm.BaseEvent;
+			import services.vo.hotels.HotelStageObjectVO;
+			import services.controller.AppController;
+			import services.events.roomSettings.GetRoomSettingsDataEvent;
+			import services.business.roomSettings.RoomSettingsDelegate;
+			import services.events.backend.GetRoomListEvent;
+			import framework.view.pages.inHouse.data.ValidateType;
+			import framework.view.pages.inHouse.popups.AddMessagePopupView;
+			import services.events.common.PageEvent;
+			import framework.view.components.popups.BasePopupView;
+			import framework.view.pages.inHouse.events.RoomsEvent;
+			import services.events.inHouse.GetAvailableRoomsListEvent;
+			import services.business.profiles.ProfileDelegate;
+			import services.events.profiles.individual.GetProfileByIdEvent;
+			import framework.view.pages.profiles.popups.individual.SaveIndividualProfilePopupView;
+			import framework.view.pages.inHouse.renders.icon.DepartureDateIconRenderer;
+			import framework.view.pages.inHouse.renders.icon.ArrivalDateIconRenderer;
+			import framework.view.pages.inHouse.renders.icon.UserIconRenderer;
+			import framework.view.pages.inHouse.renders.icon.RoomIconRenderer;
+			import framework.view.pages.inHouse.popups.RoomsAvailablePopupView;
+			import framework.view.pages.inHouse.events.InHouseStateEvent;
+			import framework.view.pages.inHouse.renders.icon.MessageIconRenderer;
+			import services.events.checkOut.GetCheckoutStateEvent;
+			import services.events.checkOut.GetItemsRoutingEvent;
+			import services.business.checkOut.CheckOutDelegate;
+			import services.events.checkOut.GetReservationSummaryEvent;
+			import framework.view.pages.inHouse.popups.ItemRoutingPopupView;
+			import services.vo.inHouse.InHouseViewVO;
+			import mx.managers.PopUpManagerChildList;
+			import framework.view.pages.inHouse.popups.MessagesPopupView;
+			import framework.managers.PopUpManagerExt;
+			import services.vo.GlobalSettings;
+			import mx.collections.ArrayCollection;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.vo.inHouse.InHouseSearchVO;
+			import services.business.inHouse.InHouseDelegate;
+			import services.events.inHouse.GetInHouseStateEvent;
+			import h2olib.control.pager.event.PagerEvent;
+			import mx.collections.HierarchicalData;
+			import services.events.reservation.*;
+			
+			
+			private const ADVANCED_SEARCH_STATE:String = "advancedSearchState";
+			
+			[Bindable]
+			private var simpleSearchType:Array = ["Name", "First Name", "Company", "Room Number"];
+			
+			[Bindable]
+			private var visibleRowCount:int;
+			
+			private var isFirstOpen:Boolean = true;
+			private var allowToChangeTabFlag:Boolean = true;
+			
+			/**
+			 *  @override
+			 */
+			override public function show():void
+			{
+				if (!isFirstOpen)
+				{
+					//search();
+				}
+				groupPersonalInfoBackFunction();
+			}
+			
+			/**
+			 *  Search guests by search pattern .
+			 */
+			private function search():void
+			{	
+			
+				var pattern:InHouseSearchVO = new InHouseSearchVO();
+				pattern.dInHouseDate = DateField.dateToString(model.businessDate, GlobalSettings.DATE_SERVER_FORMAT);
+				
+				if (currentState == "" || currentState == null)
+				{
+					switch(cmbSearch.selectedIndex)
+					{
+						case 0:
+							pattern.sLastName = searchKey.text;
+							break;
+						case 1:
+							pattern.sFirstName = searchKey.text;
+							break;
+						case 2:
+							pattern.sCompany = searchKey.text;
+							break;
+						case 3:
+							pattern.sRoomNumber = searchKey.text;
+							break;
+					}
+				} 
+				else
+				{
+					pattern.sRoomNumber = tiRoomNumber.text;
+					pattern.sLastName = tiLastName.text;
+					pattern.sFirstName = tiFirstName.text;
+					pattern.sCompany = tiCompany.text;
+					pattern.sCity = tiCity.text;
+					pattern.sZipCode = tiZIPCode.text;
+					pattern.dDepartureDate = DateField.dateToString(dfDepartureDate.selectedDate, GlobalSettings.DATE_SERVER_FORMAT);
+				}
+				var event:GetInHouseStateEvent = new GetInHouseStateEvent(InHouseDelegate.GET_IN_HOUSE_STATE);
+				
+				if(tabInHouse.selectedIndex == 0)
+				{
+					pattern.bIsGroupReservation = false;
+					event.page = pager.selectedPage + 1;
+				}
+				else
+				{
+					pattern.bIsGroupReservation = true;
+					event.page = pager.selectedPage + 1;
+					
+				}
+				// send request to server for get guest with state "In House"
+				// by selected search pattern
+				
+				event.hotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+				event.searchPattern = pattern;				
+				event.count = pager.itemPerPageCount;
+				event.callBack = updateGuestGrid;
+				CairngormEventDispatcher.getInstance().dispatchEvent(event);
+			}
+			
+			private function updateGuestGrid():void
+			{				
+				if(tabInHouse.selectedIndex == 1)
+				{
+					dgInHouseGroup.dataProvider = new HierarchicalData(model.inHouseModule.inHouseGuestsGroups);
+				}
+				else
+				{
+					//dgInHouse.dataProvider = model.inHouseModule.inHouseGuests;
+					//dgInHouse.validateNow();
+				}
+			}
+			
+			/**
+			 *  Initialization of components.
+			 *  Configuration listeners for the DataGrid by state of
+			 *  the guest staying into the hotel.
+			 */
+			private function init():void
+			{
+				// conigure listeners for DataGrid
+				dgInHouse.addEventListener(InHouseStateEvent.SHOW_GUEST_MESSAGES, onOpenMessagesPopup);
+				dgInHouse.addEventListener(InHouseStateEvent.ADD_GUEST_MESSAGE, onOpenAddMessagePopup);
+				dgInHouse.addEventListener(InHouseStateEvent.SHOW_ROOMS_AVAILABLE, onOpenRoomsAvailablePopup);
+				dgInHouse.addEventListener(InHouseStateEvent.SHOW_GUEST_PROFILE, onOpenGuestProfilePopup);
+				dgInHouse.addEventListener(InHouseStateEvent.SHOW_EDIT_RESERVATION, onOpenReservationEditPopup);
+				
+				//dgInHouseGroup.addEventListener(InHouseStateEvent.SHOW_GUEST_MESSAGES, onOpenMessagesPopup);
+				//dgInHouseGroup.addEventListener(InHouseStateEvent.ADD_GUEST_MESSAGE, onOpenAddMessagePopup);
+				//dgInHouseGroup.addEventListener(InHouseStateEvent.SHOW_ROOMS_AVAILABLE, onOpenRoomsAvailablePopup);
+				dgInHouseGroup.addEventListener(InHouseStateEvent.SHOW_GUEST_PROFILE, onOpenGuestProfilePopup);
+				dgInHouseGroup.addEventListener(InHouseStateEvent.SHOW_EDIT_RESERVATION, onOpenReservationEditPopup);
+				dgInHouseGroup.addEventListener(InHouseStateEvent.SHOW_EDIT_GROUP_RESERVATION, onOpenGroupReservationEditPopup);
+				// update label for promt textinput for simple search
+				searchKey.label = cmbSearch.selectedLabel;
+			}
+			/**
+			 *  The handle to open popup for view unread messages by guest. There are 
+			 *  all unread messages in view by guest.
+			 *  
+			 *  @param e:InHouseStateEvent - not used
+			 */
+			public function onOpenMessagesPopup(e:InHouseStateEvent):void
+			{
+				var pop:MessagesPopupView = PopUpManagerExt.createPopUp(this, MessagesPopupView) as MessagesPopupView;
+				pop.messages = (dgInHouse.selectedItem as InHouseViewVO).aUnreadMessages;
+			}
+			/**
+			 *  The handle to open popup for add new message for user.
+			 *  
+			 *  @param e:InHouseStateEvent - not used.
+			 */
+			public function onOpenAddMessagePopup(e:InHouseStateEvent):void
+			{
+				var pop:AddMessagePopupView = PopUpManagerExt.createPopUp(this, AddMessagePopupView) as AddMessagePopupView;
+				pop.profileId = (dgInHouse.selectedItem as InHouseViewVO).lProfileId;
+			}
+			/**
+			 *  The handle to try get available rooms for assignment by guest.
+			 *  If guest is leaving today (i.e. today = departure day),
+			 *  reassignment is not possible.
+			 *  
+			 *  @param e:InHouseStateEvent - not used.
+			 */
+			public function onOpenRoomsAvailablePopup(e:InHouseStateEvent):void
+			{
+				var departure:Date = DateField.stringToDate((dgInHouse.selectedItem as InHouseViewVO).dDepartureDate, GlobalSettings.DATE_SERVER_FORMAT);
+				// check departure day
+				if (ObjectUtil.dateCompare(departure, model.businessDate))
+				{
+					// try to get available rooms for reassigment
+					var event:GetAvailableRoomsListEvent = new GetAvailableRoomsListEvent(InHouseDelegate.GET_AVAILABLE_ROOM_LIST);
+					event.hotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+					event.profileId = (dgInHouse.selectedItem as InHouseViewVO).lProfileId;
+					event.orderId = (dgInHouse.selectedItem as InHouseViewVO).lOrderId;
+					event.stage = (model.hotelsModule.stageDP.getItemAt(0) as HotelStageObjectVO).iStageId;
+					event.callBack = showRoomsAvailablePopup;
+					CairngormEventDispatcher.getInstance().dispatchEvent(event);
+				}
+				else
+				{
+					// show message by not possible reassigment
+					var evt:MsgEvent = new MsgEvent(MessageKind.WARNING,
+													"Notification",
+													"Reassign is not allowed at departure date.",
+													MessageShowType.UNKNOWN);
+					CairngormEventDispatcher.getInstance().dispatchEvent(evt);
+				}
+			}
+			/**
+			 *  The complete callback function by get available rooms for ressigment.
+			 *  Open popup with these roomms for selection amd move guset to other
+			 *  room.
+			 */
+			private function showRoomsAvailablePopup():void
+			{
+				var pop:RoomsAvailablePopupView = PopUpManagerExt.createPopUp(this, RoomsAvailablePopupView) as RoomsAvailablePopupView;
+				pop.data = (dgInHouse.selectedItem as InHouseViewVO);
+				pop.guestName = (dgInHouse.selectedItem as InHouseViewVO).sGuestName;
+				pop.roomId = (dgInHouse.selectedItem as InHouseViewVO).lRoomId;
+				pop.orderId = (dgInHouse.selectedItem as InHouseViewVO).lOrderId;
+				pop.profileId = (dgInHouse.selectedItem as InHouseViewVO).lProfileId;
+				//pop.orderArrivalDate = (dgInHouse.selectedItem as InHouseViewVO).dArrivalDate;
+				pop.orderDepartureDate = (dgInHouse.selectedItem as InHouseViewVO).dDepartureDate;
+				pop.addEventListener(RoomsEvent.ROOM_ASSIGN, updateView, false, 0, true);
+			}
+			/**
+			 *  The handle to try get profile of guest for editing him.
+			 *  
+			 *  @param e:InHouseStateEvent - not used.
+			 */
+			private function onOpenGuestProfilePopup(e:InHouseStateEvent):void
+			{
+				var event:GetProfileByIdEvent = new GetProfileByIdEvent(ProfileDelegate.GET_PROFILE_BY_ID);
+				event.hotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+				event.profileId = (getCurrentGrid().selectedItem as InHouseViewVO).lProfileId;
+				event.callBack = showGuestProfilePopup;
+				CairngormEventDispatcher.getInstance().dispatchEvent(event);
+			}
+			/**
+			 *  The complete callback function by get profile information. Open
+			 *  popup for editing guest profile.
+			 */
+			private function showGuestProfilePopup():void
+			{
+				var pop:SaveIndividualProfilePopupView = PopUpManagerExt.createPopUp(this, SaveIndividualProfilePopupView) as SaveIndividualProfilePopupView;
+				pop.data = model.profilesModule.currentProfile;
+			}
+			/**
+			 *  The handle to try get information for reservation by guest.
+			 *  
+			 *  @param e:InHouseStateEvent - not used.
+			 */
+			private function onOpenReservationEditPopup(e:InHouseStateEvent):void
+			{				
+				var event:GetReservationByIdEvent = new GetReservationByIdEvent();
+				event.reservationId = (getCurrentGrid().selectedItem as InHouseViewVO).lReservationNumber;
+				event.callBack = showReservationEdit;
+				CairngormEventDispatcher.getInstance().dispatchEvent(event);				
+			}
+			
+			private function onOpenGroupReservationEditPopup(e:InHouseStateEvent):void
+			{
+				openReservation();
+			}
+			
+			/**
+			 *  The complete callback function by get reservation information.
+			 *  Open popup for editing reservation by guest.
+			 */
+			private function showReservationEdit():void
+			{
+				var pop:ReservationEditView = PopUpManagerExt.createPopUp(this, ReservationEditView) as ReservationEditView;
+				pop.lockArrivalDate = true;
+				pop.callBack = search;
+			}
+			
+			
+			
+			private function calcVisibleRow():void
+			{
+				visibleRowCount = Math.round((dgInHouse.height - dgInHouse.headerHeight - 16) / dgInHouse.rowHeight);
+				isFirstOpen = false;
+			}
+			
+			
+			private function changeStateHandler():void
+			{
+				if(this.currentState == ADVANCED_SEARCH_STATE)
+				{
+					currentState = '';
+					contract.play();
+				}
+				else
+				{
+					currentState = ADVANCED_SEARCH_STATE;
+					expand.play();
+				}
+			}
+						
+			
+			private function onSelectPage(event:PagerEvent):void
+			{
+				search();
+			}
+			
+			private function updateView(e:RoomsEvent):void
+			{
+				(e.target as BasePopupView).removeEventListener(RoomsEvent.ROOM_ASSIGN, updateView);
+				
+				var roomId:Number = (dgInHouse.selectedItem as InHouseViewVO).lRoomId;
+				for each(var cell:InHouseViewVO in dgInHouse.dataProvider)
+				{
+					if (cell.lRoomId == roomId)
+					{
+						cell.lRoomId = e.id;
+						cell.sRoomNumber = e.room;
+					}
+				}
+				
+				model.inHouseModule.inHouseGuests.refresh();
+			}
+
+			
+			private function onOpenItemsRoutingPopup():void
+			{
+				model.checkOutModule.clear();
+				model.checkOutModule.reservationId = (getCurrentGrid().selectedItem as InHouseViewVO).lReservationNumber
+				model.checkOutModule.iOrderId = (getCurrentGrid().selectedItem as InHouseViewVO).lOrderId;
+				//model.checkOutModule.roomType = (dgInHouse.selectedItem as InHouseViewVO).iType;
+				model.checkOutModule.roomId = (getCurrentGrid().selectedItem as InHouseViewVO).lRoomId;
+				model.inHouseModule.roomId = (getCurrentGrid().selectedItem as InHouseViewVO).lRoomId;
+				
+				var getCheckoutStateEvent:GetCheckoutStateEvent = new GetCheckoutStateEvent();
+				switch(model.checkOutModule.roomType)
+				{
+					default:
+					case InHouseViewVO.TYPE_NORMAL:
+						model.checkOutModule.currPage = 0;						
+						getCheckoutStateEvent.iOrderId = (getCurrentGrid().selectedItem as InHouseViewVO).lOrderId;
+					break;
+					case InHouseViewVO.TYPE_VIRTUAL:												
+						getCheckoutStateEvent.iVirtualId = (getCurrentGrid().selectedItem as InHouseViewVO).lRoomId;
+					break;
+					case InHouseViewVO.TYPE_CONFERENCE:
+						getCheckoutStateEvent.iVirtualId = (getCurrentGrid().selectedItem as InHouseViewVO).lRoomId;						
+					break;
+					case InHouseViewVO.TYPE_GROUP:
+						getCheckoutStateEvent.iReservationId = (getCurrentGrid().selectedItem as InHouseViewVO).lReservationNumber;						
+					break;
+				}
+				getCheckoutStateEvent.callBack = showItemRoutingPopup;
+				CairngormEventDispatcher.getInstance().dispatchEvent(getCheckoutStateEvent);
+			}
+			
+			private function showItemRoutingPopup():void
+			{
+				if (model.checkOutModule.roomType == InHouseViewVO.TYPE_VIRTUAL)
+				{
+					model.checkOutModule.paymentLineId = (dgInHouse.selectedItem as InHouseViewVO).lRoomId;
+				}
+				if (model.checkOutModule.roomType == InHouseViewVO.TYPE_CONFERENCE)
+				{
+					model.checkOutModule.reservationSummary.lRoomId = (dgInHouse.selectedItem as InHouseViewVO).lRoomId;
+				}
+				
+				var pop:ItemRoutingPopupView = PopUpManagerExt.createPopUp(this, ItemRoutingPopupView) as ItemRoutingPopupView;
+				pop.type = (getCurrentGrid().selectedItem as InHouseViewVO).iType;
+				pop.roomId = (getCurrentGrid().selectedItem as InHouseViewVO).lRoomId;
+			}
+			
+			private function handleCheckOutGuest():void
+			{
+				var date:Date = model.businessDate;
+				model.checkOutModule.clear();
+				model.checkOutModule.reservationId = (getCurrentGrid().selectedItem as InHouseViewVO).lReservationNumber
+				model.checkOutModule.iOrderId = (getCurrentGrid().selectedItem as InHouseViewVO).lOrderId;
+				//model.checkOutModule.roomType = (dgInHouse.selectedItem as InHouseViewVO).iType;
+				model.checkOutModule.roomId = (getCurrentGrid().selectedItem as InHouseViewVO).lRoomId;
+				model.inHouseModule.roomId = (getCurrentGrid().selectedItem as InHouseViewVO).lRoomId;
+				 
+				var getCheckoutStateEvent:GetCheckoutStateEvent = new GetCheckoutStateEvent();
+				
+				switch(model.checkOutModule.roomType)
+				{
+					case InHouseViewVO.TYPE_NORMAL:
+						getCheckoutStateEvent.iOrderId = (getCurrentGrid().selectedItem as InHouseViewVO).lOrderId;
+					break;
+					case InHouseViewVO.TYPE_CONFERENCE:
+						getCheckoutStateEvent.iVirtualId = (getCurrentGrid().selectedItem as InHouseViewVO).lRoomId;
+					break;
+					case InHouseViewVO.TYPE_GROUP:
+						getCheckoutStateEvent.iReservationId = (getCurrentGrid().selectedItem as InHouseViewVO).lReservationNumber;
+						//getCheckoutStateEvent.iReservationId = 10122;
+					break;
+				}
+				
+				getCheckoutStateEvent.callBack = handleGotoCheckOut;
+				CairngormEventDispatcher.getInstance().dispatchEvent(getCheckoutStateEvent);
+			}
+			
+			private function handleGotoCheckOut():void
+			{
+				model.inHouseModule.isCheckOut = true;
+				
+				model.checkOutModule.roomType = (getCurrentGrid().selectedItem as InHouseViewVO).iType;
+				if (model.checkOutModule.roomType == InHouseViewVO.TYPE_CONFERENCE)
+				{
+					model.checkOutModule.reservationSummary.dDepartureDate = DateField.dateToString(model.businessDate, GlobalSettings.DATE_SERVER_FORMAT);
+					model.checkOutModule.reservationSummary.lRoomId = (getCurrentGrid().selectedItem as InHouseViewVO).lRoomId;
+				}
+				
+				var pageEvent:PageEvent = new PageEvent();
+				pageEvent.index = 12; // 12 - CheckOut
+				pageEvent.dispatch();
+			}
+			/**
+			 *  The handle to save type of selected room.
+			 */
+			private function saveRoomType():void
+			{
+				if(tabInHouse.selectedIndex == 0)
+				{
+					model.checkOutModule.roomType = (dgInHouse.selectedItem as InHouseViewVO).iType;
+				}
+				else
+				{
+					model.checkOutModule.roomType = (dgInHouseGroup.selectedItem as InHouseViewVO).iType;
+				}
+				manageCheckOutBtn();
+			}
+			
+			private function manageCheckOutBtn():void
+			{
+				if(tabInHouse.selectedIndex == 0)
+				{
+					btnCheckOut.enabled = UtilsMXML.and(dgInHouse.selectedItem,	model.checkOutModule.roomType != InHouseViewVO.TYPE_VIRTUAL)
+				}
+				else
+				{					
+					btnCheckOut.enabled = UtilsMXML.and(dgInHouseGroup.selectedItem,	model.checkOutModule.roomType != InHouseViewVO.TYPE_VIRTUAL)
+				}
+			}
+			
+			private function onSearchTypeChange():void
+			{
+				searchKey.label = cmbSearch.selectedLabel;
+			}
+			
+			
+			/**
+			 *  Label function for view date by DD/MM/YYYY format.
+			 *  
+			 *  @param item:InHouseViewVO - item of dataprovider for caller table.
+			 *  @param column:DataGridColumn - column in grid.
+			 *  
+			 *  @result formated date as String.
+			 */
+			private function funcDateView(item:InHouseViewVO, column:DataGridColumn):String
+			{
+				return DateUtils.dateConvert(item[column.dataField], DateUtils.SERVER_TO_CLIENT);
+			}
+		
+			private function funcDateViewAdv(item:InHouseViewVO, column:AdvancedDataGridColumn):String
+			{
+				return DateUtils.dateConvert(item[column.dataField], DateUtils.SERVER_TO_CLIENT);
+			}
+		
+			private function groupInit():void
+			{
+				dgInHouseGroup.dataProvider = new HierarchicalData(model.inHouseModule.inHouseGuestsGroups);
+			}
+			
+			private function getCurrentGrid():Object
+			{
+				if(tabInHouse.selectedIndex == 0)
+				{
+					return dgInHouse
+				}
+				else
+				{
+					return dgInHouseGroup;
+				}
+			}
+			
+			private function openReservation():void
+			{
+		
+				if(getCurrentGrid().selectedItem != null)
+				{
+					var getGroupReservationEvent:GetGroupReservationEvent = new GetGroupReservationEvent();
+					getGroupReservationEvent.iId = (getCurrentGrid().selectedItem as InHouseViewVO).lProfileId;
+					getGroupReservationEvent.callBack = showGroupReservationEdit;
+					CairngormEventDispatcher.getInstance().dispatchEvent(getGroupReservationEvent);
+				}
+		/*
+				
+				if(getCurrentGrid().selectedItem != null)
+				{
+					var getReservationByIdEvent:GetReservationByIdEvent = new GetReservationByIdEvent();
+					getReservationByIdEvent.reservationId = (getCurrentGrid().selectedItem as InHouseViewVO).lReservationNumber;
+					getReservationByIdEvent.callBack = showGroupReservationEdit;
+					CairngormEventDispatcher.getInstance().dispatchEvent(getReservationByIdEvent);
+				}
+				*/
+			}
+
+			private function groupPersonalInfoBackFunction():void
+			{
+				vsSearch.selectedIndex = 0;
+			}
+			
+			private function showGroupReservationEdit():void
+			{
+				vsSearch.selectedIndex = 1;
+			}
+
+			
+		]]>
+	</mx:Script>
+	
+	<mx:Resize id="expand"
+		target="{iaia}"
+		heightTo="155"
+		duration="200"/>
+	<mx:Resize id="contract"
+		target="{iaia}"
+		heightTo="27"
+		duration="200"/>
+	
+	<window:states>
+		<mx:State name="{ADVANCED_SEARCH_STATE}">
+			<mx:RemoveChild target="{simpleSearch}"/>
+			<mx:AddChild relativeTo="{btnFind}" position="before">
+				<mx:HBox id="advancedSearch" width="700" height="100%">
+					<mx:Form>
+						<mx:FormItem
+							label="Room Number:">
+							<mx:TextInput id="tiRoomNumber"
+								restrict="a-zA-Z0-9"
+								maxChars="10"/>
+						</mx:FormItem>
+						<mx:FormItem
+							label="Name:">
+							<mx:TextInput id="tiLastName"
+								restrict="a-zA-ZAaBbßβÄäÖöÜü"
+								maxChars="25"/>
+						</mx:FormItem>
+						<mx:FormItem
+							label="First Name:">
+							<mx:TextInput id="tiFirstName"
+								restrict="a-zA-ZAaBbßβÄäÖöÜü"
+								maxChars="25"/>
+						</mx:FormItem>
+						<mx:FormItem
+							label="Company:">
+							<mx:TextInput id="tiCompany"
+								maxChars="25"/>
+						</mx:FormItem>
+					</mx:Form>
+					<mx:Form>
+						<mx:FormItem
+							label="City:">
+							<mx:TextInput id="tiCity"
+								maxChars="50"/>
+						</mx:FormItem>
+						<mx:FormItem
+							label="Street:">
+							<mx:TextInput id="tiStreet"
+								maxChars="50"/>
+						</mx:FormItem>
+						<mx:FormItem
+							label="ZIP code:">
+							<mx:TextInput id="tiZIPCode"
+								restrict="A-Za-z0-9"
+								maxChars="6"/>
+						</mx:FormItem>
+						<mx:FormItem
+							label="Date of Departure:">
+							<mx:DateField id="dfDepartureDate"
+								formatString="{GlobalSettings.DATE_FORMAT}"
+								width="{GlobalSettings.WIDTH_DATE_FIELD}"/>
+						</mx:FormItem>
+					</mx:Form>
+				</mx:HBox>
+			</mx:AddChild>
+		</mx:State>
+	</window:states>
+	<mx:ViewStack id="vsSearch"
+		width="100%" height="100%" >
+	<mx:VBox width="100%" height="100%">
+		<mx:HBox id="iaia" width="100%">
+			<mx:HBox id="simpleSearch"
+				verticalAlign="middle"
+				width="700" >
+				<mx:Label
+					text="Search By"/>
+				<mx:ComboBox id="cmbSearch"
+					dataProvider="{simpleSearchType}"
+					change="onSearchTypeChange()"/>
+				<searchBox:SearchBox id="searchKey"
+					label="{cmbSearch.selectedLabel}"
+					maxChars="35"
+					enter="search()"
+					changeByFocus="search()"/>
+			</mx:HBox>
+			
+			<mx:Button id="btnFind"
+				label="Find"
+				click="search()"/>
+			<mx:LinkButton
+				label="{this.currentState == ADVANCED_SEARCH_STATE ? 'Simple Search' : 'Advanced Search'}"
+				click="{changeStateHandler()}"/>
+		</mx:HBox>
+		<mx:TabNavigator id="tabInHouse" creationPolicy="all"  change="search()" width="100%" height="100%" >
+		
+				<!--	Individual	-->
+				
+				<mx:VBox label="Individual" width="100%" height="100%">
+					<mx:DataGrid id="dgInHouse"
+						dataProvider="{model.inHouseModule.inHouseGuests}"
+						doubleClickEnabled="true"
+						doubleClick="{onOpenItemsRoutingPopup()}"
+						itemClick="saveRoomType()"
+						creationComplete="calcVisibleRow()"
+						width="100%" height="100%">
+						<mx:columns>
+							<mx:DataGridColumn
+								headerText="{model.locale.InHouse_Column_RoomNumber}"
+								dataField="sRoomNumber"/>
+							<mx:DataGridColumn
+								headerText=""
+								itemRenderer="{new ClassFactory(RoomIconRenderer)}"
+								draggable="false" sortable="false" resizable="false"
+								width="25"/>
+							<mx:DataGridColumn
+								headerText="{model.locale.InHouse_Column_GuestName}"
+								dataField="sGuestName"/>
+							<mx:DataGridColumn
+								headerText=""
+								itemRenderer="{new ClassFactory(UserIconRenderer)}"
+								draggable="false" sortable="false" resizable="false"
+								width="25"/>
+							<mx:DataGridColumn
+								headerText="{model.locale.InHouse_Column_ArrivalDate}"
+								dataField="dArrivalDate"
+								labelFunction="funcDateView"/>
+							<mx:DataGridColumn
+								headerText=""
+								itemRenderer="{new ClassFactory(ArrivalDateIconRenderer)}"
+								draggable="false" sortable="false" resizable="false"
+								width="25"/>
+							<mx:DataGridColumn
+								headerText="{model.locale.InHouse_Column_DepartureDate}"
+								dataField="dDepartureDate"
+								labelFunction="funcDateView"/>
+							<mx:DataGridColumn
+								headerText=""
+								itemRenderer="{new ClassFactory(DepartureDateIconRenderer)}"
+								draggable="false" sortable="false" resizable="false"
+								width="25"/>
+							<mx:DataGridColumn
+								headerText="{model.locale.InHouse_Column_Company}"
+								dataField="sCompany"/>
+							<mx:DataGridColumn
+								headerText="{model.locale.InHouse_Column_TravelAgency}"
+								dataField="sTravelAgency"/>
+							<mx:DataGridColumn
+								headerText="{model.locale.InHouse_Column_Group}"
+								dataField="sGroup"/>
+							<mx:DataGridColumn
+								headerText="{model.locale.InHouse_Column_Message}"
+								itemRenderer="{new ClassFactory(MessageIconRenderer)}"
+								width="80"/>
+					</mx:columns>
+				</mx:DataGrid>
+			</mx:VBox>
+			
+			<!--	Group	-->
+			<mx:VBox label="Group" width="100%" height="100%">			
+				<mx:AdvancedDataGrid id="dgInHouseGroup"
+						sortableColumns="false"
+						itemClick="{saveRoomType()}"
+						doubleClickEnabled="true"
+						doubleClick="{onOpenItemsRoutingPopup()}"
+						width="100%" height="100%">
+						<mx:dataProvider>
+							<mx:HierarchicalData id="inHouseGroupsDP"
+								source="{model.inHouseModule.inHouseGuestsGroups}"/>
+						</mx:dataProvider>
+						<mx:columns>
+							<mx:AdvancedDataGridColumn
+								headerText="{model.locale.InHouse_Column_GuestName}"
+								dataField="label"/>
+							<mx:AdvancedDataGridColumn
+								headerText=""
+								
+								 
+								width="25"/>
+							<mx:AdvancedDataGridColumn
+								headerText="{model.locale.InHouse_Column_RoomNumber}"
+								dataField="sRoomNumber"/>								
+							<mx:AdvancedDataGridColumn
+								headerText="" width="25"
+								itemRenderer="{new ClassFactory(UserIconRenderer)}"
+								 
+								/>
+							<mx:AdvancedDataGridColumn
+								headerText="{model.locale.InHouse_Column_ArrivalDate}"
+								dataField="dArrivalDate"
+								labelFunction="funcDateViewAdv"
+								/>
+							<mx:AdvancedDataGridColumn
+								headerText=""
+								itemRenderer="{new ClassFactory(ArrivalDateIconRenderer)}"
+								 
+								width="25"/>
+							<mx:AdvancedDataGridColumn
+								headerText="{model.locale.InHouse_Column_DepartureDate}"
+								dataField="dDepartureDate"
+								labelFunction="funcDateViewAdv"
+								/>
+							<mx:AdvancedDataGridColumn
+								headerText=""
+								
+								 sortable="false" resizable="false"
+								width="25"/>
+							<mx:AdvancedDataGridColumn
+								headerText="{model.locale.InHouse_Column_Company}"
+								dataField="sCompany"/>
+							<mx:AdvancedDataGridColumn
+								headerText="{model.locale.InHouse_Column_TravelAgency}"
+								dataField="sTravelAgency"/>
+							<mx:AdvancedDataGridColumn
+								headerText="{model.locale.InHouse_Column_Group}"
+								dataField="sGroup"/>
+							<mx:AdvancedDataGridColumn
+								headerText="{model.locale.InHouse_Column_Message}"
+								
+								width="80"/>
+					</mx:columns>
+				</mx:AdvancedDataGrid>
+			</mx:VBox>
+			
+		</mx:TabNavigator>
+		
+		
+		<mx:HBox width="100%" verticalAlign="middle">			
+			<mx:Button id="btnCheckOut"
+				label="Check Out"
+				enabled="{UtilsMXML.and(dgInHouse.selectedItem,
+					model.checkOutModule.roomType != InHouseViewVO.TYPE_VIRTUAL)}"
+				click="{handleCheckOutGuest()}"
+				height="{SkinHelper.BUTTON_HEIGHT}"
+				minWidth="{SkinHelper.BUTTON_WIDTH}"/>
+			<mx:Spacer width="100%"/>
+			<pager:Pager id="pager"
+				pageChange="{search()}"
+				count="{model.inHouseModule.inHouseGuestsCount}"
+				fit="{visibleRowCount}"/>
+		</mx:HBox>
+	</mx:VBox>
+	<subview:GroupPersonalInformationView id="groupInformation"
+			width="100%" height="100%"
+			backFunction="{groupPersonalInfoBackFunction}"/>
+	
+		
+	</mx:ViewStack>
+	<mx:Validator id="validator"/>
+</window:BaseWindow>

@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<popup:DataPopupView
+	xmlns:popup="framework.view.components.popups.*" 
+	addTitle="Add language"
+	editTitle="Edit language}"
+	xmlns:mx="http://www.adobe.com/2006/mxml" layout="vertical" showCloseButton="true" 
+	close="closeWindow()" creationComplete="init()">
+	
+	<mx:Script>
+		<![CDATA[
+			import services.events.miscellaneous.langueges.GetLanguageEvent;
+			import services.events.miscellaneous.langueges.AddLanguageEvent;
+			import services.vo.common.LanguageVO;
+			import services.vo.GlobalSettings;
+			import services.controller.AppController;
+			import framework.model.AppModelLocator;
+			import mx.events.CloseEvent;
+			import mx.collections.ArrayCollection;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import framework.managers.PopUpManagerExt;
+			
+			[Bindable]
+			private var submitEnable:Boolean = true;
+			
+			[Bindable]
+			public var currentLanguage:LanguageVO = new LanguageVO();
+			
+			private var prevLanguage:String = '';
+			private var prevCodeLanguage:String = '';
+			
+			private function init():void
+			{
+				if (isEdit)
+				{
+					currentLanguage = data as LanguageVO;
+				}
+				language.text = currentLanguage.sName;
+				languageCode.text = currentLanguage.sCode;
+				prevLanguage = language.text;
+				prevCodeLanguage = languageCode.text;
+			}
+			
+			/**
+			 * 	Set data for language.
+			 * 	Add language to Language List.
+			 * 	Close Popup.
+			*/
+			private function handleCreateLanguage():void
+			{
+				var evt:AddLanguageEvent = new AddLanguageEvent (AppController.ADD_LANGUAGE_EVENT);
+				evt.language.sName = language.text;
+				evt.language.sCode = languageCode.text;
+				evt.language.lId = currentLanguage.lId;
+				CairngormEventDispatcher.getInstance().dispatchEvent( evt );
+				
+				completeCall();
+				
+			}
+			/**
+			 * 	Close Popup.
+			*/
+			private function closeWindow(evt:CloseEvent = null):void
+			{
+				PopUpManagerExt.removePopUp( this );
+			}
+			/**
+			 * 	Check: Is all required fields are filled.
+			*/
+			private function checkFillRequiredFields():void
+			{
+				if(language.text.length > 0 && languageCode.length > 0 && (prevLanguage!=language.text || prevCodeLanguage!=languageCode.text)) submitEnable = true;
+				else submitEnable = false;
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:Form>
+	<mx:FormItem label="Language:" required="true">
+	<mx:HBox>
+		<mx:TextInput id="language" change="checkFillRequiredFields()" maxChars="50" width="200"/>
+	</mx:HBox>
+	</mx:FormItem>
+	<mx:FormItem label="Code:" required="true">
+		<mx:TextInput id="languageCode" change="checkFillRequiredFields()" width="50" maxChars="5"/>
+	</mx:FormItem>
+	</mx:Form>
+	
+	<mx:HBox width="100%" horizontalAlign="right">
+		<mx:Button id="submit_From_AddFloorPopupView" label="Save" click="handleCreateLanguage()" 
+			enabled="{submitEnable}" width="{GlobalSettings.BUTTON_WIDTH_APPLY}"/>
+		<mx:Button id="cancel_From_AddLanguagePopupView" label="Cancel" click="closeWindow()" 
+			width="{GlobalSettings.BUTTON_WIDTH}"/>
+	</mx:HBox>
+	
+</popup:DataPopupView>

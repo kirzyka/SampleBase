@@ -1,0 +1,219 @@
+$color-white: #fff;
+
+$color-grey-1: #F0EFEA;
+$color-grey-2: #CCC;
+$color-grey-3: #999;
+$color-grey-4: #444;
+
+$color-green-1: #5acf18;
+$color-green-2: #00a700;
+$color-green-3: #36780f;
+$color-green-4: #005900;
+
+$color-blue-1: #8dbde8;
+$color-blue-2: #5967B2;
+$color-blue-3: rgba(63, 70, 98, 0.8);
+$color-blue-4: rgb(55, 62, 87);
+$color-blue-5: #2d4466;
+
+$color-orange-1: #F49303;
+$color-orange-2: #ff7000;
+$color-orange-3: #b84700;
+$color-orange-4: #b84700;
+
+$color-red-1: #F00;
+
+$color-brown-1: #705526;
+$color-brown-2: #5A4125;
+$color-brown-3: #4c3325;
+$color-brown-4: #241A0F;
+
+$color-black: #000;
+
+@mixin cross($property, $value) {
+    -webkit-#{$property}: $value;
+    -moz-#{$property}: $value;
+    -ms-#{$property}: $value;
+    -o-#{$property}: $value;
+    #{$property}: $value;
+}
+
+@mixin linear-gradient($col1, $col2) {
+    background-image: linear-gradient(bottom, $col1 0%, $col2 100%);
+    background-image: -o-linear-gradient(bottom, $col1 0%, $col2 100%);
+    background-image: -moz-linear-gradient(bottom, $col1 0%, $col2 100%);
+    background-image: -webkit-linear-gradient(bottom, $col1 0%, $col2 100%);
+    background-image: -ms-linear-gradient(bottom, $col1 0%, $col2 100%);
+    background-image: -webkit-gradient(
+                    linear,
+                    left bottom,
+                    left top,
+                    color-stop(0, $col1),
+                    color-stop(1, $col2)
+    );
+}
+
+@mixin animation($animate...) {
+    $max: length($animate);
+    $animations: '';
+
+    @for $i from 1 through $max {
+        $animations: #{$animations + nth($animate, $i)};
+
+        @if $i < $max {
+            $animations: #{$animations + ", "};
+        }
+    }
+    -webkit-animation: $animations;
+    -moz-animation:    $animations;
+    -ms-animation:     $animations;
+    -o-animation:      $animations;
+    animation:         $animations;
+}
+
+$browser: null;
+@mixin keyframes($animationName) {
+    @-webkit-keyframes #{$animationName} {
+        $browser: '-webkit-'; @content;
+    }
+    @-moz-keyframes #{$animationName} {
+        $browser: '-moz-'; @content;
+    }
+    @-o-keyframes #{$animationName} {
+        $browser: '-o-'; @content;
+    }
+    @keyframes #{$animationName} {
+        $browser: ''; @content;
+    }
+}
+
+
+@-webkit-keyframes logospin {
+    0%  {-webkit-transform: rotateY(0deg);}
+    100% {-webkit-transform: rotateY(360deg);}
+}
+
+
+body {
+    font-family: 'Open Sans',"Lucida Sans Unicode","Lucida Grande",sans-serif !important;
+    margin: 0;
+    overflow: hidden;
+    font-size: 16px !important;
+}
+
+textarea {
+    box-sizing: border-box;
+    resize: none;
+}
+
+input {
+    font-family: monospace;
+}
+
+pre {
+    display: inline-block;
+    margin: 0;
+}
+
+ol {
+    color: #000;
+    outline-color: #000;
+}
+
+li {
+    font-size: 0.8em;
+}
+
+[ng\:cloak], [ng-cloak], .ng-cloak { display: none; }
+
+#wrapper {
+   // display: none;
+}
+
+.button {
+    display: inline-block;
+    box-sizing: border-box;
+    background: #2ea0d9;
+    color: #fff;
+    font-size: 0.9em;
+    padding: 2px 10px;
+    text-align: center;
+    cursor: pointer;
+    min-width: 100px;
+    vertical-align: middle;
+}
+
+.fill {
+    width: 100%;
+}
+
+.clear {
+    clear: both;
+}
+
+.rel {
+    position: relative;
+}
+
+.h_line {
+    height: 25px;
+}
+
+.v_pad_5 {
+    padding: 5px 0;
+}
+
+.v_pad_10 {
+    padding: 10px 0;
+}
+
+.h_pad_5 {
+    padding: 0 5px;
+}
+
+.h_pad_10 {
+    padding: 0 10px;
+}
+
+
+.icon {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    display: inline-block;
+}
+
+.icon.go {
+    background: url(../assets/script_go_16.png);
+}
+.icon.delete {
+    background: url(../assets/script_delete_16.png);
+}
+.icon.edit {
+    background: url(../assets/script_edit_16.png);
+}
+
+.c_blue {
+    color: #42afff;
+}
+
+.bg_blue {
+    background: #42afff;
+}
+
+.bg_orange {
+    background: #ffaa33;
+}
+
+
+.overlay-light {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    height: 100%;
+    width: 100%;
+    z-index: -1;
+    background: $color-grey-3;
+    opacity: 0.01;
+}
+

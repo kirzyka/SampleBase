@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<BaseWindow
+	xmlns="framework.core.view.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:controls="framework.view.components.controls.*"
+	xmlns:subview="framework.view.pages.security.subview.*"
+	xmlns:advancedTabNavigator="h2olib.control.advancedTabNavigator.*">
+	<mx:Script>
+		<![CDATA[
+		import framework.core.utils.UtilsSecurity;
+
+		override public function show():void
+		{
+			userSystemManager.show();
+		}
+		
+		private function changeTab(event:Event):void 
+		{
+			switch (atnSecurity.selectedChild)
+			{
+				case userSystemManager:
+					userSystemManager.show();	
+				break;	
+				case userHotelManager:
+					userHotelManager.show();	
+				break;					
+				case roleManager:
+					roleManager.show();
+				break;			
+			}
+		}
+		]]>
+	</mx:Script>
+
+	<advancedTabNavigator:AdvancedTabNavigator id="atnSecurity"
+		width="100%" height="100%"
+        tabPosition="leftTop" tabWidth="180"
+        change="changeTab(event)">
+		<subview:UserSystemManager id="userSystemManager"
+			label="{model.locale.Security_UserSystemManagerTitle}"/>
+		
+		<subview:UserHotelManager id="userHotelManager"
+			label="{model.locale.Security_UserHotelManager_Title}"/>	 
+			 
+		<subview:RoleManager id="roleManager" 
+			label="{model.locale.Security_RoleManager_Title}"
+			enabled="{UtilsSecurity.isHasPermission(UtilsSecurity.VIEW_ROLE)}"/>
+	</advancedTabNavigator:AdvancedTabNavigator>
+
+
+</BaseWindow>

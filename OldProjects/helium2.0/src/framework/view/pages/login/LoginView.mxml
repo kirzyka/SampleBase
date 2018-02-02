@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox xmlns:mx="http://www.adobe.com/2006/mxml"
+	width="100%" height="100%"
+	horizontalAlign="center" verticalAlign="middle"
+	creationComplete="init()">
+
+	<mx:Script>
+		<![CDATA[
+			import services.events.backend.GetHotelDictionariesEvent;
+			import mx.events.FlexEvent;
+			import services.vo.GlobalSettings;
+			import services.vo.frontend.UserProfileVO;
+			import framework.core.utils.UtilsSharedObject;
+			import services.events.backend.LoginInHotelEvent;
+			import services.vo.frontend.UserHotelsVO;
+			import mx.containers.FormItem;
+			import framework.model.AppModelLocator;
+			import services.events.frontend.LoginEvent;
+			//import framework.localization.CLocalizationManager;
+			import services.controller.AppController;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+
+			import mx.validators.Validator;
+
+			[Bindable]
+			private var model:AppModelLocator = AppModelLocator.getInstance();
+			[Bindable]
+			private var workspaceArray:Array = [ model.locale.Login_LoginWindow_Workspace_Frontend,
+												 model.locale.Login_LoginWindow_Workspace_Backend]
+
+			private function init():void
+			{
+				focusManager.setFocus(userLogin);
+			}
+
+			private function localeUpdateComplete(event:Event):void
+			{
+				cmbWorkspace.selectedIndex = 0;
+			}
+
+			private function handleLogin():void
+			{
+				var userData:UserProfileVO = new UserProfileVO();
+				userData.sUserLogin = userLogin.text;
+				userData.sUserPassword = userPassword.text;
+				UtilsSharedObject.saveLoggedInUserVO(userData);
+				
+				switch (currentState)
+				{
+					case "SecondStep":
+					{
+						model.hotelsModule.hotelTotalInfo = (cmbHotels.selectedItem as UserHotelsVO).oHotel;
+						var loginInHotelEvent:LoginInHotelEvent = new LoginInHotelEvent(AppController.LOGIN_IN_HOTEL_EVENT);
+						loginInHotelEvent.iHotelId = (cmbHotels.selectedItem as UserHotelsVO).oHotel.iHotelId;
+						loginInHotelEvent.callBack =  getHotelDictionaries;
+						CairngormEventDispatcher.getInstance().dispatchEvent( loginInHotelEvent );
+						
+						model.hotelsModule.hotelTotalInfo = (cmbHotels.selectedItem as UserHotelsVO).oHotel;						
+						break;
+					}
+					default:
+					{
+						model.isFrontend = cmbWorkspace.selectedIndex == 0;
+						var loginEvent:LoginEvent = new LoginEvent(AppController.LOGIN_EVENT);
+						loginEvent.userLogin = userLogin.text;
+						loginEvent.userPassword = userPassword.text;
+						loginEvent.callBack = showHotelList;
+						CairngormEventDispatcher.getInstance().dispatchEvent( loginEvent );
+						break;
+					}
+				}
+
+			}
+
+			private function getHotelDictionaries():void
+			{
+				var evt:GetHotelDictionariesEvent = new GetHotelDictionariesEvent(AppController.GET_PAGE_OF_START_HOTEL);
+				evt.hotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+				evt.callBack = showWorkspace;
+				CairngormEventDispatcher.getInstance().dispatchEvent(evt);
+			}
+			
+			private function showHotelList():void
+			{
+				if(model.currentUser.cUHotels.length == 0)
+				{
+					showWorkspace();
+					return;
+				}
+				currentState = "SecondStep";
+				cmbHotels.dataProvider = model.currentUser.cUHotels;
+				
+				userPassword.text = "";
+			}
+			private function showWorkspace():void
+			{
+				model.mainViewIndex = GlobalSettings.WORKSPACE_INDEX;
+				
+				dispatchEvent(new Event("stayOverStart", true));
+			}
+
+			private function handleForgotClick():void
+			{
+				model.loginPage.currentPage = 2;
+			}
+
+			private function hotelNameLabelFunction(item:Object):String
+			{
+				if (item != null)
+				{
+					return (item as UserHotelsVO).oHotel.sHotelName;
+				}
+				return '';
+			}
+			
+			private function selectHotel():void
+			{
+				model.hotelsModule;
+				cmbHotels.selectedItem;
+			}
+		]]>
+	</mx:Script>
+
+	<mx:states>
+		<mx:State name="SecondStep">
+			<mx:AddChild relativeTo="{frmLoginItem}" position="before">
+				<mx:FormItem label="Hotel:" styleName="BigFormItem" height="42">
+					<mx:ComboBox id="cmbHotels"
+						labelFunction="hotelNameLabelFunction" fontWeight="normal" styleName="BigText"/>
+				</mx:FormItem>
+			</mx:AddChild>
+			<mx:RemoveChild target="{frmLoginItem}"/>
+			<mx:RemoveChild target="{frmPasswordItem}"/>
+			<mx:RemoveChild target="{frmWorkspace}"/>
+			<mx:RemoveChild target="{frmForgotPassword}"/>
+			<mx:SetStyle target="{hbox1}" name="horizontalAlign" value="center"/>
+			<mx:SetProperty target="{hbox1}" name="styleName"/>
+			<mx:SetStyle target="{login_LoginView}" name="fontWeight" value="normal"/>
+		</mx:State>
+
+	</mx:states>
+
+
+
+	<mx:TitleWindow
+		title="{model.locale.Login_LoginWindow_Title}"
+		horizontalAlign="center"
+		verticalAlign="middle">
+		<mx:Form id="loginForm">
+			<mx:FormItem id="frmLoginItem" label="{model.locale.Login_LoginWindow_UserNameLabel}"  height="35" styleName="BigFormItem">
+				<mx:TextInput id="userLogin" styleName="BigText"
+					enter="handleLogin()"
+					text="{UtilsSharedObject.loadLoggedInUserVO('admin','admin').sUserLogin}" width="200"/>
+			</mx:FormItem>
+			<mx:FormItem id="frmPasswordItem"
+				label="{model.locale.Login_LoginWindow_PasswordLabel}:" height="35" styleName="BigFormItem">
+				<mx:TextInput id="userPassword" styleName="BigText"
+					enter="handleLogin()"
+					displayAsPassword="true"
+					text="{UtilsSharedObject.loadLoggedInUserVO('admin','admin').sUserPassword}" width="200"/>
+			</mx:FormItem>
+			<mx:FormItem id="frmWorkspace"
+				label="{model.locale.Login_LoginWindow_Workspace_Title}:" height="42" styleName="BigFormItem">
+				<mx:ComboBox id="cmbWorkspace" styleName="BigText"
+					dataProvider="{workspaceArray}" fontWeight="normal" height="28" width="200">
+				</mx:ComboBox>
+			</mx:FormItem>
+			<mx:HBox width="100%" styleName="SingInn" height="50" id="hbox1">
+				<mx:Button  id="login_LoginView" x="56" 
+					label="{model.locale.Login_LoginWindow_SignIn}"
+					click="handleLogin()"
+					keyDown="{if (event.keyCode==13) handleLogin();}" styleName="SingBtn" width="125" height="40" fontSize="18" fontWeight="normal"/>
+			</mx:HBox>
+			<mx:HBox width="100%" styleName="ForgotPassword" id="frmForgotPassword">
+				<mx:LinkButton id="forgot_LoginView"
+					label="I forgot my password"
+					textDecoration="underline"
+					fontStyle="normal"
+					click="handleForgotClick()" fontWeight="normal"/>
+			</mx:HBox>
+		</mx:Form>
+	</mx:TitleWindow>
+
+	<mx:Validator />
+
+</mx:VBox>

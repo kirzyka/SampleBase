@@ -1,0 +1,52 @@
+<?xml version="1.0"?>
+<s:VGroup
+        xmlns:fx="http://ns.adobe.com/mxml/2009"
+        xmlns:s="library://ns.adobe.com/flex/spark"
+        >
+    <!-- To change this template use File | Settings | File Templates. -->
+    <fx:Script>
+        <![CDATA[
+        import kitaec.common.CommonConst;
+        import kitaec.services.BaseService;
+
+        import kitaec.model.Model;
+        import kitaec.services.UserService;
+        import kitaec.services.UserService;
+
+
+        private var model:Model = Model.getInstance();
+
+        private function login():void {
+            var loginservice:UserService = new UserService();
+            loginservice.url = CommonConst.USER_SERVICE;
+            loginservice.login(username.text, password.text);
+        }
+        ]]>
+    </fx:Script>
+
+    <fx:Declarations>
+
+    </fx:Declarations>
+
+    <s:Panel id="loginFormPanel" title="Вход в систему">
+        <s:VGroup>
+        <s:Form>
+            <s:FormItem label="Логин:">
+                <s:TextInput id="username" text="admin"/>
+            </s:FormItem>
+            <s:FormItem label="Пароль:">
+                <s:TextInput id="password" displayAsPassword="true" text="adminjdbc"/>
+            </s:FormItem>
+            <s:Button id="Login" label="Войти!" click="login()"/>
+        </s:Form>
+        <!--<s:HGroup>
+            <s:Label id="Username" text="Логин:"/>
+            <s:TextInput id="username" text="admin"/>
+        </s:HGroup>
+        <s:HGroup>
+            <s:Label id="Password" text="Пароль:"/>
+            <s:TextInput id="password" displayAsPassword="true" text="adminjdbc"/>
+        </s:HGroup>-->
+        </s:VGroup>
+    </s:Panel>
+</s:VGroup>

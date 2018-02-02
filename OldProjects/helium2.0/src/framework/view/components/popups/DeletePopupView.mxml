@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="utf-8"?>
+<BasePopupView
+	xmlns="framework.view.components.popups.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:control="h2olib.control.*"
+	height="150" width="500">
+	
+	<mx:Metadata>
+		[Event(name="delete", type="framework.view.components.popups.events.PopupEvent")]
+		
+		[Exclude(name="iconAdd", kind="style")]
+		[Exclude(name="iconEdit", kind="style")]
+	</mx:Metadata>
+	
+	<mx:Script>
+		<![CDATA[
+			import mx.controls.Alert;
+			import framework.view.components.popups.events.PopupEvent;
+			import services.vo.GlobalImageAssets;
+			import services.vo.GlobalSettings;
+			
+			// ================================================================= //
+			//                             VARIABLES                             //
+			// ================================================================= //
+			[@Embed("assets/popup_delete_icon.png")]
+			private const deleteIcon:Class;
+			/**
+			 *  This property is main description for view about what this delete
+			 *  popup.
+			 */
+			private var _description:String;
+			/**
+			 *  This property is sub description for view about what this delete
+			 *  popup.
+			 */
+			private var _subDescription:String;
+			
+			
+			override public function set icon(value:Class):void
+			{
+				deleteIcon = value;
+				imgDeleteIcon.source = deleteIcon;
+			}
+			
+			override protected function updateDisplayList(width:Number, height:Number):void
+			{
+				super.updateDisplayList(width, height);
+				
+				//lbDescription.height = lbDescription.textHeight;
+				//lbSubDescription.height = lbSubDescription.textHeight;
+			}
+			// ================================================================= //
+			//                        COMMON METHODS                             //
+			// ================================================================= //
+			protected function handleDelete():void
+			{
+				dispatchEvent(new PopupEvent(PopupEvent.DELETE_HANDLER));
+			}
+			
+			// ================================================================= //
+			//                        GETTERS AND SETTERS                        //
+			// ================================================================= //
+			[Bindable(event="descriptionChanged")]
+			/**
+			 *  Main description for view about what this delete popup.
+			 */
+			public function get description():String
+			{
+				return _description;
+			}
+			/**
+			 *  @private
+			 */
+			public function set description(value:String):void
+			{
+				_description = value;
+				
+				dispatchEvent(new Event("descriptionChanged"));
+			}
+			
+			[Bindable(event="subDescriptionChanged")]
+			/**
+			 *  Main description for view about what this delete popup.
+			 */
+			public function get subDescription():String
+			{
+				return _subDescription;
+			}
+			/**
+			 *  @private
+			 */
+			public function set subDescription(value:String):void
+			{
+				_subDescription = value;
+				
+				dispatchEvent(new Event("subDescriptionChanged"));
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:HBox width="100%" height="100%">
+		<mx:VBox height="100%" verticalAlign="middle" horizontalAlign="center">
+			<mx:Image id="imgDeleteIcon"
+				source="{deleteIcon}"/>
+		</mx:VBox>
+		<mx:VBox width="100%" height="100%">
+			<control:MultiLineLabel id="lbDescription"
+				text="{description}"
+				textAlign="center"
+				fontWeight="bold"
+				width="100%"/>
+			<control:MultiLineLabel id="lbSubDescription"
+				text="{subDescription}"
+				textAlign="center"
+				width="100%"/>
+		</mx:VBox>
+	</mx:HBox>
+	
+	<mx:HBox width="100%" horizontalAlign="right">
+		<mx:Button
+			label="{model.locale.Global_Button_Delete}"
+			click="handleDelete()"
+			width="{GlobalSettings.BUTTON_WIDTH_APPLY}"/>
+		<mx:Button
+			label="{model.locale.Global_Button_Cancel}"
+			click="close()"
+			width="{GlobalSettings.BUTTON_WIDTH}"/>
+	</mx:HBox>
+</BasePopupView>

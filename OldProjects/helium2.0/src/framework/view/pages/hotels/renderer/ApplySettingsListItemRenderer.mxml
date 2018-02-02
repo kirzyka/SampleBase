@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:HBox xmlns:mx="http://www.adobe.com/2006/mxml" width="100%" backgroundAlpha="0" horizontalScrollPolicy="off" paddingLeft="5">
+	
+	<mx:Script>
+		<![CDATA[
+			import services.events.hotels.AddRoomSettingsToHotelEvent;
+			import mx.controls.listClasses.ListData;
+			import mx.controls.DataGrid;
+			import services.vo.backend.RoomSettingObjectVO;
+			
+			private const ADD_LABEL:String = "->";
+			private const REMOVE_LABEL:String = "<-";
+			
+			override public function set data(value:Object):void
+			{
+				super.data = value;
+				
+				if(data)
+				{
+					if(owner as DataGrid)
+						if((owner as DataGrid).id == "hotelSettingsList") arrowBtn.label = REMOVE_LABEL;
+				}
+			}
+			
+			private function handleMove():void
+			{
+				var evt:AddRoomSettingsToHotelEvent = new AddRoomSettingsToHotelEvent( AddRoomSettingsToHotelEvent.MOVE_SETTING );
+				
+				(owner as DataGrid).dispatchEvent( evt );
+			}
+			
+		]]>
+	</mx:Script>
+	
+	<!--<mx:Label text="{(data as RoomSettingObjectVO).sRsettingCode + ' - ' + (data as RoomSettingObjectVO).sRsettingDesctiptionLocale}"/>-->
+	<mx:Label text="{(data as RoomSettingObjectVO).sRsettingDesctiptionLocale}" width="{this.width - 40}"/>
+	
+	<mx:LinkButton id="arrowBtn" label="->" click="handleMove()" rollOverColor="#FFDD00"/>
+	
+</mx:HBox>

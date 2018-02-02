@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:ItemRenderer 
+	xmlns:fx="http://ns.adobe.com/mxml/2009" 
+	xmlns:s="library://ns.adobe.com/flex/spark"
+	xmlns:mx="library://ns.adobe.com/flex/mx" 
+	
+	height="20"
+	>
+	
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	
+	<fx:Script>
+		<![CDATA[
+		
+			import com.controls.comboBoxes.autocompleteComboBox.AutoCompleteComboBox;
+			
+			import flashx.textLayout.elements.TextFlow;
+			
+			import spark.components.supportClasses.TextBase;
+			import spark.utils.TextFlowUtil;
+
+			TextBase.mx_internal::truncationIndicatorResource = "...";
+			XML.ignoreWhitespace = false;
+			
+			[Bindable]
+			private var outXML:XML = <div><span textDecoration="underline" fontWeight="bold" ></span></div>;
+
+			override public function set data(value:Object):void
+			{
+				super.data = value;
+				var autoCompleteComboBox:AutoCompleteComboBox = this.owner as AutoCompleteComboBox;
+				var labelXML:String = autoCompleteComboBox.defaultDropDownLabelFunction(value);
+				this.outXML = new XML(labelXML);
+
+				/* var txtLineMetrics:TextLineMetrics = measureText(txtLabel.text);
+
+				if (txtLineMetrics.width > 175)
+				{
+					toolTip = txtLabel.text;
+				}
+				else
+				{
+					toolTip = "";
+				} */
+			}
+		]]>
+	</fx:Script>
+	<s:RichText id="txtLabel" textFlow="{TextFlowUtil.importFromXML(outXML, WhiteSpaceCollapse.PRESERVE)}"
+				width="{width}" maxDisplayedLines="1"
+				paddingTop="4" paddingRight="4"
+				paddingBottom="4" paddingLeft="4">
+		<fx:Script>
+			<![CDATA[
+				import flashx.textLayout.formats.WhiteSpaceCollapse;
+			]]>
+		</fx:Script>
+	</s:RichText>
+
+</s:ItemRenderer>

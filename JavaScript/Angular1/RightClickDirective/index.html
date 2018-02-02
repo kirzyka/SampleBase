@@ -1,0 +1,66 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  <title>Angular right-click directive - jsFiddle demo by bcaudan</title>
+    
+    
+      <script type='text/javascript' src="angular.min.js"></script>
+    
+  
+  <style type='text/css'>
+    .action {
+    cursor: pointer;
+    border: 1px solid black;
+    padding: 5px;
+}
+  </style>
+  
+</head>
+<body>
+  <div ng-app="myApp" ng-controller="MyCtrl">
+    Right click me: 
+    <span class="action" 
+          ng-click="increment()"
+          ng-right-click="decrement()">{{value}}</span>    
+</div>    
+  
+
+
+<script type='text/javascript'>//<![CDATA[ 
+
+var app = angular.module('myApp', []);
+
+app.controller('MyCtrl', ['$scope', '$http', function ($scope, $http) {
+/*function MyCtrl($scope) {*/
+    $scope.value = 50;
+    $scope.increment = function() {
+      $scope.value = $scope.value + 1;   
+    };
+    $scope.decrement = function() {
+      $scope.value = $scope.value - 1; 
+    };
+}]);
+
+app.directive('ngRightClick', function($parse) {
+    return function(scope, element, attrs) {
+        var fn = $parse(attrs.ngRightClick);
+        element.bind('contextmenu', function(event) {
+            scope.$apply(function() {
+                event.preventDefault();
+                fn(scope, {$event:event});
+            });
+        });
+    };
+});
+//]]>  
+
+</script>
+
+
+</body>
+
+
+</html>
+

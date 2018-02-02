@@ -1,0 +1,348 @@
+/* CSS file */
+BasePopupView
+{
+}
+/* Application
+{
+	background-image: Embed(source='assets/backgrounds.swf#bluestripe');
+
+}*/
+/*
+PlaceHolder
+{
+	paddingBottom: 0;
+	paddingTop: 0;
+	paddingLeft: 0;
+	paddingRight: 0;
+
+	verticalGap: 0;
+}
+*/
+
+/**
+ *    Application elements
+ */
+.BottomBarView
+{
+	padding-left:  16;
+	padding-right: 16;
+	vertical-align: middle;
+	background-image: Embed(source="/assets/assets.swf", symbol="BottomBarViewBackground");
+	backgroundSize: "100%";
+}
+
+.LoginTopView
+{
+	background-size:  "100%";
+	background-image: Embed(source="/assets/assets.swf", symbol="LoginTopViewBackground");
+	horizontal-align: right;
+	padding-right:    12;
+	padding-top:      3;
+	padding-bottom:   3;
+}
+
+.NagivationPlaceNameView
+{
+	padding-bottom:  5;
+	padding-left:    5;
+	padding-right:   10;
+	padding-top:     5;
+	
+	horizontal-gap:  10;
+	vertical-align:  middle;
+	background-size: "100%";
+	border-style:    none;
+	
+	background-image: Embed(source="/assets/assets.swf", symbol="NagivationPlaceNameBackground");
+}
+
+TitleWindow
+{
+	background-alpha : 0.8;
+	padding-bottom : 10;
+	padding-left : 10;
+	padding-right : 10;
+	padding-top : 10;
+	border-style: solid;
+	corner-radius: 0;
+}
+
+BasePopupView
+{
+	iconAdd:  Embed(source="/assets/assets.swf", symbol="AddPopupTitleIcon");
+	iconEdit: Embed(source="/assets/assets.swf", symbol="EditPopupTitleIcon");
+}
+
+Panel
+{
+	border-style : solid;
+	drop-shadow-enabled : false;
+}
+
+CollapsiblePanel
+{
+	openIcon:   Embed(source="/assets/icon/bullet_toggle_minus.png");
+	closedIcon: Embed(source="/assets/icon/bullet_toggle_plus.png");
+}
+
+.NavigationPlaceButton
+{
+	font-size: 14;
+	/*font-family: VerdanaEmbedded;
+	 font-family: "Akzidenz Grotesk BE Super"; */
+}
+
+.NavigationPlaceArrow
+{
+	font-size: 24;
+	/*font-family: VerdanaEmbedded;
+	 font-anti-alias-type : advanced;
+	/* font-family: "Akzidenz Grotesk BE Super"; */
+}
+
+.NavigationTabBarView
+{
+	/* font-family: "Akzidenz Grotesk BE Super"; 
+	font-family: VerdanaEmbedded;*/
+	font-size: 12;
+
+	tab-style-name: tabBarTab;
+	first-tab-style-name: firstBarTab;
+	last-tab-style-name: tabBarTab;
+
+	border-style: none;
+}
+
+.NavigationPlaceNameView
+{
+	/*font-family: VerdanaEmbedded;*/
+	font-size: 12;
+
+	paddingBottom: 5;
+	paddingTop: 5;
+	paddingLeft: 10;
+	paddingRight: 10;
+	horizontalGap: 0;
+
+	verticalAlign: middle;
+	border-style: none;
+}
+
+@font-face
+{
+	src: local("Verdana");
+    fontFamily: VerdanaEmbedded;
+    fontWeight: bold;
+}
+
+.tabBarTab
+{
+	up-skin: Embed(source="/assets/image/navigationTabBar/tabButtonSimple.png");
+	over-skin: Embed(source="/assets/image/navigationTabBar/tabButtonOver.png");
+	down-skin: Embed(source="/assets/image/navigationTabBar/tabButtonPressed.png");
+	disabled-skin: Embed(source="/assets/image/navigationTabBar/tabButtonDisabled.png");
+
+	selected-up-skin: Embed(source="/assets/image/navigationTabBar/tabButtonPressed.png");
+	selected-over-skin: Embed(source="/assets/image/navigationTabBar/tabButtonPressed.png");
+	selected-down-skin: Embed(source="/assets/image/navigationTabBar/tabButtonPressed.png");
+	selected-disabled-skin: Embed(source="/assets/image/navigationTabBar/tabButtonDisabled.png");
+
+	up-icon : Embed('/assets/image/navigationTabBar/tabButtonSimpleIcon.png');
+	over-icon : Embed('/assets/image/navigationTabBar/tabButtonOverIcon.png');
+	down-icon : null;
+
+
+	disabled-color : #78848A;
+	/* disabled-icon : Embed('assets/tabButtonSimpleIcon.png'); */
+
+}
+
+
+
+.firstBarTab
+{
+	up-skin: Embed(source="/assets/image/navigationTabBar/tabButtonFirstSimple.png");
+	over-skin: Embed(source="/assets/image/navigationTabBar/tabButtonFirstOver.png");
+	down-skin: Embed(source="/assets/image/navigationTabBar/tabButtonFirstPressed.png");
+	disabled-skin: Embed(source="/assets/image/navigationTabBar/tabButtonDisabled.png");
+
+	selected-up-skin: Embed(source="/assets/image/navigationTabBar/tabButtonFirstPressed.png");
+	selected-over-skin: Embed(source="/assets/image/navigationTabBar/tabButtonFirstPressed.png");
+	selected-down-skin: Embed(source="/assets/image/navigationTabBar/tabButtonFirstPressed.png");
+	selected-disabled-skin: Embed(source="/assets/image/navigationTabBar/tabButtonDisabled.png");
+
+	down-icon : null;
+}
+
+.GreenButton
+{
+
+   fillColors: #00cc66, #00cc66, #00ccff, #00ccff;
+
+}
+
+.LogOutButton
+{
+	highlight-alphas: 0.4, 0.4;
+	color : #333333;
+	text-roll-over-color : #808080;
+	text-selected-color : #000000;
+	font-size : 10;
+	
+	paddingTop: -1;
+}
+
+.OkButton
+{
+	padding-bottom : 0;
+	padding-left : 20;
+	padding-right : 20;
+	padding-top : 0;
+}
+
+/**
+ *  Style for button "FIRST" for Data Grid Pager.
+ */
+.FirstPagerButton
+{
+	disabledSkin: Embed(source="/assets/skin/ramada.swf", symbol="firstPager_disabledSkin");
+	downSkin: Embed(source="/assets/skin/ramada.swf", symbol="firstPager_downSkin");
+	overSkin: Embed(source="/assets/skin/ramada.swf", symbol="firstPager_overSkin");
+	upSkin: Embed(source="/assets/skin/ramada.swf", symbol="firstPager_upSkin");
+}
+
+.PrevPagerButton
+{
+	disabledSkin: Embed(source="/assets/skin/ramada.swf", symbol="prevPager_disabledSkin");
+	downSkin: Embed(source="/assets/skin/ramada.swf", symbol="prevPager_downSkin");
+	overSkin: Embed(source="/assets/skin/ramada.swf", symbol="prevPager_overSkin");
+	upSkin: Embed(source="/assets/skin/ramada.swf", symbol="prevPager_upSkin");
+}
+/**
+ *  Style for button "NEXT" for Data Grid Pager.
+ */
+.NextPagerButton
+{
+	disabledSkin: Embed(source="/assets/skin/ramada.swf", symbol="nextPager_disabledSkin");
+	downSkin: Embed(source="/assets/skin/ramada.swf", symbol="nextPager_downSkin");
+	overSkin: Embed(source="/assets/skin/ramada.swf", symbol="nextPager_overSkin");
+	upSkin: Embed(source="/assets/skin/ramada.swf", symbol="nextPager_upSkin");
+}
+/**
+ *  Style for button "LAST" for Data Grid Pager.
+ */
+.LastPagerButton
+{
+	disabledSkin: Embed(source="/assets/skin/ramada.swf", symbol="lastPager_disabledSkin");
+	downSkin: Embed(source="/assets/skin/ramada.swf", symbol="lastPager_downSkin");
+	overSkin: Embed(source="/assets/skin/ramada.swf", symbol="lastPager_overSkin");
+	upSkin: Embed(source="/assets/skin/ramada.swf", symbol="lastPager_upSkin");
+}
+
+/**
+ *  Style for button "CURRENT PAGE" for Data Grid Pager.
+ */
+.CurrentPagerButton
+{
+	color: #000000;
+}
+
+/**
+ *  Style for button "PAGE" for Data Grid Pager.
+ */
+.NumberPagerButton
+{
+	color: #00FF00;
+	text-decoration: underline;
+}
+
+PopUpWindow
+{
+	background-color: #999999;
+}
+
+
+/* AdvancedDataGrid
+{
+	folder-open-icon: Embed(source='assets/backgrounds.swf');
+	folder-closed-icon:Embed(source='assets/backgrounds.swf');
+	default-leaf-icon:Embed(source='assets/backgrounds.swf');
+} */
+
+.HeaderDataGrid
+{
+	text-align:center;
+}
+
+.reservationFirstColumnHeader
+{
+	color: green;
+    fontWeight: bold;
+}
+
+.reservationMiddleColumnHeader
+{
+	color: #ffa500; /*orange*/
+	fontWeight: bold;
+}
+
+.reservationLastColumnHeader
+{
+	color: red;
+    fontWeight: bold;
+}
+
+.reservationBlackCell
+{
+	color: black;
+	fontWeight: bold;
+}
+
+AdvancedDataGrid
+{
+	font-family: Arial;
+	font-size : 14;
+	headerStyleName: dataGridHeader;
+}
+DataGrid
+{
+	font-size : 14;
+	headerStyleName: dataGridHeader;
+	verticalGridLines: true;
+	horizontalGridLines: false;
+	verticalAlign: middle;
+}
+Button
+{
+	font-size : 13;
+	fontWeight: normal;
+}
+Label
+{
+	font-size : 12;
+}
+ComboBox
+{
+	font-size : 12;
+}
+TextInput
+{
+	font-size : 13;
+}
+
+.dataGridHeader
+{
+	fontWeight: bold;
+	fontSize: 10;
+	textAlign: center;
+}
+
+ToolTip
+{
+	paddingLeft: 4;
+}
+
+AdvancedTab
+{
+	label-placement: left;
+}

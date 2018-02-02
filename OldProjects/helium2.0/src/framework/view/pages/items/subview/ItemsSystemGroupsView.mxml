@@ -1,0 +1,446 @@
+<?xml version="1.0" encoding="utf-8"?>
+<view:VSubWindow
+	xmlns:view="framework.core.view.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:control="h2olib.control.*"
+	creationComplete="handleInit()">
+	
+	<mx:Script>
+		<![CDATA[
+			import com.adobe.cairngorm.control.CairngormEvent;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			
+			import services.business.items.ItemsDelegate;
+			import services.controller.AppController;
+			import services.events.IBaseEvent;
+			import services.events.items.itemGroups.ApplySystemGroupsToHotelEvent;
+			import services.events.items.itemGroups.DeleteHotelGroupEvent;
+			import services.events.items.itemGroups.DeleteHotelSubGroupEvent;
+			import services.events.items.itemGroups.DeleteSystemGroupEvent;
+			import services.events.items.itemGroups.DeleteSystemSubGroupEvent;
+			import services.events.items.itemGroups.GetHotelItemsGroupsEvent;
+			import services.events.items.itemGroups.GetSystemGroupsListEvent;
+			import framework.managers.PopUpManagerExt;
+			import framework.core.utils.UtilsMXML;
+			import framework.view.pages.items.events.ItemGroupEvent;
+			import framework.view.pages.items.popups.itemGroups.EditSubGroupPopupView;
+			import framework.view.pages.items.popups.itemGroups.EditMainGroupPopupView;
+			import framework.view.pages.items.popups.itemGroups.SaveCommonGroupPopupView;
+			import framework.view.pages.items.render.SystemSubItemGroupRenderer;
+			import framework.view.pages.items.render.SystemItemGroupRenderer;
+			import framework.view.components.popups.DeletePopupView;
+			import framework.view.components.popups.events.PopupEvent;
+			import services.vo.GlobalSettings;
+			import services.vo.items.ItemsGroupVO;
+			import services.vo.hotels.HotelInfoTotalVO;
+			
+			import mx.collections.ArrayCollection;
+			import mx.core.IFlexDisplayObject;
+			import mx.managers.PopUpManagerChildList;
+			
+			// ================================================================= //
+			//                           CONSTANTS                               //
+			// ================================================================= //
+			private const DEFAULT_COLOR:uint = 0x7FCDFE;
+			private const SELECTED_COLOR:uint = 0x0099ff;
+			
+			// ================================================================= //
+			//                           VARIABLES                               //
+			// ================================================================= //
+			[Bindable]
+			/**
+			 *  This property contain state of focus for system groups and sub groups.
+			 *  If value is <code>true</code>, than focus set to main system group,
+			 *  otherwice - focus set to system sub group.
+			 *  
+			 *  @default true
+			 */
+			private var isSystemMainGroup:Boolean = true;
+			/**
+			 *  This property contain state of focus for hotel groups and sub groups.
+			 *  If value is <code>true</code>, than focus set to main hotel group,
+			 *  otherwice - focus set to hotel sub group.
+			 *  
+			 *  @default true
+			 */
+			private var isHotelmMainGroup:Boolean = true;
+			/**
+			 *  This property contain id of previous selected hotel when user was into
+			 *  this page.
+			 *  
+			 *  @default -1
+			 */
+			private var prevHotelId:Number = -1;
+			
+			// ==================================================================== //
+			//                   OVERRIDE FUNCTIONS AND HANDLERS                    //
+			// ==================================================================== //
+			/**
+			 *  @override
+			 *  Update handler when the page is show again.
+			 */
+			override public function update():void
+			{
+				var event:IBaseEvent;
+				var hotelId:int = model.hotelsModule.hotelTotalInfo.iHotelId;
+				// check possible to make request to server for get system groups
+				event = new GetSystemGroupsListEvent(ItemsDelegate.GET_SYSTEM_GROUPS);
+				CairngormEventDispatcher.getInstance().dispatchEvent(event as CairngormEvent);
+				
+				if (prevHotelId != hotelId)
+				{
+					// clear previous data for hotels
+					model.transactionModule.hotelGroupsList.removeAll();
+					// check possible to make request to server for get hotel groups
+					event = new GetHotelItemsGroupsEvent(ItemsDelegate.GET_HOTEL_GROUPS);
+					(event as GetHotelItemsGroupsEvent).hotelId = hotelId;
+					CairngormEventDispatcher.getInstance().dispatchEvent(event as CairngormEvent);
+					// save current hotel id as previous
+					prevHotelId = hotelId;
+				}
+				
+				if (cmbHotelChooser)
+				{
+					cmbHotelChooser.setItemByField("iHotelId", prevHotelId);
+				}
+			}
+			// ==================================================================== //
+			//                     COMMON FUNCTIONS FOR MODULE                      //
+			// ==================================================================== //
+			/**
+			 *  The handle to init view of configuration system and hotel group.
+			 *  
+			 *  @see services.events.items.itemGroups.GetSystemGroupsListEvent
+			 *  @see services.events.items.itemGroups.GetHotelItemsGroupsEvent
+			 */
+			private function handleInit():void
+			{
+				lstSystemMainGroup.addEventListener(ItemGroupEvent.ITEM_GROUP_SELECTED, handleCheckSystemMainGroup);
+				lstSystemSubGroup.addEventListener(ItemGroupEvent.ITEM_GROUP_SELECTED, handleCheckSystemSubGroup);
+				
+				cmbHotelChooser.setItemByField("iHotelId", prevHotelId);
+			}
+			
+			// ==================================================================== //
+			//              HANDLERS AND FUNCTIONS FOR SYSTEM GROUPS                //
+			// ==================================================================== //
+			/**
+			 *  The handler to check|uncheck item in the system main items group.
+			 *  <p>If item is selected (checked) - all sub item of current selected
+			 *  item will be selected. In otherwice - are not selected.
+			 *  
+			 *  @param e:SystemItemGroupEvent
+			 */
+			private function handleCheckSystemMainGroup(e:ItemGroupEvent):void
+			{
+				var provider:ArrayCollection = lstSystemSubGroup.dataProvider as ArrayCollection;
+				for each(var item:ItemsGroupVO in provider)
+				{
+					item.bSelected = e.isSelected;
+				}
+				/// apply changes
+				provider.refresh();
+			}
+			
+			/**
+			 *  The handler to check|uncheck item in the system sub items group.
+			 *  <p>Check selecting state for all sub items. If some items are
+			 *  selected, then item in the system main group will be selected.
+			 *  If any items are not selected - main item will be clear. 
+			 *  
+			 *  @param e:SystemItemGroupEvent
+			 */
+			private function handleCheckSystemSubGroup(e:ItemGroupEvent):void
+			{
+				var selected:int = 0;
+				var provider:ArrayCollection = lstSystemSubGroup.dataProvider as ArrayCollection;
+				for each(var item:ItemsGroupVO in provider)
+				{
+					selected += int(item.bSelected);
+				}
+				/// update item in the system main group by his sub items 
+				model.transactionModule.systemGroupsList.getItemAt(lstSystemMainGroup.selectedIndex).bSelected = (selected != 0);
+				model.transactionModule.systemGroupsList.refresh();
+			}
+			/**
+			 *  The handler for select and set focus to system main group.
+			 */
+			private function handleSelectMainGroup():void
+			{
+				isSystemMainGroup = true;
+				
+				lstSystemMainGroup.setStyle("selectionColor", SELECTED_COLOR);
+				lstSystemSubGroup.setStyle("selectionColor", DEFAULT_COLOR);
+			}
+			/**
+			 *  The handler for select and set focus to system sub group.
+			 */
+			private function handleSelectSubGroup():void
+			{
+				isSystemMainGroup = false;
+				
+				lstSystemMainGroup.setStyle("selectionColor", DEFAULT_COLOR);
+				lstSystemSubGroup.setStyle("selectionColor", SELECTED_COLOR);
+			}
+			/**
+			 *  Try to add new main or sub group into system accordingly group by
+			 *  selection of the list (main or sub group)
+			 *  <p>Throw popup for adding new group.
+			 */
+			private function addSystemItemGroup():void
+			{
+				var pop:SaveCommonGroupPopupView = PopUpManagerExt.createPopUp(model.owner, SaveCommonGroupPopupView) as SaveCommonGroupPopupView;
+				pop.indexMainGroup = lstSystemMainGroup.selectedIndex;
+				pop.isMainGroup = isSystemMainGroup;
+				pop.callBack = updateGroups;
+			}
+			/**
+			 *  Edit system main or sub group by current activity system group.
+			 *  <p>Edit current selected item of sstem activity group (main or
+			 *  sub).
+			 *  
+			 *  @param e:MouseEvent
+			 */
+			private function editSystemItemGroup(e:MouseEvent):void
+			{
+				var pop:IFlexDisplayObject;
+				
+				if (isSystemMainGroup)
+				{
+					pop = PopUpManagerExt.createPopUp(this, EditMainGroupPopupView);
+					(pop as EditMainGroupPopupView).data = lstSystemMainGroup.selectedItem as ItemsGroupVO;
+					(pop as EditMainGroupPopupView).selectedIndex = lstSystemMainGroup.selectedIndex;
+				}
+				else
+				{
+					pop = PopUpManagerExt.createPopUp(this, EditSubGroupPopupView);
+					(pop as EditSubGroupPopupView).cmbMainGroupNames.dataProvider = lstSystemMainGroup.dataProvider;
+					(pop as EditSubGroupPopupView).cmbMainGroupNames.selectedIndex = lstSystemMainGroup.selectedIndex;
+					(pop as EditSubGroupPopupView).data = lstSystemSubGroup.selectedItem as ItemsGroupVO;
+					(pop as EditSubGroupPopupView).selectedIndex = lstSystemSubGroup.selectedIndex;
+				}
+			}
+			/**
+			 *  The handler for trying to remove selected item in system sub
+			 *  or main group.
+			 *  <p>Check selected item in the list and remove selected item
+			 *  by confirmation popup.
+			 *  
+			 *  @param e:MouseEvent
+			 */
+			private function removeSystemItemGroup(e:MouseEvent):void
+			{
+				var pop:DeletePopupView = PopUpManagerExt.createPopUp(this, DeletePopupView) as DeletePopupView;
+				
+				if (isSystemMainGroup)
+				{
+					pop.title = model.locale.Items_Groups_Popups_DeleteMainGroup_Title;
+					pop.description = model.locale.Items_Groups_Popups_DeleteMainGroup_Description;
+					pop.subDescription = model.locale.Items_Groups_Popups_DeleteMainGroup_SubDescription;
+					pop.addEventListener(PopupEvent.DELETE_HANDLER, tryDeleteMainGroup);
+				}
+				else
+				{
+					pop.title = model.locale.Items_Groups_Popups_DeleteSubGroup_Title;
+					pop.description = model.locale.Items_Groups_Popups_DeleteSubGroup_Description;
+					pop.subDescription = model.locale.Items_Groups_Popups_DeleteSubGroup_SubDescription
+					pop.addEventListener(PopupEvent.DELETE_HANDLER, tryDeleteSubGroup);
+				}
+			}
+			
+			private function tryDeleteMainGroup(e:PopupEvent):void
+			{
+				(e.target as DeletePopupView).removeEventListener(PopupEvent.DELETE_HANDLER, tryDeleteMainGroup);
+				
+				var event:DeleteSystemGroupEvent = new DeleteSystemGroupEvent(ItemsDelegate.DELETE_SYSTEM_GROUP);
+				event.groupId = (lstSystemMainGroup.selectedItem as ItemsGroupVO).lId;
+				event.groupIndex = lstSystemMainGroup.selectedIndex;
+				event.callBack = (e.target as DeletePopupView).completeCall;
+				CairngormEventDispatcher.getInstance().dispatchEvent(event);
+			}
+			
+			private function tryDeleteSubGroup(e:PopupEvent):void
+			{
+				(e.target as DeletePopupView).removeEventListener(PopupEvent.DELETE_HANDLER, tryDeleteMainGroup);
+				
+				var event:DeleteSystemSubGroupEvent = new DeleteSystemSubGroupEvent(ItemsDelegate.DELETE_SYSTEM_SUB_GROUP);
+				event.subGroupId = (lstSystemSubGroup.selectedItem as ItemsGroupVO).lId;
+				event.subGroupIndex = lstSystemSubGroup.selectedIndex;
+				event.groupIndex = lstSystemMainGroup.selectedIndex;
+				event.callBack = (e.target as DeletePopupView).completeCall;
+				CairngormEventDispatcher.getInstance().dispatchEvent(event);
+			}
+			// ====================================================================
+			//              HANDLERS AND FUNCTIONS FOR HOTEL GROUPS                
+			// ====================================================================
+			/**
+			 *  The handler for apply selected system groups to current active
+			 *  hotel.
+			 */
+			private function handleGroupMove():void
+			{
+				var groups:Array = [];
+				var system:ArrayCollection = model.transactionModule.systemGroupsList;
+				
+				for each(var item:ItemsGroupVO in system)
+				{
+					var newItem:ItemsGroupVO = item.clone() as ItemsGroupVO;
+					if (item.bSelected)
+					{
+						newItem.aSubGroups = [];
+						
+						var subGroups:Array = (item.aSubGroups != null) ? item.aSubGroups : [];
+						for each(var subitem:ItemsGroupVO in subGroups)
+						{
+							if (subitem.bSelected)
+							{
+								newItem.aSubGroups.push(subitem);
+							}
+						}
+						
+						groups.push(newItem);
+					}
+				}
+				
+				// call remote function for apply new groups on the server
+				var event:ApplySystemGroupsToHotelEvent = new ApplySystemGroupsToHotelEvent(ItemsDelegate.APPLY_SYSTEM_GROUPS_TO_HOTEL);
+				event.sysGroups = groups;
+				event.hotelId = (cmbHotelChooser.selectedItem as HotelInfoTotalVO).iHotelId;
+				CairngormEventDispatcher.getInstance().dispatchEvent(event);
+			}
+			/**
+			 *  The handler for remove selected hotel main|sub groups from
+			 *  current active hotel.
+			 */
+			private function handleGroupBack():void
+			{
+				var event:IBaseEvent;
+				
+				if (isHotelmMainGroup)
+				{
+					event = new DeleteHotelGroupEvent(ItemsDelegate.DELETE_HOTEL_GROUP);
+					(event as DeleteHotelGroupEvent).groupId = (lstHotelMainGroup.selectedItem as ItemsGroupVO).lId;
+					(event as DeleteHotelGroupEvent).groupIndex = lstHotelMainGroup.selectedIndex;
+				}
+				else
+				{
+					event = new DeleteHotelSubGroupEvent(ItemsDelegate.DELETE_HOTEL_SUB_GROUP);
+					(event as DeleteHotelSubGroupEvent).subGroupId = (lstHotelSubGroup.selectedItem as ItemsGroupVO).lId;
+					(event as DeleteHotelSubGroupEvent).groupIndex = lstHotelMainGroup.selectedIndex;
+					(event as DeleteHotelSubGroupEvent).subGroupIndex = lstHotelSubGroup.selectedIndex;
+					(event as DeleteHotelSubGroupEvent).callBack = updateGroups;
+				}
+				
+				CairngormEventDispatcher.getInstance().dispatchEvent(event as CairngormEvent);
+			}
+			
+			private function updateGroups():void
+			{
+				// update system groups and sub groups
+				lstSystemSubGroup.dataProvider = (lstSystemMainGroup.selectedItem as ItemsGroupVO).aSubGroups
+				lstSystemSubGroup.dataProvider.refresh();
+				// update hotel groups and sub groups
+				lstHotelSubGroup.dataProvider = (lstHotelMainGroup.selectedItem as ItemsGroupVO).aSubGroups;
+				lstHotelSubGroup.dataProvider.refresh();
+			}
+			
+			private function handleGetHotelGroup():void
+			{
+				var event:GetHotelItemsGroupsEvent = new GetHotelItemsGroupsEvent(ItemsDelegate.GET_HOTEL_GROUPS);
+				event.hotelId = (cmbHotelChooser.selectedItem as HotelInfoTotalVO).iHotelId;
+				CairngormEventDispatcher.getInstance().dispatchEvent(event);
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:HBox width="100%" height="100%" verticalAlign="middle">
+		<!--
+			Block with system groups and subgroups.
+		  -->
+		<mx:VBox
+			width="100%" height="100%">
+			<mx:HBox width="100%" height="22" verticalAlign="middle">
+				<mx:Label
+					fontWeight="bold"
+					text="{model.locale.Items_Groups_SystemPanel_Title}"
+					width="100%"/>
+			</mx:HBox>
+			
+			<mx:HBox width="100%" height="100%">
+				<mx:List id="lstSystemMainGroup"
+					itemRenderer="{new ClassFactory(SystemItemGroupRenderer)}"
+					dataProvider="{model.transactionModule.systemGroupsList}"
+					itemClick="handleSelectMainGroup()"
+					width="100%" height="100%"/>
+				<mx:List id="lstSystemSubGroup"
+					itemRenderer="{new ClassFactory(SystemSubItemGroupRenderer)}"
+					dataProvider="{ItemsGroupVO(lstSystemMainGroup.selectedItem).aSubGroups}"
+					itemClick="handleSelectSubGroup()"
+					width="100%" height="100%"/>
+			</mx:HBox>
+		</mx:VBox>
+		
+		<mx:VBox>
+			<mx:Button
+				label="->"
+				enabled="{UtilsMXML.and(lstSystemMainGroup.selectedItem,
+					cmbHotelChooser.selectedItem)}"
+				click="handleGroupMove()"
+				width="40"/>
+			<mx:Button
+				label="&lt;-"
+				enabled="{lstHotelMainGroup.selectedItem || lstHotelSubGroup.selectedItem}"
+				click="handleGroupBack()"
+				width="40"/>
+		</mx:VBox>
+		<!--
+			Hotel block with his groups and subgroups.
+		  -->
+		<mx:VBox
+			width="100%" height="100%">
+			<control:ComboBoxEx id="cmbHotelChooser"
+				prompt="Choose hotel"
+				enabled="{cmbHotelChooser.dataProvider.length != 0}"
+				dataProvider="{model.hotelsModule.hotels}"
+				labelField="sHotelName"
+				change="handleGetHotelGroup()"
+				height="24"/>
+			<mx:HBox width="100%" height="100%">
+				<mx:List id="lstHotelMainGroup"
+					labelField="sName"
+					dataProvider="{model.transactionModule.hotelGroupsList}"
+					itemClick="{isHotelmMainGroup = true;}"
+					width="100%" height="100%"/>
+				<mx:List id="lstHotelSubGroup"
+					labelField="sName"
+					dataProvider="{ItemsGroupVO(lstHotelMainGroup.selectedItem).aSubGroups}"
+					itemClick="{isHotelmMainGroup = false;}"
+					width="100%" height="100%"/>
+			</mx:HBox>
+		</mx:VBox>
+	</mx:HBox>
+	<!--
+		Control panel for system items group. It contain:
+			- add new item to main|sub group;
+			- edit selected item from main|sub group;
+			- selete selected item from main|sub group.
+	  -->
+	<mx:HBox width="100%">
+		<mx:Button
+			label="{model.locale.Global_Button_Add}"
+			click="addSystemItemGroup()"
+			width="{GlobalSettings.BUTTON_WIDTH_APPLY}"/>
+		<mx:Button
+			label="{model.locale.Global_Button_Edit}"
+			click="editSystemItemGroup(event)"
+			enabled="{(UtilsMXML.and(lstSystemMainGroup.selectedItem, isSystemMainGroup)) ||
+				(UtilsMXML.and(lstSystemSubGroup.selectedItem, !isSystemMainGroup))}"
+			width="{GlobalSettings.BUTTON_WIDTH_APPLY}"/>
+		<mx:Button
+			label="{model.locale.Global_Button_Delete}"
+			click="removeSystemItemGroup(event)"
+			enabled="{(UtilsMXML.and(lstSystemMainGroup.selectedItem, isSystemMainGroup)) ||
+				(UtilsMXML.and(lstSystemSubGroup.selectedItem, !isSystemMainGroup))}"
+			width="{GlobalSettings.BUTTON_WIDTH_APPLY}"/>
+	</mx:HBox>
+</view:VSubWindow>

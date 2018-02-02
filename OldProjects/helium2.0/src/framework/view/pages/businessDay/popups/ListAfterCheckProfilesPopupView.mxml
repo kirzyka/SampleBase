@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<popup:BasePopupView
+	xmlns:popup="framework.view.components.popups.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:control="framework.view.pages.checkOut.control.*"
+
+	title="Fill these profiles" width="500" height="250">
+	
+	<mx:Script>
+		<![CDATA[
+			import mx.managers.PopUpManager;
+			import services.vo.profiles.ProfilePersonalVO;
+			import mx.core.IFlexDisplayObject;
+			import mx.managers.PopUpManagerChildList;
+			import framework.managers.PopUpManagerExt;
+			import mx.events.ListEvent;
+			import framework.view.pages.profiles.popups.individual.SaveIndividualProfilePopupView;
+			import services.events.BDC.PostTransactionsEvent;
+			import framework.model.AppModelLocator;
+			import services.events.BDC.CheckProfilesEvent;
+			import mx.controls.dataGridClasses.DataGridColumn;
+			import mx.events.ValidationResultEvent;
+			import framework.core.utils.UtilsMXML;
+			import mx.collections.ArrayCollection;
+			import framework.view.pages.checkOut.data.PaymentData;
+			import services.vo.checkOut.itemRouting.PaymentVO;
+			import services.vo.checkOut.itemRouting.PersonalPaymentVO;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.business.checkOut.CheckOutDelegate;
+			import services.vo.GlobalSettings;	
+			
+			/**
+			 *  The handle to open popup for edit selected profile into the system.
+			 */
+			private function openEditProfilePopup(evt:MouseEvent):void
+			{	
+			 	var pop:IFlexDisplayObject = PopUpManagerExt.createPopUp(this, SaveIndividualProfilePopupView);
+				(pop as SaveIndividualProfilePopupView).data = myListProfiles.selectedItem;
+				(pop as SaveIndividualProfilePopupView).selectedIndex = -1;
+				(pop as SaveIndividualProfilePopupView).callBack = checkList; 				
+			}			
+			
+			/**
+			 * Check list 
+			 */ 
+			private function checkList():void
+			{
+				model.BDCModule.listProfiles.splice(myListProfiles.selectedIndex, 1);	
+				myListProfiles.dataProvider.refresh();
+				if (model.BDCModule.listProfiles.length == 0)
+				{
+					PopUpManager.removePopUp(this);
+					var pop2:DoubleSecurityPopupView = PopUpManagerExt.createPopUp(this, DoubleSecurityPopupView) as DoubleSecurityPopupView;
+					pop2.callBack = callBack;
+				}
+			}
+			
+			/**
+			 * Label function of profile personal
+			 */ 
+			private function labelProfilePersonal(item:ProfilePersonalVO):String
+			{
+				var tempStr:String = '';
+				if (item.sName)
+				{
+					tempStr = item.sName + ' ';
+				}
+				return tempStr + item.sSurname;
+			} 
+		]]>
+	</mx:Script>
+	<mx:List id="myListProfiles" 
+		dataProvider="{model.BDCModule.listProfiles}" 
+		width="100%" height="100%" 
+		doubleClickEnabled="true" 
+		doubleClick="{openEditProfilePopup(event)}" 
+		labelFunction="labelProfilePersonal"/>
+</popup:BasePopupView>

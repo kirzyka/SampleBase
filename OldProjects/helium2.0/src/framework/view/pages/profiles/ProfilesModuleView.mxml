@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<BaseWindow
+	xmlns="framework.core.view.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:items="framework.view.pages.items.*"
+	xmlns:tabnav="h2olib.control.advancedTabNavigator.*"
+	xmlns:profiles="framework.view.pages.profiles.*"
+	xmlns:subview="framework.view.pages.profiles.subview.*"
+	verticalScrollPolicy="off" horizontalScrollPolicy="off" styleName="PageBigWithTopPadding">
+	
+	<mx:Script>
+		<![CDATA[
+			import framework.core.view.VSubWindow;
+			import mx.core.Container;
+			import framework.model.AppModelLocator;
+			
+			// ================================================================= //
+			//                        COMMON METHODS                             //
+			// ================================================================= //
+			/**
+			 *  Initialize all view for profiles module.
+			 */
+			override public function show():void
+			{
+				// get titles for pages in profile module
+				for (var i:int = 0; i < navProfiles.numChildren; i++)
+				{
+					var tab:VSubWindow = navProfiles.getChildAt(i) as VSubWindow;
+					if (tab)
+					{
+						model.profilesModule.pageNames[i] = tab.label;
+					}
+				}				
+			}
+									
+			override public function update():void
+			{
+				updateTabContent();
+			}
+			
+			/**
+			 *  Update handler for change tab. If index of tab navigator is changed
+			 *  update or reresh data in current selected tab.
+			 *  
+			 *  @param e:Event
+			 */
+			private function updateTabContent():void
+			{
+				model.profilesModule.currPage = navProfiles.selectedIndex;
+				// selected tab is individual profiles
+				if (navProfiles.selectedChild is VSubWindow)
+				{
+					(navProfiles.selectedChild as VSubWindow).update();
+				}
+			}
+		]]>
+	</mx:Script>
+	
+	<tabnav:AdvancedTabNavigator id="navProfiles"
+		tabPosition="leftTop"
+		tabWidth="140"
+		change="updateTabContent()"
+		width="100%" height="100%" styleName="verticalTabNavigator">
+		<subview:ProfilesIndividualView id="profilesIndividualView"/>
+		<subview:ProfilesCompanyView id="profilesCompanyView"/>
+		<subview:ProfilesTAView id="profilesTAView"/>
+	</tabnav:AdvancedTabNavigator>
+</BaseWindow>

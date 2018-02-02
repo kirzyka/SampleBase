@@ -1,0 +1,631 @@
+<?xml version="1.0" encoding="utf-8"?>
+<VSubWindow xmlns:mx="http://www.adobe.com/2006/mxml"	
+	show="{handleInit()}"
+	width="400" height="100%" 
+	xmlns="framework.core.view.*"
+	xmlns:components="framework.view.components.*"
+	xmlns:pager="h2olib.control.pager.*" xmlns:dataGrid="h2olib.control.itemRenderer.dataGrid.*">
+	
+	<mx:Script>
+		<![CDATA[
+			import framework.view.pages.rates.companyRates.subview.SaveCompanyRatePopupView;
+			import framework.view.pages.rates.companyRates.subview.TransactionsSplittingCompanyRatePopupView;
+			import h2olib.control.enum.MessageKind;
+			import h2olib.control.enum.MessageShowType;
+			import services.events.MsgEvent;
+			import framework.core.utils.UtilsGolobal;
+			import services.vo.rates.companyRates.CompanyPricesVO;
+			import services.vo.rates.companyRates.CompanyRateGroupVO;
+			import mx.controls.dataGridClasses.DataGridColumn;
+			import framework.view.pages.profiles.events.CompanyEvent;
+			import framework.view.common.popups.ChooseCompanyPopupView;
+			import services.vo.backend.RoomTypeRowVO;
+			import services.vo.items.HotelItemVO;
+			import services.vo.backend.RoomQualityObjectVO;
+			import services.business.profiles.ProfileDelegate;
+			import mx.collections.ArrayCollection;
+			import framework.core.utils.UtilsMXML;
+			import framework.view.components.popups.events.PopupEvent;
+			import framework.view.components.popups.DeletePopupView;
+			import mx.managers.PopUpManagerChildList;
+			import services.vo.hotels.HotelInfoTotalVO;
+			import services.vo.profiles.CompanyProfileViewVO;
+			import services.events.profiles.company.GetCompanyListEvent;
+			import mx.controls.Alert;
+			import h2olib.control.Confirmation;
+			import mx.events.CloseEvent;
+			import services.events.rates.companyRates.DeleteCompanyRateEvent;
+			import services.vo.GlobalImageAssets;
+			import services.events.rates.companyRates.GetCompanyRatesPageEvent;
+			import services.events.rates.companyRates.GetCompanyRatesCountEvent;
+			import services.vo.GlobalStorage;
+			import flash.utils.setTimeout;
+			import framework.view.pages.rates.companyRates.events.SelectHotelClickEvent;
+			import services.vo.backend.RoomTypesObjectVO;
+			import services.vo.GlobalSettings;
+			import h2olib.control.pager.event.PagerEvent;
+			import mx.binding.utils.ChangeWatcher;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.controller.AppController;
+			import services.events.backend.GetHotelCommonRoomTypesEvent;
+			import services.command.backend.GetHotelCommonRoomTypesCommand;
+			import framework.view.pages.rates.companyRates.renderer.HotelCheckItemRendererView;
+			import framework.managers.PopUpManagerExt;
+			import framework.model.AppModelLocator;
+			import services.vo.GlobalFunctions;
+
+			[Bindable]
+			/**
+			 *  This proeprty is current choosed company.
+			 *
+			 *  @default new CompanyProfileViewVO()
+			 *
+			 *  @see services.vo.profiles.CompanyProfileViewVO
+			 */
+			private var company:CompanyProfileViewVO = new CompanyProfileViewVO();
+
+			private var hotelIdArray:Array = new Array();
+			[Bindable]
+			private var selectRoomType:int = 0;
+			[Bindable]
+			private var hotelsCopy:ArrayCollection = new ArrayCollection();
+
+			 [Bindable]
+			public var visibleRowCount:int;
+
+
+			public function handleInit():void
+			{
+				hotels.dataProvider = createHotelList();
+ 				handleGetRoomType();
+			}
+
+			private function createHotelList():ArrayCollection
+			{
+				hotelsCopy = UtilsGolobal.clone(model.hotelsModule.hotels) as ArrayCollection;
+				var allHotels:HotelInfoTotalVO = new HotelInfoTotalVO();
+				allHotels.sHotelName = 'All Hotels';
+				allHotels.bIsSelected = true;
+				allHotels.iHotelId = 0;
+				hotelsCopy.addItemAt(allHotels, 0);
+				return 	hotelsCopy;
+			}
+			
+			private function fillHotelsIdList():void
+			{
+				hotelIdArray = [];
+				if (hotels.selectedIndex == 0)
+				{
+					for (var i:int = 1; i < hotels.dataProvider.length; i++)
+					{
+						var temp:HotelInfoTotalVO = (hotels.dataProvider as ArrayCollection).getItemAt(i) as HotelInfoTotalVO;
+						hotelIdArray.push(temp.iHotelId);
+					}
+				}
+				else
+				{
+					hotelIdArray.push((hotels.selectedItem as HotelInfoTotalVO).iHotelId);
+				}
+			}
+			
+			/**
+			 * Calculate visible rows
+			 */
+			private function calculateVisibleRows():void
+			{
+				if (rateList)
+				{
+					visibleRowCount = Math.round((rateList.height - rateList.headerHeight - 16) / rateList.rowHeight);
+				}
+			}
+
+			/**
+			 * Select first item and get other information
+			 */
+			private function setFirstItemInCompany():void
+			{
+				hotelIdArray = [];
+
+				fillHotelsIdList();
+				var evtRT:GetHotelCommonRoomTypesEvent = new GetHotelCommonRoomTypesEvent(AppController.GET_HOTEL_COMMON_ROOM_TYPES);
+				evtRT.hotelIds = hotelIdArray;
+				CairngormEventDispatcher.getInstance().dispatchEvent( evtRT );
+
+				updateCount();
+
+				var evt:GetCompanyRatesPageEvent = new GetCompanyRatesPageEvent(AppController.RATES_COMPANY_GET_PAGE_EVENT);
+				evt.requestCompany.aHotelIds = hotelIdArray;
+				evt.requestCompany.iCompanyId = company.lMainId;
+				if (roomTypes.selectedIndex != -1)
+				{
+					evt.requestCompany.iRoomQualityId = (roomTypes.selectedItem as RoomQualityObjectVO).lQualityId;
+					evt.count = GlobalSettings.RATES_PAGE_COUNT;
+					evt.page = 1;
+					CairngormEventDispatcher.getInstance().dispatchEvent( evt );
+				}
+			}
+
+			/**
+			 * Create or update list of rates in data grid
+			 */
+			private function updateRatesList():void
+			{
+				updateCount();
+
+				var evt:GetCompanyRatesPageEvent = new GetCompanyRatesPageEvent(AppController.RATES_COMPANY_GET_PAGE_EVENT);
+				evt.requestCompany.aHotelIds = hotelIdArray;
+				evt.requestCompany.iCompanyId = company.lMainId;
+				if (roomTypes.selectedIndex != -1 && roomTypes.selectedItem != null)
+					evt.requestCompany.iRoomQualityId = (roomTypes.selectedItem as RoomQualityObjectVO).lQualityId;
+				else
+					evt.requestCompany.iRoomQualityId  = 0;
+				evt.count = visibleRowCount;
+				evt.page = pager.selectedPage + 1;
+				CairngormEventDispatcher.getInstance().dispatchEvent( evt );
+			}
+
+		 	private function updateCount():void
+			{
+				var evtCount:GetCompanyRatesCountEvent = new GetCompanyRatesCountEvent(AppController.RATES_COMPANY_GET_COUNT_EVENT);
+				evtCount.requestCompany.aHotelIds = hotelIdArray;
+				evtCount.requestCompany.iCompanyId = company.lMainId;
+				evtCount.callBack = readyCount;
+				if (roomTypes.selectedIndex != -1 && roomTypes.selectedItem != null)
+				{
+					evtCount.requestCompany.iRoomQualityId = (roomTypes.selectedItem as RoomQualityObjectVO).lQualityId;
+					selectRoomType = roomTypes.selectedIndex;
+				}
+				else
+					evtCount.requestCompany.iRoomQualityId  = 0;
+				CairngormEventDispatcher.getInstance().dispatchEvent( evtCount );
+			}
+
+			/**
+			 * Get count of rates
+			 */
+			private function readyCount():void
+			{
+ 				pager.count = model.ratesModule.countCompanyRates;
+			}
+
+			/**
+			 * Get common room Types from selected hotels
+			 */
+			 private function handleGetRoomType():void
+			{
+				fillHotelsIdList();
+				var evt:GetHotelCommonRoomTypesEvent = new GetHotelCommonRoomTypesEvent(AppController.GET_HOTEL_COMMON_ROOM_TYPES);
+				if ((hotels.selectedItem as HotelInfoTotalVO).iHotelId == 0)
+				{
+					for (var i:int = 1; i < hotelsCopy.length; i++)
+					{
+						evt.hotelIds.push((hotelsCopy.getItemAt(i) as HotelInfoTotalVO).iHotelId);
+					}
+				}
+				else
+				evt.hotelIds = [(hotels.selectedItem as HotelInfoTotalVO).iHotelId];//hotelIdArray;
+
+				evt.callBack = getDPForRT;
+				CairngormEventDispatcher.getInstance().dispatchEvent( evt );
+			}
+			
+			/**
+			 * Create Data Provide for room type list with "all"
+			 * @return room type list
+			 */
+			
+			private function getDPForRT():void
+			{
+				//copy and add all
+
+				var rtList:ArrayCollection = UtilsGolobal.clone(model.roomTypesModule.roomTypesForRates) as ArrayCollection;
+
+				if (rtList.length != 0)
+				{
+					var allItem:RoomQualityObjectVO = new RoomQualityObjectVO();
+					allItem.lQualityId = 0;
+					allItem.sQualityName = "All";
+					rtList.addItemAt(allItem, 0);
+					add_New_Rate.enabled = true;
+				}
+				else
+				{
+					add_New_Rate.enabled = false;
+				}
+				
+				//////////////////
+				roomTypes.dataProvider = rtList;
+				if (roomTypes.dataProvider.length == 0)
+				{
+					model.ratesModule.ratesData.removeAll();
+				}
+				else
+				{
+					updateRatesList();
+				}
+			}
+			
+			/** 
+			 * create PopUp for add company rate or notification "Select company for add"
+			 */
+			private function handleAdd():void
+			{
+				if (!company.lMainId)
+				{
+					var event:MsgEvent = new MsgEvent(	MessageKind.WARNING,
+														"Notification",
+														"Please, select company",
+														MessageShowType.UNKNOWN);
+					CairngormEventDispatcher.getInstance().dispatchEvent(event);
+				}
+				else
+				{					
+					var pop:SaveCompanyRatePopupView = PopUpManagerExt.createPopUp(this, SaveCompanyRatePopupView) as SaveCompanyRatePopupView;
+					pop.hotelIds = hotelIdArray;
+					pop.companyId = company.lMainId;
+					//hack
+					model.ratesModule.currentRate = new CompanyRateGroupVO();
+					if (roomTypes.selectedIndex != -1)
+						pop.roomTypeId = (roomTypes.selectedItem as RoomQualityObjectVO).lQualityId;
+					else
+						pop.roomTypeId   = 0;
+					pop.callBack = updateRatesList;
+					PopUpManagerExt.centerPopUp(pop);
+				}
+			}
+
+			/**
+			 * Get company rates of select page
+			 */
+			private function handleGetRatesPage(event:PagerEvent):void
+			{
+				var evt:GetCompanyRatesPageEvent = new GetCompanyRatesPageEvent(AppController.RATES_COMPANY_GET_PAGE_EVENT);
+				evt.requestCompany.aHotelIds = hotelIdArray;
+				evt.requestCompany.iCompanyId = company.lMainId;
+				if (roomTypes.selectedIndex != -1)
+					evt.requestCompany.iRoomQualityId = (roomTypes.selectedItem as RoomQualityObjectVO).lQualityId;
+				else
+					evt.requestCompany.iRoomQualityId  = 0;
+				evt.count = event.count;
+				evt.page = event.index;
+				CairngormEventDispatcher.getInstance().dispatchEvent( evt );
+			}
+
+			private function roomTypeLabelFunction(item:Object):String
+			   {
+			    if(item.hasOwnProperty("oRoomQuality")) return item.oRoomQuality.sQualityName+" "+item.oBedType.sTypeName;
+			    return "";
+			   }
+			   
+			/**
+			* For edit rates
+			*/			
+            public function editRate():void
+            {
+            	model.ratesModule.currentRate = rateList.selectedItem as CompanyRateGroupVO;
+				var pop:SaveCompanyRatePopupView = PopUpManagerExt.createPopUp(model.owner, SaveCompanyRatePopupView, true) as SaveCompanyRatePopupView;
+				pop.data = model.ratesModule.currentRate;
+				pop.callBack = updateCount;
+				PopUpManagerExt.centerPopUp(pop);
+            }
+
+
+            /**
+            * Transactions
+            */
+
+            private function transactionsItem():void
+            {
+            	model.ratesModule.currentRate = rateList.selectedItem as CompanyRateGroupVO;
+				var pop:TransactionsSplittingCompanyRatePopupView = new TransactionsSplittingCompanyRatePopupView();
+				pop = PopUpManagerExt.createPopUp(model.owner, TransactionsSplittingCompanyRatePopupView) as TransactionsSplittingCompanyRatePopupView;
+				PopUpManagerExt.centerPopUp(pop);
+            }
+
+            /**
+            * All for delete
+            */
+            private function deleteItem():void
+            {
+                var pop:DeletePopupView = PopUpManagerExt.createPopUp(this, DeletePopupView) as DeletePopupView;
+
+				pop.title = "Delete Company Rate";
+				pop.description = "Are you sure you want to delete selected rate?";
+				pop.addEventListener(PopupEvent.DELETE_HANDLER, deleteHandlerRate);
+
+            }
+
+            private function deleteHandlerRate(e:PopupEvent):void
+            {
+	           	(e.target as DeletePopupView).removeEventListener(PopupEvent.DELETE_HANDLER, deleteHandlerRate);
+				var evt:DeleteCompanyRateEvent = new DeleteCompanyRateEvent( AppController.DELETE_COMPANY_RATE );
+            	evt.idCompanyRate = (rateList.selectedItem as CompanyRateGroupVO).iRateId;
+            	evt.callBack = 	updateAfterDelete;
+				CairngormEventDispatcher.getInstance().dispatchEvent( evt );
+	    		(e.target as DeletePopupView).completeCall();
+            }
+
+            private function updateAfterDelete():void
+            {
+            	var evt:GetCompanyRatesPageEvent = new GetCompanyRatesPageEvent(AppController.RATES_COMPANY_GET_PAGE_EVENT);
+            	evt.requestCompany.aHotelIds = hotelIdArray;
+            	evt.requestCompany.iRoomQualityId = (roomTypes.selectedItem as RoomQualityObjectVO).lQualityId;
+            	evt.requestCompany.iCompanyId = company.lMainId;
+            	evt.count = GlobalSettings.RATES_PAGE_COUNT;
+            	if (model.ratesModule.ratesData.length == 1)
+            	{
+            		if (pager.pageCount > 1)
+            		{
+            			evt.page = pager.selectedPage;// -1
+            			pager.selectedPage--;
+            			CairngormEventDispatcher.getInstance().dispatchEvent( evt );
+            		}
+            		else
+            		{
+            			evt.page = pager.selectedPage + 1;
+            			model.ratesModule.ratesData.removeAll();
+            		}
+            	}
+            	else
+            	{
+            		evt.page = pager.selectedPage + 1;
+            		CairngormEventDispatcher.getInstance().dispatchEvent( evt );
+            	}
+            	updateCount();
+            }
+
+            public function updateCheckHotels(index:int,selected:Boolean):void
+            {
+            	if (index == 0)
+            	{
+            		for (var i:int = 0; i < rateList.dataProvider.length; i++)
+            		{
+            			if (i != 0 && selected)
+            			((hotels.dataProvider as ArrayCollection).getItemAt(i) as HotelInfoTotalVO).bIsSelected = false;
+            			else
+            			((hotels.dataProvider as ArrayCollection).getItemAt(i) as HotelInfoTotalVO).bIsSelected = selected;
+            		}
+            	}
+            	else
+            	{
+            		((hotels.dataProvider as ArrayCollection).getItemAt(0) as HotelInfoTotalVO).bIsSelected = false;
+            		if (selected) ((hotels.dataProvider as ArrayCollection).getItemAt(index) as HotelInfoTotalVO).bIsSelected = true;
+            		else ((hotels.dataProvider as ArrayCollection).getItemAt(index) as HotelInfoTotalVO).bIsSelected = false;
+            	}
+            	handleGetRoomType();
+            }
+
+           
+		   public function labelFunctionHotels(item:Object):String
+		   {
+			    if(item.aHotelIds.length > 1) return "Multiple";
+			    var hotelsDP:ArrayCollection = model.hotelsModule.hotels;
+			    for (var i:int = 0; i < hotelsDP.length; i++)
+			    {
+			    	if(item.aHotelIds[0] == (hotelsDP.getItemAt(i) as HotelInfoTotalVO).iHotelId) return (hotelsDP.getItemAt(i) as HotelInfoTotalVO).sHotelName;
+			    }
+			    return "";
+		   }
+
+		   /**
+		   * Create ToolTip
+		   * @param list id of hotels
+		   * @return string of hotel names
+		   */
+		   public function createTT(idList:Array):String
+		   {
+		   	var tempStrong:String = '';
+		   	var hotelsLength:int = model.hotelsModule.hotels.length;
+		   	var idLength:int = idList.length;
+		   	var tempHotels:ArrayCollection = model.hotelsModule.hotels;
+		   	for (var i:int = 0; i < hotelsLength; i++)
+		   		for (var j:int = 0; j < idLength; j++)
+		   			if (tempHotels.getItemAt(i).iHotelId == idList[j])
+		   			{
+		   				tempStrong = tempStrong  + (tempHotels.getItemAt(i) as HotelInfoTotalVO).sHotelName+ ', ';
+		   			}
+		   	return tempStrong;
+		   }
+
+			/**
+		   * label function for Room Types in DataGrid
+		   * @param item as CompanyRateGroupVO
+		   * @column current column of data grid
+		   * @return string of room type names
+		   */
+            public function labelFunctionRoomType(item:CompanyRateGroupVO, column:DataGridColumn):String
+            {
+            	var rez:String = "";
+            	var temp:RoomQualityObjectVO = new RoomQualityObjectVO();
+            	var roomTypesForRates: ArrayCollection = model.roomTypesModule.roomTypesForRates;
+            	var roomTypesForRatesLength:int = roomTypesForRates.length;
+            	for (var i:int = 0; i < roomTypesForRatesLength; i++)
+			    {
+			    	temp = roomTypesForRates.getItemAt(i) as RoomQualityObjectVO;
+			    	if (((item.aPricesForRoomTypes[i] as CompanyPricesVO).iRoomQualityId == temp.lQualityId) && ((item.aPricesForRoomTypes[i] as CompanyPricesVO).bInclude))
+			    	{
+				    	if (i != roomTypesForRatesLength - 1)
+				    	{
+				    		rez = rez  + temp.sQualityName + "   ";
+				    	}
+				    	else
+				    	{
+				    		rez = rez  + temp.sQualityName;
+				    	}
+			    	}
+			    }
+            	return rez;
+            }
+            
+            /**
+		   * create ToolTip for Room Types in DataGrid
+		   * @param item as CompanyRateGroupVO
+		   * @return string of room type names
+		   */
+             public function datatipFunctionRoomType(item:CompanyRateGroupVO):String
+            {
+            	var rez:String = "";
+            	var roomTypesLength:int = model.roomTypesModule.roomTypesForRates.length;
+            	for (var i:int = 0; i < roomTypesLength; i++)
+			    {
+			    	var temp:RoomQualityObjectVO = model.roomTypesModule.roomTypesForRates.getItemAt(i) as RoomQualityObjectVO;
+			    	if (i != roomTypesLength - 1)
+			    	{
+			    		rez = rez  + temp.sQualityName + ", ";
+			    	}
+			    	else
+			    	{
+			    		rez = rez  + temp.sQualityName;
+			    	}
+			    }
+            	return rez;
+            }
+
+             public function labelFunctionPriceOneAdult(item:CompanyRateGroupVO, column:DataGridColumn):String
+            {
+            	var str:String = '';
+            	for (var i:int = 0; i < model.roomTypesModule.roomTypesForRates.length; i++)
+			    {
+			    	str = str  + (item.aPricesForRoomTypes[i] as CompanyPricesVO).fPriceOneAdult+ ', ';
+			    }
+            	return str;
+            }
+            
+            /**
+		   * create ToolTip for Room Types Price in DataGrid
+		   * @param item as CompanyRateGroupVO
+		   * @return string of room type prices
+		   */
+            public function datatipFunctionPriceOneAdult(item:CompanyRateGroupVO):String
+            {
+            	var str:String = '';
+            	var temp:RoomQualityObjectVO = new RoomQualityObjectVO();
+            	for (var i:int = 0; i < model.roomTypesModule.roomTypesForRates.length; i++)
+			    {
+			    	temp = model.roomTypesModule.roomTypesForRates.getItemAt(i) as RoomQualityObjectVO;
+			    	if (((item.aPricesForRoomTypes[i] as CompanyPricesVO).iRoomQualityId == temp.lQualityId) && ((item.aPricesForRoomTypes[i] as CompanyPricesVO).bInclude))
+			    	{
+			    	if (i != model.roomTypesModule.roomTypesForRates.length-1)
+			    		str = str  + (item.aPricesForRoomTypes[i] as CompanyPricesVO).fPriceOneAdult+ '    ';
+			    	else
+			    		str = str  + (item.aPricesForRoomTypes[i] as CompanyPricesVO).fPriceOneAdult;
+			    	}
+			    }
+            	return str;
+            }
+
+			private function openChooseCompanyPopup():void
+			{
+				var pop:ChooseCompanyPopupView = PopUpManagerExt.createPopUp(this, ChooseCompanyPopupView) as ChooseCompanyPopupView;
+				pop.addEventListener(CompanyEvent.CHOOSE_COMPANY, updateChoosedCompany);
+			}
+
+			private function updateChoosedCompany(e:CompanyEvent):void
+			{
+				e.currentTarget.removeEventListener(CompanyEvent.CHOOSE_COMPANY, updateChoosedCompany);
+
+				company = (e.data as CompanyProfileViewVO);
+				updateRatesList();
+			}
+
+			private function selectAllCompany():void
+			{
+				if (allCompany.selected)
+				{
+					chCompany.enabled = false;
+					company.sName = 'All';
+					company.lMainId = 0;
+					updateRatesList();
+				}
+				else
+				{
+					chCompany.enabled = true;
+					company.sName = '';
+				}
+			}
+
+			private function labelDateFrom(item:Object, column:DataGridColumn):String
+			{
+				return GlobalFunctions.dateConvert(item.sDateFrom);
+			}
+
+			private function labelDateTo(item:Object, column:DataGridColumn):String
+			{
+				return GlobalFunctions.dateConvert(item.sDateTo);
+			}
+		]]>
+	</mx:Script>
+	<mx:HBox width="100%">
+		<mx:VBox width="100%" paddingLeft="10">
+			<mx:Label text="Company" fontSize="14" fontWeight="bold"/>
+			<mx:HBox width="100%" height="100%">
+				<mx:TextInput id="tiCompany"
+					text="{company.sName}"
+					editable="false"
+					width="100%"/>
+				<mx:Button
+					id="chCompany"
+					label="Choose Company"
+					click="openChooseCompanyPopup()"/>
+				<mx:CheckBox id="allCompany" label="All company" change="{selectAllCompany()}" />
+			</mx:HBox>
+		</mx:VBox>
+		<mx:VBox width="100%" paddingLeft="10">
+			<mx:Label text="Hotel" fontSize="14" fontWeight="bold"/>
+			<mx:ComboBox id="hotels" dataProvider="{hotelsCopy}" labelField="sHotelName"
+				change="{handleGetRoomType()}" width="100%"/>
+		</mx:VBox>
+		<mx:VBox width="100%" paddingLeft="10" paddingRight="10">
+			<mx:Label text="Room Types" fontSize="14" fontWeight="bold"/>
+			<mx:ComboBox id="roomTypes" width="100%" height="100%" labelField="sQualityName"
+				change="{updateRatesList();}"  dataProvider="{model.roomTypesModule.roomTypesForRates}"/>
+		</mx:VBox>
+	</mx:HBox>
+
+	<mx:DataGrid id="rateList" dataProvider="{model.ratesModule.ratesData}" width="100%" height="100%"
+		paddingLeft="10" paddingRight="10" creationComplete="{calculateVisibleRows()}" toolTipShow="true">
+		<mx:columns>
+			<mx:DataGridColumn headerStyleName="HeaderDataGrid" headerText="Hotel" >
+			<mx:itemRenderer>
+					<mx:Component>
+						<mx:Text
+							toolTip="{outerDocument.createTT(data.aHotelIds)}"
+							text="{outerDocument.labelFunctionHotels(data)}"
+							selectable="false"/>
+					</mx:Component>
+			</mx:itemRenderer>
+			</mx:DataGridColumn>
+			<mx:DataGridColumn headerStyleName="HeaderDataGrid" 
+				headerText="Room Type" 
+				width="300" textAlign="center"
+				labelFunction="{labelFunctionRoomType}" dataTipFunction="{datatipFunctionPriceOneAdult}" 
+				showDataTips="true"/>
+			<mx:DataGridColumn headerStyleName="HeaderDataGrid" 
+				headerText="Rate Name" 
+				dataField="sName"/>
+			<mx:DataGridColumn headerStyleName="HeaderDataGrid" 
+				headerText="From"  
+				labelFunction="labelDateFrom"/>
+			<mx:DataGridColumn headerStyleName="HeaderDataGrid" 
+				headerText="To" 
+				labelFunction="labelDateTo"/>
+			<mx:DataGridColumn headerStyleName="HeaderDataGrid" 
+				headerText="Breakfast Price" 
+				dataField="fBreakfastPrice"/>
+			<mx:DataGridColumn headerStyleName="HeaderDataGrid" 
+				headerText="Breakfast Included" 
+				dataField="bBreakfastIncluded"
+				itemRenderer="framework.view.pages.rates.companyRates.renderer.BreakfastItemRendererView"/>
+		</mx:columns>
+	</mx:DataGrid>
+
+	<mx:HBox width="100%" horizontalAlign="left" paddingBottom="10">
+		<mx:Button id="add_New_Rate" label="Add" click="handleAdd()" enabled="{UtilsMXML.and(roomTypes.dataProvider.length != 0, !allCompany.selected)}" fontWeight="bold" width="150" />
+		<mx:Button id="edit_Rate" label="Edit" width="70" click="editRate()" enabled="{rateList.selectedIndex != -1}" fontWeight="bold" />
+		<mx:Button id="delete_Rate" label="Delete" click="deleteItem()" enabled="{rateList.selectedIndex != -1}" fontWeight="bold" />
+		<mx:Button id="transactionsOverview" label="Transactions Overview" click="transactionsItem()" enabled="{rateList.selectedIndex != -1}" fontWeight="bold" />
+		<mx:Spacer width="100%"/>
+		<pager:Pager id="pager" pageChange="handleGetRatesPage(event)" fit="{visibleRowCount}"/>
+	</mx:HBox>
+
+</VSubWindow>

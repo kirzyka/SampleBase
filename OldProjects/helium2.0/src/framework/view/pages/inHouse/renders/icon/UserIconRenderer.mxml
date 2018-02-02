@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	horizontalAlign="center"
+	verticalAlign="middle"
+	width="100%" height="100%" paddingTop="0" paddingBottom="0">
+	<mx:Script>
+		<![CDATA[
+			import services.vo.inHouse.InHouseViewVO;
+			import framework.view.pages.inHouse.events.InHouseStateEvent;
+			import services.vo.GlobalImageAssets;
+			
+			/*[Bindable]			
+			private var url:String = ((data as InHouseViewVO).iType == InHouseViewVO.TYPE_GROUP)?"@Embed(source='/assets/assets.swf', symbol='ProfileIcon')":""
+			*/ 
+			
+			private function showProfilePopup():void
+			{
+				var event:InHouseStateEvent = new InHouseStateEvent(InHouseStateEvent.SHOW_GUEST_PROFILE);
+				owner.dispatchEvent(event);
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:LinkButton
+		icon="@Embed(source='/assets/assets.swf', symbol='ProfileIcon')"
+		enabled="{(data as InHouseViewVO).iType == InHouseViewVO.TYPE_NORMAL}"
+		click="showProfilePopup()"
+		width="16" height="29"/>
+</mx:VBox>

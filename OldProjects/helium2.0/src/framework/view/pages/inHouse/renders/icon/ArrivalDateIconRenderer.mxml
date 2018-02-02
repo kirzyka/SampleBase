@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	horizontalAlign="center"
+	verticalAlign="middle"
+	width="100%" height="100%">
+	<mx:Script>
+		<![CDATA[
+			import services.vo.inHouse.InHouseViewVO;
+			import framework.view.pages.inHouse.events.InHouseStateEvent;
+			import services.vo.GlobalImageAssets;
+			
+			private function showEditReservationPopup():void
+			{
+				var event:InHouseStateEvent;
+				if((data as InHouseViewVO).aRoomList.length == 0)
+				{
+					event = new InHouseStateEvent(InHouseStateEvent.SHOW_EDIT_RESERVATION);
+					owner.dispatchEvent(event);
+				}
+				else
+				{
+					event = new InHouseStateEvent(InHouseStateEvent.SHOW_EDIT_GROUP_RESERVATION);
+					owner.dispatchEvent(event);
+				}
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:LinkButton
+		icon="@Embed(source='/assets/assets.swf', symbol='ArrivalDateIcon')"
+		enabled="{((data as InHouseViewVO).iType == InHouseViewVO.TYPE_NORMAL) || ((data as InHouseViewVO).iType == InHouseViewVO.TYPE_GROUP)}"
+		click="showEditReservationPopup()"
+		width="16" height="16"/>
+</mx:VBox>

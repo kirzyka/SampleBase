@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8"?>
+<SubWindow xmlns="framework.core.view.*" 
+	xmlns:mx="http://www.adobe.com/2006/mxml" 
+	width="100%" height="100%" xmlns:dataGrid="h2olib.control.itemRenderer.dataGrid.*">
+	
+<mx:Script>
+	<![CDATA[
+		import services.vo.reservation.ReservationRoomBlockedVO;
+		import framework.view.pages.reservationCreate.data.GroupBasketItem;
+		import services.vo.GlobalImageAssets;
+	
+		[Bindable]
+		public var deleteIcon:Class = GlobalImageAssets.getInstance().binClosedIcon;	
+		
+		public function removeItem():void
+		{
+			if(dgOrders.selectedItem != null)
+			{
+				model.reservationModule.iTotalGroupReservationPrice -= (dgOrders.selectedItem as GroupBasketItem).nPrice;
+				var tmpArray:Array = new Array();
+				for each(var blockedRoom:ReservationRoomBlockedVO in model.reservationModule.tmpRoomBlockedList)
+				{
+					if(blockedRoom.groupBasketItem != dgOrders.selectedItem as GroupBasketItem)
+					{						
+						tmpArray.push(blockedRoom);
+					}				
+				}	
+				model.reservationModule.tmpRoomBlockedList = tmpArray;			
+				model.reservationModule.aGroupBasket.removeItemAt(model.reservationModule.aGroupBasket.getItemIndex(dgOrders.selectedItem));
+			}
+		}			
+
+		public function clear():void
+		{
+			model.reservationModule.aGroupBasket.removeAll();
+			model.reservationModule.basketTotalPrice = 0;
+			model.reservationModule.iTotalGroupReservationPrice = 0;
+		}	
+
+		/**		LABEL FUNCTION		**/	
+		private function arrivalLabelFunction(item:GroupBasketItem, column:AdvancedDataGridColumn):String
+		{
+			return item.sStartDateUIFormat;
+		}
+		private function departureLabelFunction(item:GroupBasketItem, column:AdvancedDataGridColumn):String
+		{
+			return item.sEndDateUIFormat;
+		}	
+		private function rateLabelFunction(item:GroupBasketItem, column:AdvancedDataGridColumn):String
+		{
+			var result:String;
+			switch(item.iRateType)
+			{
+				case 2:
+					result = "PAC";
+				break
+				case 1:
+					result = "CMP";
+				break
+				default:
+					result = "BAR";
+				break;					
+			}
+			return result;
+		}	
+		
+        private function deleteIconFunction(item:Object, column:AdvancedDataGridColumn):String
+        {
+            return "deleteIcon";
+        }				
+	]]>
+</mx:Script>	
+
+	<mx:AdvancedDataGrid id="dgOrders" 
+		width="100%" height="100%"
+		sortableColumns="false" resizableColumns="false" 
+		sortExpertMode="true"
+		dataProvider="{model.reservationModule.aGroupBasket}">
+		<mx:groupedColumns>
+			<mx:AdvancedDataGridColumn headerText="Arrival"
+				labelFunction="arrivalLabelFunction"
+				dataField="sStartDate"
+				width="90"/>
+			<mx:AdvancedDataGridColumn headerText="Departure"
+				labelFunction="departureLabelFunction"
+				dataField="sEndDate"
+				width="90"/>	
+			<mx:AdvancedDataGridColumn headerText="Room count"
+				dataField="iRoomCount"
+				width="80" textAlign="center"/>	
+			<mx:AdvancedDataGridColumn headerText="Adults"
+				dataField="iAdults"
+				width="80" textAlign="center"/>												
+			<mx:AdvancedDataGridColumn headerText="Room Type"
+				dataField="sRoomTypeFullName"/>					
+			<mx:AdvancedDataGridColumn headerText="Rate"
+				width="60" textAlign="center"
+				labelFunction="rateLabelFunction"
+				dataField="iRateType"/>	
+			<mx:AdvancedDataGridColumn headerText="Price"
+				width="80" textAlign="right"
+				dataField="nPrice"/>	
+            <mx:AdvancedDataGridColumn minWidth="8" width="22"
+                labelFunction="deleteIconFunction">
+                <mx:itemRenderer>
+                    <mx:Component>
+                        <dataGrid:EmbedImageRenderer
+                            toolTip="Remove Item"
+                            click="{outerDocument.removeItem()}"/>
+                    </mx:Component>
+                </mx:itemRenderer>
+            </mx:AdvancedDataGridColumn>
+		</mx:groupedColumns>
+	</mx:AdvancedDataGrid>
+	
+</SubWindow>

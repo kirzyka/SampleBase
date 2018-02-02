@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:AdvancedDataGridGroupItemRenderer xmlns:mx="http://www.adobe.com/2006/mxml" 
+	width="100%" color="{color}" >
+	
+	
+	<mx:Script>
+		<![CDATA[
+			
+			[Bindable]
+			private var color:uint;
+			
+			override public function set data(value:Object):void
+			{
+				super.data = value;
+				  
+				if(data && (data.room_id == null || data.room_id == 0))
+				{
+					leftItem.text = data.label;
+					color = 0x000000;
+				}
+				
+				else
+				{
+					color = 0xFF0000;
+				}
+			}
+			
+		/* 	borderStyle="none" */
+		]]>
+	</mx:Script>
+	
+	<mx:Label id="leftItem" width="100%" color="{color}"/>
+</mx:AdvancedDataGridGroupItemRenderer>

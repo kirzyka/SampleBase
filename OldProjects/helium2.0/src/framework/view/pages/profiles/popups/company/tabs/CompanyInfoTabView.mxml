@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="utf-8"?>
+<tab:VSubWindow
+	xmlns:tab="framework.core.view.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:control="h2olib.control.*"
+	xmlns:controls="framework.view.components.controls.*"
+	xmlns:address="framework.view.components.address.*"
+	label="{model.locale.Profiles_Company_Popups_Update_CompanyInfo_Title}"
+	creationComplete="init()"
+	width="100%" height="100%">
+	
+	<mx:Script>
+		<![CDATA[
+			import framework.module.CommonModule;
+			import services.vo.GlobalFunctions;
+			import services.vo.common.LanguageVO;
+			import services.vo.common.MarketCodesVO;
+			import mx.utils.ObjectUtil;
+			import services.vo.common.SourceCodesVO;
+			import mx.collections.ArrayCollection;
+			import framework.view.components.address.data.ContactData;
+			import services.vo.profiles.CompanyAddressVO;
+			import framework.view.components.address.data.LocationData;
+			import services.vo.profiles.CompanyProfileVO;
+			import services.vo.common.RegionVO;
+			import services.vo.common.CountryVO;
+			import services.events.frontend.GetCityEvent;
+			import services.controller.AppController;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.vo.GlobalStorage;
+			import framework.model.AppModelLocator;
+			
+			// ================================================================= //
+			//                           CONSTANTS                               //
+			// ================================================================= //
+			/**
+			 *  The prefix for localization by popup.
+			 */
+			private const localePrefix:String = "popups.update.tabs.companyInfo."; 
+			// ================================================================= //
+			//                           VARIABLES                               //
+			// ================================================================= //
+			
+			[Bindable]
+			private var sourceCodes:ArrayCollection = new ArrayCollection();
+			[Bindable]
+			private var marketCodes:ArrayCollection = new ArrayCollection();
+			
+			[Bindable]
+			/**
+			 *  This property is all existed in the system languages.
+			 *  
+			 *  @default new ArrayCollection()
+			 */
+			private var _language:ArrayCollection = new ArrayCollection();
+			/**
+			 *  This proeprty is company profile.
+			 *  
+			 *  @default new CompanyProfileVO()
+			 *  
+			 *  @see services.vo.profiles.CompanyProfileVO
+			 */
+			private var _company:CompanyProfileVO = new CompanyProfileVO();
+			
+			private function init():void
+			{
+				// create and add none item for SOURCE CODES
+				var noneSourceCodeItem:SourceCodesVO = new SourceCodesVO();
+				noneSourceCodeItem.iId = 0;
+				noneSourceCodeItem.sName = "none";
+				noneSourceCodeItem.sDescription = "none";
+				sourceCodes = ObjectUtil.copy(GlobalStorage.sourceCodes) as ArrayCollection;
+				sourceCodes.addItemAt(noneSourceCodeItem, 0);
+				cmbSourceCodes.setItemByField("iId", company.lSourceCodeId);
+				
+				// create and add none item for MARKET CODES
+				var noneMarketCodeItem:MarketCodesVO = new MarketCodesVO();
+				noneMarketCodeItem.iId = 0;
+				noneMarketCodeItem.sName = "none";
+				noneMarketCodeItem.sDescription = "none";
+				marketCodes = ObjectUtil.copy(GlobalStorage.marketCodes) as ArrayCollection;
+				marketCodes.addItemAt(noneMarketCodeItem, 0);
+				cmbMarketCodes.setItemByField("iId", company.lMarketCodeId);
+				
+				// create and add none item for LANGUAGE
+				_language = CommonModule.validateLanguage(GlobalStorage.language);
+				cmbLanguage.setItemByField("lId", company.lLanguageId);
+			}
+			
+			override public function set data(value:Object):void
+			{
+				super.data = value;
+				
+				if (!data) return
+				
+				company = data as CompanyProfileVO;
+				cmbSourceCodes.setItemByField("iId", company.lSourceCodeId);
+				cmbMarketCodes.setItemByField("iId", company.lMarketCodeId);
+				
+				cmbLanguage.setItemByField("lId", company.lLanguageId);
+				
+				var cmpAddress:CompanyAddressVO = company.aAddresses[0] as CompanyAddressVO;
+				if (cmpAddress)
+				{
+					lcLocation.location = LocationData.convert(cmpAddress);
+					lcLocation.contacts = ContactData.toContact(cmpAddress.aContacts);
+				}
+				else
+				{
+					lcLocation.show();
+				}
+				
+				//cbAllowed.selected = company.bIsCanGuarantee;
+			}
+			
+			[Bindable(event="companyChanged")]
+			/**
+			 *  The company profile.
+			 */
+			public function get company():CompanyProfileVO
+			{
+				return _company;
+			}
+			/**
+			 *  @private
+			 */
+			public function set company(value:CompanyProfileVO):void
+			{
+				_company = value;
+				
+				dispatchEvent(new Event("companyChanged"));
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:Form width="100%">
+		<mx:FormItem
+			required="true"
+			label="{model.locale.Profiles_Company_Popups_Update_CompanyInfo_CompanyName}:">
+			<mx:TextInput
+				id="tiCompanyName"
+				text="{company.sName}"/>
+		</mx:FormItem>
+		<mx:FormItem
+			label="{model.locale.Profiles_Company_Popups_Update_CompanyInfo_Language}:">
+			<control:ComboBoxEx
+				id="cmbLanguage"
+				enabled="{cmbLanguage.selectedItem}"
+				dataProvider="{_language}"
+				labelField="sCode"/>
+		</mx:FormItem>
+		<mx:FormItem
+			label="{model.locale.Profiles_Company_Popups_Update_CompanyInfo_CorporateId}:">
+			<mx:TextInput
+				id="tiCorporateId"
+				text="{company.sCorporateId}"/>
+		</mx:FormItem>
+		<mx:FormItem label="{model.locale.Profiles_Company_Popups_Update_CompanyInfo_BookingCode}:">
+			<mx:TextInput
+				id="tiBookingCode"
+				text="{company.sBookingCode}"/>
+		</mx:FormItem>
+		<mx:FormItem
+			label="{model.locale.Profiles_Company_Popups_Update_CompanyInfo_SourceCode}:">
+			<control:ComboBoxEx
+				id="cmbSourceCodes"
+				dataProvider="{sourceCodes}"
+				labelField="sDescription"/>
+		</mx:FormItem>
+		<mx:FormItem label="{model.locale.Profiles_Company_Popups_Update_CompanyInfo_IndustryCode}:">
+			<control:ComboBoxEx
+				id="cmbMarketCodes"
+				dataProvider="{marketCodes}"
+				labelField="sDescription"/>
+		</mx:FormItem>
+		<mx:FormItem>
+			<mx:CheckBox
+				id="cbAllowed"
+				label="Guaranteed by company allowed"
+				selected="{company.bIsCanGuarantee}"/>
+		</mx:FormItem>
+	</mx:Form>
+	
+	<control:Frame
+		label="{model.locale.Profiles_Company_Popups_Update_CompanyInfo_PrimaryAddress_Title}"
+		verticalScrollPolicy="off"
+		horizontalScrollPolicy="off"
+		width="100%" height="100%">
+		<address:LocationChooser
+			id="lcLocation"
+			countries="{storage.countries}"
+			phoneRequired="true"
+			width="470" height="340"/>
+	</control:Frame>
+</tab:VSubWindow>

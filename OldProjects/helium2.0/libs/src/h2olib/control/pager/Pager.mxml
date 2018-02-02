@@ -1,0 +1,348 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:HBox xmlns:mx="http://www.adobe.com/2006/mxml"
+		 xmlns:events="flash.events.*"
+		 paddingTop="0" paddingBottom="0" verticalGap="0">
+	
+	<mx:Metadata>
+		[Event(name="pageChange", type="h2olib.control.pager.event.PagerEvent")]
+	</mx:Metadata>
+	
+	<mx:Script>
+		<![CDATA[
+			import framework.utils.SkinHelper;
+			import mx.controls.Alert;
+			import h2olib.control.pager.event.PagerEvent;
+			import mx.events.ItemClickEvent;
+			import mx.collections.ArrayCollection;
+			
+			/**
+			 *  This property contain the number of items.
+			 *  
+			 *  @default 0
+			 */
+			private var _count:int = 0;
+			/**
+			 *  This property contain the number of pages with
+			 *  items.
+			 *  
+			 *  @default 0
+			 */
+			private var _pageCount:int = 0;
+			/**
+			 *  This property is fit count of record for view.
+			 */
+			private var _fit:Number;
+			
+			[Bindable]
+			private var _maxViewCount:int = 6;
+			private var _pageViewCount:int = 0;
+			[Bindable]
+			/**
+			 *  This property contain index of current viewed block of
+			 *  records.
+			 */
+			protected var _currentBlockPage:int = 0;
+			[Bindable]
+			protected var _currentPage:int = 0;
+			
+			[Bindable]
+			private var navigateView:ArrayCollection = new ArrayCollection();
+			[Bindable]
+			protected var pageCountList:ArrayCollection = new ArrayCollection([20, 25, 50, 75, 100]);
+			
+			[Bindable(event="countChanged")]
+			/**
+			 *  The number of items.
+			 */
+			public function get count():int
+			{
+				return _count;
+			}
+			/**
+			 *  @private
+			 */
+			public function set count(value:int):void
+			{
+				_count = value;
+				// calculate page count by count of items
+				_pageCount = int(_count / _pageViewCount);
+				if (_pageCount != _count / _pageViewCount)
+					_pageCount++;
+				// update navigation view
+				updateNavigation();
+				// update all binding properties
+				dispatchEvent(new Event("countChanged"));
+				dispatchEvent(new Event("pageCountChanged"));
+			}
+			
+			[Bindable(event="pageCountChanged")]
+			public function get pageCount():int
+			{
+				return _pageCount;
+			}
+			/**
+			 *  @private
+			 */
+			public function set pageCount(value:int):void
+			{
+				_pageCount = value;
+				// calculate count of items by count of pages
+				_count = _pageCount * _pageViewCount;
+				// update navigation view
+				updateNavigation();
+				// update all binding properties
+				dispatchEvent(new Event("countChanged"));
+				dispatchEvent(new Event("pageCountChanged"));
+			}
+			
+			
+			[Bindable(event="pageViewCountChanged")]
+			public function get pageViewCount():int
+			{
+				return _pageViewCount;
+			}
+			/**
+			 *  @private
+			 */
+			public function set pageViewCount(value:int):void
+			{
+				_pageViewCount = value;
+				// calculate count of items and count of pages by
+				// items into the one page
+				//_count = _pageCount * _pageViewCount;
+				_pageCount = int(_count / _pageViewCount);
+				if (_pageCount != _count / _pageViewCount)
+					_pageCount++;
+				// update navigation view
+				updateNavigation();
+				// update all binding properties
+				dispatchEvent(new Event("countChanged"));
+				dispatchEvent(new Event("pageCountChanged"));
+				dispatchEvent(new Event("pageViewCountChanged"));
+			}
+			
+			
+			/**
+			 *  The handle of press button for select first item
+			 *  into the pager.
+			 */
+			protected function handleFirstButtonClick():void
+			{
+				_currentBlockPage = 0;
+				_currentPage = _currentBlockPage;
+				// update navigation view
+				updateNavigation();
+				
+				dispatchEvent(new Event("pageIndexChanged"));
+				
+				makeChangePage();
+			}
+			/**
+			 *  The handle of press button for select previous
+			 *  block of the items by current block.
+			 */
+			protected function handlePrevButtonClick():void
+			{
+				_currentBlockPage -= _maxViewCount;
+				_currentPage = _currentBlockPage;
+				// update navigation view
+				updateNavigation();
+				
+				dispatchEvent(new Event("pageIndexChanged"));
+				
+				makeChangePage();
+			}
+			/**
+			 *  The handle of press button for select next
+			 *  block of the items by current block.
+			 */
+			protected function handleNextButtonClick():void
+			{
+				_currentBlockPage += _maxViewCount;
+				_currentPage = _currentBlockPage;
+				// update navigation view
+				updateNavigation();
+				
+				dispatchEvent(new Event("pageIndexChanged"));
+				
+				makeChangePage();
+			}
+			/**
+			 *  The handle of press button for select last item
+			 *  into the pager.
+			 */
+			protected function handleLastButtonClick():void
+			{
+				_currentBlockPage = int(_count / _maxViewCount) * _maxViewCount;
+				_currentPage = _currentBlockPage;
+				// update navigation view
+				updateNavigation();
+				
+				dispatchEvent(new Event("pageIndexChanged"));
+				
+				makeChangePage();
+			}
+			/**
+			 *  Update view of pager.
+			 */
+			protected function updateNavigation():void
+			{
+				navigateView.removeAll();
+				var count:int = Math.min(_pageCount - _currentBlockPage, _maxViewCount);
+				for(var i:int = 0; i < count; i++)
+				{
+					navigateView.addItem(_currentBlockPage + i + 1);
+				}
+				
+				if (lbViewPages)
+				{
+					var pages:Number = navigateView.length;
+					if (pages > 0)
+						lbViewPages.selectedIndex = _currentPage % _maxViewCount;
+				}
+			}
+			/**
+			 *  The handle of select some page into current viewed
+			 *  block of the pager.
+			 */
+			protected function handlePageSelect(e:ItemClickEvent):void
+			{
+				_currentPage = _currentBlockPage + e.index;
+				
+				lbViewPages.selectedIndex = e.index;
+				lbViewPages.invalidateDisplayList();
+				
+				dispatchEvent(new Event("pageIndexChanged"));
+				
+				makeChangePage();
+			}
+			
+			[Bindable(event="pageSelected")]
+			private function makeChangePage():void
+			{
+				if (_pageViewCount > 0)
+				{
+					var e:PagerEvent = new PagerEvent(PagerEvent.PAGE_CHANGE);
+					e.index = _currentPage + 1;
+					e.count = _pageViewCount;
+					e.label = e.index.toString();
+					dispatchEvent(e);
+				}
+			}
+			
+			[Bindable(event="pageIndexChanged")]
+			public function get selectedPage():int 
+			{
+				return _currentPage;
+			}
+			
+			public function set selectedPage(page:int):void
+			{
+				_currentPage = page;
+				
+				lbViewPages.selectedIndex = _currentPage % _maxViewCount;
+				
+				_currentBlockPage = int(_currentPage / _maxViewCount);
+				updateNavigation();
+				
+				dispatchEvent(new Event("pageIndexChanged"));
+			}
+			
+			private function changePageViewCount():void
+			{
+				pageViewCount = Number(cmbCounter.selectedItem);
+				
+				selectedPage = 0;
+				makeChangePage();
+			}
+			
+			[Bindable(event="fitChanged")]
+			public function get fit():Number
+			{
+				return _fit;
+			}
+			
+			public function set fit(value:Number):void
+			{
+				if (value === _fit) return;
+				
+				_fit = value;
+				pageCountList.setItemAt(_fit, 0);
+				if (cmbCounter)
+				{
+					cmbCounter.dataProvider = pageCountList;
+					pageViewCount = Number(cmbCounter.selectedItem);
+				}
+				else
+				{
+					pageViewCount = _fit;
+				}
+				makeChangePage();
+				
+				dispatchEvent(new Event("fitChanged"));
+			}
+			
+			private function viewCount(data:Object):String
+			{
+				if (pageCountList.getItemAt(0) == data) return "fit";
+				else return data.toString();
+				
+				return "";
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:ComboBox id="cmbCounter"
+		dataProvider="{pageCountList}"
+		enabled="{count != 0}"
+		labelFunction="viewCount"
+		change="changePageViewCount()"
+		height="24" fontSize="13"/>
+	
+	<mx:Button
+		styleName="FirstPagerButton"
+		enabled="{_currentBlockPage > 0}"
+		click="handleFirstButtonClick()"
+		height="{SkinHelper.BUTTON_HEIGHT}"
+		width="33"/>
+	<mx:Button
+		styleName="PrevPagerButton"
+		enabled="{_currentBlockPage > 0}"
+		click="handlePrevButtonClick()"
+		height="{SkinHelper.BUTTON_HEIGHT}"
+		width="33"/>
+	
+	<mx:HBox
+		horizontalGap="0" verticalGap="0"
+		paddingTop="0" paddingBottom="0"
+		verticalAlign="middle">
+		<mx:LinkBar id="lbViewPages"
+			paddingTop="0" paddingBottom="0"
+			verticalGap="0" verticalAlign="middle"
+			dataProvider="{vsHideView}"
+			itemClick="handlePageSelect(event)"/>
+		<mx:ViewStack id="vsHideView">
+			<mx:Repeater id="rp"
+				dataProvider="{navigateView}">
+				<mx:Canvas
+					label="{rp.currentItem}"/>
+			</mx:Repeater>
+		</mx:ViewStack>
+		<mx:Label
+			text="{Math.min(_currentPage + 1, pageCount)} of {pageCount}"
+			fontWeight="bold"/>
+	</mx:HBox>
+	
+	<mx:Button
+		styleName="NextPagerButton"
+		enabled="{_currentBlockPage + _maxViewCount &lt; pageCount}"
+		click="handleNextButtonClick()"
+		height="{SkinHelper.BUTTON_HEIGHT}"
+		width="33"/>
+	<mx:Button
+		styleName="LastPagerButton"
+		enabled="{_currentBlockPage + _maxViewCount &lt; pageCount}"
+		click="handleLastButtonClick()"
+		height="{SkinHelper.BUTTON_HEIGHT}"
+		width="33"/>
+</mx:HBox>

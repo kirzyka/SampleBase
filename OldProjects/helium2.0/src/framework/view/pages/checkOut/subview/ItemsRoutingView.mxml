@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<page:VSubWindow
+	xmlns:page="framework.core.view.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:controls="framework.view.components.controls.*"
+	xmlns:control="h2olib.control.*"
+	xmlns:checkoutControls="framework.view.pages.checkOut.control.*"
+	width="100%" height="100%">
+	
+	<mx:Script>
+		<![CDATA[
+			import services.events.checkOut.CheckOutEvent;
+			import framework.module.CheckOutModule;
+			import services.vo.GlobalSettings;
+			import mx.controls.Alert;
+			import framework.view.pages.checkOut.popups.ReportPrintPopupView;
+			import mx.events.CloseEvent;
+			import framework.managers.PopUpManagerExt;
+			
+			// ===================================================================== //
+			//                            OVERRIDE METHODS                           //
+			// ===================================================================== //
+			/**
+			 *  @override
+			 *  Update view of routing items. Clear previuos data about guest and rebuild
+			 *  view by new data of guest.
+			 */
+			override public function update():void
+			{
+				if(ccItemsRouting != null)
+				{
+					ccItemsRouting.update();
+				}
+			}
+			
+			// ===================================================================== //
+			//                       COMMON METHODS AND HANDLERS                     //
+			// ===================================================================== //
+			/**
+			 *  The handler of go to screen with payments and accept payment. If accept
+			 *  paymentm, close payment and check out guests from room. Room will be 
+			 *  dirty status.
+			 */
+			private function handlePay():void
+			{
+				var e:CheckOutEvent = new CheckOutEvent();
+				if(model.checkOutModule.iOrderId != 0)
+				{
+					e.iOrderId = model.checkOutModule.iOrderId;
+				}	
+				else if(model.checkOutModule.reservationId != 0)
+				{
+					e.iReservationId = model.checkOutModule.reservationId;
+				}			
+				
+				e.callBack = showPrintReportPopup;
+				e.dispatch();
+			}
+			
+			private function showPrintReportPopup():void
+			{						
+				if((model.checkOutModule.invoiceURLList != null && model.checkOutModule.invoiceURLList.length != 0) || model.checkOutModule.invoiceURL != "")
+				{	
+					var pop:ReportPrintPopupView = PopUpManagerExt.createPopUp(this, ReportPrintPopupView) as ReportPrintPopupView;
+					pop.callBack = backViewGuest;
+				}
+				else
+				{
+					backViewGuest();
+				}
+			}
+						
+			private function backViewGuest(e:Event = null):void
+			{			
+				model.checkOutModule.needGuestListUpdate = true;
+				model.checkOutModule.currPage = CheckOutModule.CHECKOUT_GUESTS_VIEW;
+			
+			}
+			
+			
+		]]>
+	</mx:Script>
+	
+	<checkoutControls:ItemsRouting id="ccItemsRouting"
+		type="{model.checkOutModule.roomType}"/>
+	<mx:HBox width="100%" horizontalAlign="right">
+		<mx:Button
+			label="{model.locale.Global_Button_Back}"
+			click="{backViewGuest()}"
+			width="{GlobalSettings.BUTTON_WIDTH_APPLY}"/>
+		<mx:Button
+			label="{model.locale.CheckOut_Buttons_CheckOut}"
+			click="{handlePay()}"
+			width="{GlobalSettings.BUTTON_WIDTH_APPLY}"/>
+	</mx:HBox>
+</page:VSubWindow>

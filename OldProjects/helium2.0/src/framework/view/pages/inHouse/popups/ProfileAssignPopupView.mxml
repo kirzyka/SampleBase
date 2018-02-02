@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<BasePopupView
+	xmlns="framework.view.components.popups.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:subview="framework.view.pages.profiles.subview.*"
+	title="Assign Profile to Conference Room"
+	creationComplete="init()"
+	width="850" height="600">
+	
+	<mx:Script>
+		<![CDATA[
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.business.inHouse.InHouseDelegate;
+			import services.events.inHouse.AttachConferenceRoomToAccountEvent;
+			import framework.view.pages.inHouse.events.AssignProfileEvent;
+			
+			[Bindable]
+			public var lock:Boolean = false;
+			public var roomId:Number = 0;
+			
+			
+			private function init():void
+			{
+				tnProfiles.addEventListener(AssignProfileEvent.PROFILE_SELECTED, handleAssignRoomToProfile);
+			}
+			
+			private function handleAssignRoomToProfile(e:AssignProfileEvent):void
+			{
+				var event:AttachConferenceRoomToAccountEvent = new AttachConferenceRoomToAccountEvent(InHouseDelegate.ATTACH_CONFERENCE_ROOM_TO_ACCOUNT);
+				event.confRoomId = roomId;
+				event.hotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+				event.profileId = e.profileId;
+				event.isCompany = e.isCompany;
+				event.callBack = completeCall;
+				CairngormEventDispatcher.getInstance().dispatchEvent(event);
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:TabNavigator id="tnProfiles"
+		width="100%" height="100%">
+		<subview:ProfilesIndividualView
+			lock="{lock}"/>
+		<subview:ProfilesCompanyView
+			lock="{lock}"/>
+		<subview:ProfilesTAView
+			lock="{lock}"/>
+	</mx:TabNavigator>
+</BasePopupView>

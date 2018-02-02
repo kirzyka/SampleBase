@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<popup:DataPopupView
+	xmlns:popup="framework.view.components.popups.*" 
+	addTitle="Add VAT"
+	editTitle="Edit VAT"
+	xmlns:mx="http://www.adobe.com/2006/mxml" layout="vertical" 
+	showCloseButton="true" close="closeWindow()" 	
+	creationComplete="onInit()">
+	<mx:Script>
+		<![CDATA[
+			import services.events.miscellaneous.vat.AddVATEvent;
+			import services.events.miscellaneous.vat.EditVATEvent;
+			import services.vo.backend.VatObjectVO;
+			import framework.managers.PopUpManagerExt;
+			import services.controller.AppController;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import framework.model.AppModelLocator;
+			
+			[Bindable]
+			private var isEnabled:Boolean = true;
+			
+			public var selectedIndex:int = 0;
+			[Bindable]
+			private var vatObject:VatObjectVO = null;
+			
+			private function onInit():void
+			{
+				vatObject = data as VatObjectVO;
+				checkMantadoryFields();
+			}
+			
+			private function closeWindow():void
+			{
+				PopUpManagerExt.removePopUp(this);
+			}
+			
+			private function handleAddClick():void
+			{
+				if (isEdit)
+				{
+					var evt:EditVATEvent = new EditVATEvent( AppController.EDIT_VAT_EVENT );
+					evt.index = selectedIndex;
+					evt.vat.iVatId = vatObject.iVatId;
+					evt.vat.sVatName = vatName.text;
+					evt.vat.iVatValue = Number(vatValue.text);
+					CairngormEventDispatcher.getInstance().dispatchEvent( evt );
+				}
+				else
+				{
+					var evt2:AddVATEvent = new AddVATEvent( AppController.ADD_VAT_EVENT );
+					evt2.vat.iVatId = 0;
+					evt2.vat.sVatName = vatName.text;
+					evt2.vat.iVatValue = Number(vatValue.text);					 
+					CairngormEventDispatcher.getInstance().dispatchEvent( evt2 );				
+				}
+				completeCall();
+			}
+			
+			private function checkMantadoryFields():void
+			{
+				if ((vatName.text.length > 0 ) && (vatValue.text.length > 0))
+				{
+					isEnabled = true;
+				}
+				else
+				{
+					isEnabled = false;
+				}
+			}
+		]]>
+	</mx:Script>
+	<mx:Form>
+		<mx:FormItem label="Name of VAT">
+			<mx:TextInput id="vatName"
+				width="120"
+				maxChars="11"
+				change="checkMantadoryFields()"
+				text="{vatObject.sVatName}"
+				restrict="A-z0-9"/>
+		</mx:FormItem>
+		<mx:FormItem label="Value">
+			<mx:TextInput id="vatValue" width="120" maxChars="2" restrict="0-9" change="checkMantadoryFields()" text="{vatObject.iVatValue.toString()}"/>
+		</mx:FormItem>	
+	</mx:Form>
+	<mx:HBox width="100%">
+		<mx:Button label="Apply" click="handleAddClick()" enabled="{isEnabled}" id="apply_EditVatPopup"/>
+		<mx:Spacer width="100%"/>		
+		<mx:Button label="Cancel" click="closeWindow()" id="close_EditVatPopup"/>
+	</mx:HBox>
+</popup:DataPopupView>

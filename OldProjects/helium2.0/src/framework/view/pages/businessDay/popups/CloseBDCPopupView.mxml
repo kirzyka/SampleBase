@@ -1,0 +1,226 @@
+<?xml version="1.0" encoding="utf-8"?>
+<popup:BasePopupView
+	xmlns:popup="framework.view.components.popups.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:control="framework.view.pages.checkOut.control.*"
+
+	title="Business Day Closure" initialize="{handleInit()}" creationComplete="{checkShifts()}" 
+	width="700" height="300">
+	
+	<mx:Script>
+		<![CDATA[
+			import framework.view.pages.businessDay.data.BusinessDayConstants;
+			import services.events.MsgEvent;
+			import services.events.BDC.CheckShiftsEvent;
+			import services.events.BDC.UpdateRoomStatesEvent;
+			import services.events.BDC.TotalLogoutEvent;
+			import services.events.BDC.CheckDepartureEvent;
+			import services.business.common.CommonDelegate;
+			import services.controller.AppController;
+			import services.events.common.GetSystemDateEvent;
+			import mx.managers.PopUpManagerChildList;
+			import framework.managers.PopUpManagerExt;
+			import services.events.BDC.RollBusinessDayEvent;
+			import services.events.BDC.PostTransactionsEvent;
+			import framework.model.AppModelLocator;
+			import services.events.BDC.CheckProfilesEvent;
+			import mx.controls.dataGridClasses.DataGridColumn;
+			import mx.events.ValidationResultEvent;
+			import framework.core.utils.UtilsMXML;
+			import mx.collections.ArrayCollection;
+			import framework.view.pages.checkOut.data.PaymentData;
+			import services.vo.checkOut.itemRouting.PaymentVO;
+			import services.vo.checkOut.itemRouting.PersonalPaymentVO;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.business.checkOut.CheckOutDelegate;
+			import services.vo.GlobalSettings;	
+						
+			/////////////////////////////////////////////////////////////////
+			private var _dpProcess:ArrayCollection = new ArrayCollection();	
+			[Bindable (event = "CloseBDCdpProcessChange")]
+			public function get dpProcess():ArrayCollection
+			{
+				return _dpProcess;
+			}			
+			public function set dpProcess(value:ArrayCollection):void
+			{
+				_dpProcess = value;
+        		dispatchEvent(new Event("CloseBDCdpProcessChange "));
+			}
+			/////////////////////////////////////////////////////////////////		
+					
+			private function handleInit():void
+			{
+				createTable();				
+			}
+			
+			private function createTable():void
+			{
+				var tempProcess:Object = new Object();
+				tempProcess.name = 'Checking Cashier Shifts';
+				tempProcess.status = BusinessDayConstants.RUNNING;
+				
+				dpProcess.addItem(tempProcess);
+				
+				tempProcess = new Object();
+				tempProcess.name = 'Checking Profiles';
+				tempProcess.status =  '...............';
+				
+				dpProcess.addItem(tempProcess);
+				
+				tempProcess = new Object();
+				tempProcess.name = 'Checking for Departure';
+				tempProcess.status = '...............';
+				
+				dpProcess.addItem(tempProcess);
+				
+				tempProcess = new Object();
+				tempProcess.name = 'Disconnecting terminals';
+				tempProcess.status = '...............';
+				
+				dpProcess.addItem(tempProcess);
+				
+				tempProcess = new Object();
+				tempProcess.name = 'Posting transactions';
+				tempProcess.status = '...............';
+				
+				dpProcess.addItem(tempProcess);
+				
+				tempProcess = new Object();
+				tempProcess.name = 'Updating room states';
+				tempProcess.status = '...............';
+				
+				dpProcess.addItem(tempProcess); 
+				
+				tempProcess = new Object();
+				tempProcess.name = 'Roll the BusinessDay';
+				tempProcess.status = '...............';
+				
+				dpProcess.addItem(tempProcess);
+			}
+			
+			private function checkShifts():void
+			{
+				var evt:CheckShiftsEvent = new CheckShiftsEvent();
+				evt.callBack = checkProfiles;
+				CairngormEventDispatcher.getInstance().dispatchEvent( evt );
+				CairngormEventDispatcher.getInstance().addEventListener(MsgEvent.NAME, msgHandler);				
+			}
+			
+			private function msgHandler(event:MsgEvent):void
+			{
+				PopUpManagerExt.removePopUp(this);			
+			}		
+			
+			private function checkProfiles():void
+			{
+				dpProcess.getItemAt(0).status = BusinessDayConstants.COMPLETE;
+				dpProcess.getItemAt(1).status = BusinessDayConstants.RUNNING;
+				
+								
+				var evt:CheckProfilesEvent = new CheckProfilesEvent();
+				evt.callBack = finishedCheckProfiles;
+				CairngormEventDispatcher.getInstance().dispatchEvent( evt );
+			}
+			
+			private function finishedCheckProfiles():void
+			{
+				if (model.BDCModule.listProfiles.length == 0)
+				{
+					dpProcess.getItemAt(1).status = BusinessDayConstants.COMPLETE;
+					dpProcess.getItemAt(2).status = BusinessDayConstants.RUNNING;
+					
+					var evt:CheckDepartureEvent = new CheckDepartureEvent();
+					evt.callBack = finishedCheckDeparture;
+					CairngormEventDispatcher.getInstance().dispatchEvent( evt );					
+					dpProcess.refresh();
+				}
+				else
+				{
+					var pop:ListAfterCheckProfilesPopupView = PopUpManagerExt.createPopUp(this, ListAfterCheckProfilesPopupView) as ListAfterCheckProfilesPopupView;
+					pop.callBack = callBack;
+					PopUpManagerExt.centerPopUp(pop);
+				}
+			}			
+			
+			private function finishedCheckDeparture():void
+			{
+				dpProcess.getItemAt(2).status = BusinessDayConstants.COMPLETE;
+				dpProcess.getItemAt(3).status = BusinessDayConstants.RUNNING;
+				
+				dpProcess.refresh();
+				
+				var evt:TotalLogoutEvent = new TotalLogoutEvent();
+				evt.callBack = finishedTotalLogout;
+				CairngormEventDispatcher.getInstance().dispatchEvent( evt );
+			}
+			
+			private function finishedTotalLogout():void
+			{
+				dpProcess.getItemAt(3).status = BusinessDayConstants.COMPLETE;
+				dpProcess.getItemAt(4).status = BusinessDayConstants.RUNNING;
+				
+				dpProcess.refresh();
+				
+				var evt:PostTransactionsEvent = new PostTransactionsEvent();
+				evt.callBack = finishedPostTransactions;
+				CairngormEventDispatcher.getInstance().dispatchEvent( evt );
+			}
+			
+			private function finishedPostTransactions():void
+			{
+				dpProcess.getItemAt(4).status = BusinessDayConstants.COMPLETE;
+				dpProcess.getItemAt(5).status = BusinessDayConstants.RUNNING;
+				
+				dpProcess.refresh();
+				
+				var evt:UpdateRoomStatesEvent = new UpdateRoomStatesEvent();
+				evt.callBack = finishedUpdateRoomStates;
+				CairngormEventDispatcher.getInstance().dispatchEvent( evt );
+			}
+			
+			private function finishedUpdateRoomStates():void
+			{
+				dpProcess.getItemAt(5).status = BusinessDayConstants.COMPLETE;
+				dpProcess.getItemAt(6).status = BusinessDayConstants.RUNNING;
+				
+				dpProcess.refresh();
+				
+				var evt:RollBusinessDayEvent = new RollBusinessDayEvent();
+				evt.callBack = finishedRollBusinessDay;
+				CairngormEventDispatcher.getInstance().dispatchEvent( evt );
+				
+			}
+			
+			private function finishedRollBusinessDay():void
+			{
+				dpProcess.getItemAt(6).status = BusinessDayConstants.COMPLETE;
+				
+				dpProcess.refresh();
+				
+				PopUpManagerExt.removePopUp(this);				
+				
+				var evt:GetSystemDateEvent = new GetSystemDateEvent(CommonDelegate.GET_SYSTEM_DATE);
+				evt.callBack = callBack;
+				CairngormEventDispatcher.getInstance().dispatchEvent( evt );
+			}
+			
+			 private function otherLabelFunction(item:Object, column:DataGridColumn):String
+			   {
+				 	if(column.headerText == "Process")
+				    	return item.name;
+				    if(column.headerText == "Status")
+				    	return item.status;	
+				    return 'buh';		   
+			   }
+		]]>
+	</mx:Script>
+		<mx:DataGrid id="dgProcess" 
+			dataProvider="{dpProcess}" 
+			width="100%" height="100%">
+			<mx:columns>
+				<mx:DataGridColumn headerText="Process" labelFunction="otherLabelFunction"/>
+				<mx:DataGridColumn headerText="Status" labelFunction="otherLabelFunction"/>
+			</mx:columns>
+		</mx:DataGrid>
+</popup:BasePopupView>

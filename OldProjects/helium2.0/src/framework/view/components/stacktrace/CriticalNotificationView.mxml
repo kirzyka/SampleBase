@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="utf-8"?>
+<popup:BasePopupView
+	xmlns:popup="framework.view.components.popups.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:stacktrace="framework.view.components.stacktrace.*"
+	layout="absolute" 
+	title="{msgTitle}"
+	width="500" height="150">
+	
+	<mx:Script>
+		<![CDATA[
+			import mx.events.CloseEvent;
+			import services.vo.response.ResponseVO;
+			import flash.utils.getQualifiedClassName;
+			import mx.core.IFlexDisplayObject;
+			import services.vo.GlobalImageAssets;
+			import framework.model.AppModelLocator;
+			
+			import framework.managers.PopUpManagerExt;
+			
+			[Bindable]
+			[Embed(source='/assets/assets.swf', symbol="ArrowUpIcon")]
+			private var arrowUpIcon:Class;
+			
+			[Bindable]
+			[Embed(source='/assets/assets.swf', symbol="ArrowDownIcon")]
+			private var arrowDownIcon:Class;
+			
+			[Bindable]
+			private var responce:ResponseVO = AppModelLocator.getInstance().lastResponse;
+			
+			[Bindable]
+			public var msgKind:uint;
+			[Bindable]
+			public var msgTitle:String;
+			[Bindable]
+			public var msgMessage:String;
+			public var onCloseEventCallback:Function;
+			
+			private const HEIGHT:Number = 150;
+			
+			[Bindable]
+			/**
+			 *  This property contain state of view stack trace.
+			 *  If property is <code>true</code>, stack trace view panel is
+			 *  opened. If <code>false</code> - closed.
+			 *  
+			 *  @default false
+			 */
+			private var isOpen:Boolean = false;
+			
+			/**
+			 *  The handle of close or open stack track view.
+			 */
+			private function handleShowStackTrace():void
+			{
+				isOpen = !isOpen;
+				// update state
+				currentState = (isOpen) ? 'FullDescription' : '';
+			}
+			
+			/**
+			 *  The handle of send stack track to server.
+			 */
+			private function handleSendStackTrace():void
+			{
+				//TODO: send stack trace by CG event
+			}
+			
+			override protected function close(event:CloseEvent = null):void
+			{	
+				super.close(event);
+				
+				model.appEnabled--;
+				
+				if(onCloseEventCallback != null)
+				{
+					onCloseEventCallback();
+				}
+			}
+		]]>
+	</mx:Script>
+	
+	<!-- Define one view state, in addition to the base state.-->
+	<popup:states>
+		<mx:State name="FullDescription">
+			<mx:SetProperty name="height" value="300"/>
+			<mx:AddChild relativeTo="{description}" position="lastChild">
+				<mx:target>
+ 					<stacktrace:StackTraceView 
+ 						width="100%" height="100%"
+ 						value="{responce.oStackTrace as StackTraceVO}"/>
+				</mx:target>
+			</mx:AddChild>
+			<mx:SetProperty target="{description}" name="height" value="{HEIGHT}"/>
+		</mx:State>
+	</popup:states>
+	
+	<popup:transitions>
+		<!-- Define the transition from the base state to the FullDescription state.-->
+		<mx:Transition id="toStackView" fromState="*" toState="FullDescription">
+			<mx:Sequence>
+				<mx:RemoveChildAction/>
+				<mx:Parallel duration="500">
+					<mx:Resize target="{this}" heightTo="{this.height + HEIGHT}"/>
+					<mx:Resize target="{description}" heightTo="{HEIGHT}"/>
+				</mx:Parallel>
+				<mx:AddChildAction/>
+			</mx:Sequence>
+		</mx:Transition>
+		
+		<!-- Define the transition from the FullDescription state to the base state.-->
+		<mx:Transition id="toDefault" fromState="FullDescription" toState="*">
+			<mx:Sequence duration="500">
+				<mx:RemoveChildAction/>
+				<mx:Parallel>
+					<mx:Resize target="{this}" heightTo="{this.height - HEIGHT}"/>
+					<mx:Resize target="{description}" heightTo="0"/>
+				</mx:Parallel>
+				<mx:AddChildAction/>
+			</mx:Sequence>
+		</mx:Transition>
+	</popup:transitions>
+	
+	<mx:VBox id="view" width="100%" height="100%">
+		<mx:VBox width="100%" height="100%"
+			paddingTop="5" paddingLeft="5" paddingRight="5">
+			<mx:Text
+				text="{msgMessage}" 
+				textAlign="center" 
+				width="100%" height="100%"/>
+		</mx:VBox> 
+		<mx:HBox width="100%" paddingLeft="15" paddingRight="15">
+			<mx:Spacer width="100%"/>
+			<mx:Button
+				label="SEND" 
+				width="60" height="23"
+				includeInLayout="false"
+				visible="false"
+				click="handleSendStackTrace()"/>
+			<mx:Button
+				label="OK" 
+				click="close()"
+				width="60" height="23"/>
+			<mx:Button id="btOpen"
+				icon="{isOpen ? arrowDownIcon : arrowUpIcon}"
+				toolTip="View StackTrace"
+				visible="{responce.oStackTrace != null}"
+				click="handleShowStackTrace()"
+				width="23" height="23"/>
+		</mx:HBox>
+		
+		<mx:HBox id="description" width="100%" height="0"/>
+	</mx:VBox>
+</popup:BasePopupView>

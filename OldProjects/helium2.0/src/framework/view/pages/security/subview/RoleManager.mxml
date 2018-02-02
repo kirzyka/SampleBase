@@ -1,0 +1,263 @@
+<?xml version="1.0" encoding="utf-8"?>
+<view:VSubWindow
+	xmlns:view="framework.core.view.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:control="h2olib.control.*"
+	
+	width="100%" height="100%"	
+	paddingBottom="5" paddingLeft="5" paddingRight="5" paddingTop="5"
+	>
+	<mx:Script>
+		<![CDATA[
+			import services.events.security.GetRolesEvent;
+			import framework.core.utils.UtilsGolobal;
+			import services.events.security.SaveRoleEvent;
+			import services.events.security.DeleteRoleEvent;
+			import framework.managers.PopUpManagerExt;
+			import mx.managers.PopUpManagerChildList;
+			import framework.view.components.popups.DeletePopupView;
+			import framework.view.components.popups.events.PopupEvent;
+			import mx.events.CloseEvent;
+			import h2olib.control.Confirmation;
+			import services.events.security.DeleteRoleEvent;
+			import services.events.security.SaveRoleEvent;
+			import mx.controls.Alert;
+			import services.vo.GlobalImageAssets;
+			import services.vo.frontend.RoleVO;
+			import services.vo.frontend.UserCredentialsVO;
+			import framework.model.AppModelLocator;
+			import services.controller.AppController;
+			import com.adobe.cairngorm.control.CairngormEvent;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import mx.collections.SortField;
+			import mx.collections.Sort;
+			import mx.effects.easing.Elastic;
+			import mx.collections.ArrayCollection;
+			import framework.core.utils.UtilsSecurity;
+
+			[Bindable]
+			private var permissions:ArrayCollection = new ArrayCollection();
+			private var currentRole:RoleVO;
+			[Bindable]
+			private var isSaveEnable:Boolean = false;
+
+			public function show():void
+			{
+				getPermissionsList();
+				if(model.securityModule.systemRoleList.length == 0)
+				{
+					getRolesList();
+				}
+
+			}
+
+			private function getRolesList():void
+			{
+				var getRolesEvent:GetRolesEvent = new GetRolesEvent();
+				getRolesEvent.dispatch();
+				//CairngormEventDispatcher.getInstance().dispatchEvent(new CairngormEvent(AppController.SECURITY_GET_ROLES_EVENT));
+			}
+
+			private function getPermissionsList():void
+			{
+				if(permissions.length == 0)
+				{
+					var classInfo:XML = UtilsGolobal.getClassInfo(UtilsSecurity);
+					var classElements:XMLList = classInfo.elements();
+
+					for each(var node:XML in classElements)
+					{
+						if(node.name() == "constant")
+						{
+							permissions.addItem({name:node.@name.toString(),value:UtilsSecurity[node.@name],selected:false});
+						}
+					}
+					var sort:Sort = new Sort();
+					sort.fields = [new SortField("value")];
+					permissions.sort = sort;
+					permissions.refresh();
+				}
+			}
+
+
+
+        	private function addNewRole():void
+        	{
+        		currentRole = new RoleVO();
+        		currentRole.lId = 0;
+        		currentRole.sName = txtRoleName.text;
+        		currentRole.aPermission = new Array(permissions.length);
+        		for(var i:int=0;i<permissions.length;i++)
+        		{
+        			currentRole.aPermission[i] = "0";
+        		}
+        		model.securityModule.systemRoleList.addItem(currentRole);
+        		lstRoles.selectedItem = currentRole;
+        		changeRoleHandler();
+
+        		txtRoleName.text = "";
+        		isSaveEnable = true;
+        	}
+
+        	private function removeRole():void
+        	{
+        		if(lstRoles.selectedItem != null)
+        		{
+        			var pop:DeletePopupView = PopUpManagerExt.createPopUp(this, DeletePopupView) as DeletePopupView;					
+					pop.title = model.locale.Security_RoleManager_Dialogs_DeleteRole_Title;
+					pop.description = model.locale.Security_RoleManager_Dialogs_DeleteRole_Description;
+					pop.addEventListener(PopupEvent.DELETE_HANDLER, delRole);
+        		}
+        	}
+
+        	private function delRole(e:PopupEvent):void
+        	{
+        		(e.target as DeletePopupView).removeEventListener(PopupEvent.DELETE_HANDLER, delRole);
+
+        		if(currentRole.lId > 0)
+        		{
+        			var deleteRoleEvent:DeleteRoleEvent = new DeleteRoleEvent();
+        			deleteRoleEvent.role = currentRole;
+        			deleteRoleEvent.callBack = removeRoleFromList;
+        			CairngormEventDispatcher.getInstance().dispatchEvent(deleteRoleEvent);
+        		}
+        		else
+        		{
+        			removeRoleFromList();
+        		}
+				(e.target as DeletePopupView).completeCall();
+				isSaveEnable = true;
+        	}
+
+        	private function removeRoleFromList():void
+        	{
+        		model.securityModule.systemRoleList.removeItemAt(model.securityModule.systemRoleList.getItemIndex(currentRole));
+        		if(model.securityModule.systemRoleList.length > 0)
+    			{
+    				lstRoles.selectedIndex = 0;
+    				changeRoleHandler();
+    			}
+    			else
+    			{
+    				clearSelection();
+    			}
+    			isSaveEnable = true;
+        	}
+
+        	private function changeRoleHandler():void
+        	{
+        		currentRole = lstRoles.selectedItem as RoleVO;
+        		try {
+        		for(var i:int=0; i < currentRole.aPermission.length;i++)
+        		{
+        			permissions.getItemAt(i).selected = currentRole.aPermission[i] == 1;
+        		}
+        		}catch(e:Error){Alert.show(e.message)}
+        		permissions.refresh();
+
+        	}
+
+        	private function saveRole():void
+        	{
+        		var saveRoleEvent:SaveRoleEvent = new SaveRoleEvent();
+        		saveRoleEvent.role = currentRole;
+        		saveRoleEvent.callBack = saveRoleComplete;
+        		saveRoleEvent.dispatch();
+        	}
+
+			private function saveRoleComplete():void
+			{
+				currentRole.lId = model.securityModule.currentRoleID;
+				isSaveEnable = false;
+			}
+
+			private function clearSelection():void
+			{
+        		for(var i:int=0; i < currentRole.aPermission.length;i++)
+        		{
+        			permissions.getItemAt(i).selected = false;
+        		}
+			}
+
+			public function updateSelection(index:int,selected:Boolean):void
+			{
+				try {
+					(model.securityModule.systemRoleList.getItemAt(model.securityModule.systemRoleList.getItemIndex(currentRole)) as RoleVO).aPermission[index] = selected ? "1" : "0";
+					currentRole.aPermission[index] = selected ? "1" : "0";
+					permissions.getItemAt(index).selected = selected ? true : false;
+					model.securityModule.systemRoleList.refresh();
+					isSaveEnable = true;
+				}catch(e:Error){}
+			}
+
+			private function onRoleNameKeyDown(event:KeyboardEvent):void
+			{
+				if(event.keyCode == Keyboard.ENTER)
+				{
+					addNewRole();
+				}
+			}
+			private function onRolesListKeyDown(event:KeyboardEvent):void
+			{
+				if(event.keyCode == Keyboard.DELETE)
+				{
+					removeRole();
+				}
+			}
+
+		]]>
+	</mx:Script>
+
+	<mx:HBox
+		width="100%" height="100%">
+		<mx:VBox
+			width="250" height="100%">
+			<mx:HBox width="100%">
+				<control:PromptingTextInput id="txtRoleName"
+					maxChars="22"
+					keyDown="onRoleNameKeyDown(event)"
+					prompt="{model.locale.Security_RoleManager_NewRoleName}"/>
+				<mx:Button id="btnAddRole"
+					icon="@Embed(source='/assets/assets.swf', symbol='AddIcon')"
+					click="{addNewRole()}"
+					width="22"
+					enabled="{txtRoleName.text.length > 0}"/>
+				<mx:Button id="btnRemoveRole"
+					icon="@Embed(source='/assets/assets.swf', symbol='RemoveIcon')"
+					click="{removeRole()}"
+					width="22"/>
+			</mx:HBox>
+			<mx:List id="lstRoles"
+				dataProvider="{model.securityModule.systemRoleList}"
+				change="{changeRoleHandler()}"
+				labelField="sName"
+				keyDown="onRolesListKeyDown(event)"
+				width="100%" height="100%"/>
+		</mx:VBox>
+
+		<mx:TileList id="tlPermissions"
+			dataProvider="{permissions}"
+			width="100%" height="100%"
+			columnCount="3"  direction="horizontal"
+			>
+			<mx:itemRenderer>
+				<mx:Component>
+					<mx:HBox width="100%">
+						<mx:CheckBox id="chkPermission"
+							label="{data.name}"
+							selected="{data.selected}"
+							change="{outerDocument.updateSelection(data.value,chkPermission.selected)}"/>
+					</mx:HBox>
+				</mx:Component>
+			</mx:itemRenderer>
+		</mx:TileList>
+	</mx:HBox>
+	<mx:ApplicationControlBar width="100%">
+		<mx:Spacer width="100%"/>
+		<mx:Button id="btnSave"
+			label="{model.locale.Security_RoleManager_Buttons_Save_Label}"
+			toolTip="{model.locale.Security_RoleManager_Buttons_Save_Tooltip}"
+			click="{saveRole()}"
+			enabled="{isSaveEnable}"/>
+	</mx:ApplicationControlBar>
+</view:VSubWindow>

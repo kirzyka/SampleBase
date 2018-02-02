@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow title="Reports to Print (Shift Closure Reports)" xmlns:mx="http://www.adobe.com/2006/mxml" layout="vertical" 
+	width="550" showCloseButton="true" close="closeWindow()">
+	
+	<mx:Script>
+		<![CDATA[
+			import services.events.reports.GetReportEvent;
+			import flash.utils.setTimeout;
+			import services.vo.GlobalFunctions;
+			import mx.controls.DateField;
+			import services.vo.backend.ReportVO;
+			import services.events.roomSettings.AddRoomSettingEvent;
+			import services.vo.GlobalStorage;
+			import services.vo.GlobalSettings;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.controller.AppController;
+			import services.vo.backend.RoomSettingObjectVO;
+			import framework.managers.PopUpManagerExt;
+			import framework.model.AppModelLocator;
+			
+			[Bindable]
+			private var model:AppModelLocator = AppModelLocator.getInstance();
+			
+			[Bindable]
+			public var cashId:Number = 0;					
+			private const CASH_SHIFT_CLOSURE:int = 101;
+			private const CASH_SHIFT_PAYMENT_DETAIL:int = 102;
+			private const CASH_SHIFT_CREDIT_CARD:int = 103;
+			
+			
+			
+			private function closeWindow():void
+			{
+				PopUpManagerExt.removePopUp(this);
+			}
+			
+			private function handleCreateReportList():void
+			{				
+				if (all.selected)
+				{
+					var report:ReportVO = new ReportVO();
+					report.iHotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+					report.sDateReport = DateField.dateToString(GlobalFunctions.getDate(), GlobalSettings.DATE_SERVER_FORMAT);
+					report.iReportType = CASH_SHIFT_CLOSURE;
+					report.oReportParameters = cashId;				
+					model.reportsList.push(report);	
+					
+					report = new ReportVO();
+					report.iHotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+					report.sDateReport = DateField.dateToString(GlobalFunctions.getDate(), GlobalSettings.DATE_SERVER_FORMAT);
+					report.iReportType = CASH_SHIFT_PAYMENT_DETAIL;
+					report.oReportParameters = cashId;				
+					model.reportsList.push(report);	
+					
+					report = new ReportVO();
+					report.iHotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+					report.sDateReport = DateField.dateToString(GlobalFunctions.getDate(), GlobalSettings.DATE_SERVER_FORMAT);
+					report.iReportType = CASH_SHIFT_CREDIT_CARD;
+					report.oReportParameters = cashId;				
+					model.reportsList.push(report);				
+				}
+				
+				else
+				
+				{  	
+					if (firstReport.selected)
+					{
+						report = new ReportVO();
+						report.iHotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+						report.sDateReport = DateField.dateToString(GlobalFunctions.getDate(), GlobalSettings.DATE_SERVER_FORMAT);
+						report.iReportType = CASH_SHIFT_CLOSURE;
+						report.oReportParameters = cashId;				
+						model.reportsList.push(report);	
+					}
+					if (secondReport.selected)
+					{
+						report = new ReportVO();
+						report.iHotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+						report.sDateReport = DateField.dateToString(GlobalFunctions.getDate(), GlobalSettings.DATE_SERVER_FORMAT);
+						report.iReportType = CASH_SHIFT_PAYMENT_DETAIL;
+						report.oReportParameters = cashId;				
+						model.reportsList.push(report);	
+					}
+					if (thirdReport.selected)
+					{
+						report = new ReportVO();
+						report.iHotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+						report.sDateReport = DateField.dateToString(GlobalFunctions.getDate(), GlobalSettings.DATE_SERVER_FORMAT);
+						report.iReportType = CASH_SHIFT_CREDIT_CARD;
+						report.oReportParameters = cashId;				
+						model.reportsList.push(report);	
+					}
+				} 				
+				closeWindow(); 
+				getAllReports();
+			}
+			
+			/**
+			 *	Get reports
+			*/
+			private function getAllReports():void
+			{	
+				var evt:GetReportEvent = new GetReportEvent( AppController.GET_ARRIVAL_REPORT_EVENT );
+				evt.report = model.reportsList.shift();
+				if (model.reportsList.length != 0)
+				evt.callBack = getAllReports;
+				
+				CairngormEventDispatcher.getInstance().dispatchEvent( evt );
+
+			}
+			
+			
+			
+			 private function updateCheckBoxAll():void
+			{
+				if (all.selected)
+				{
+					firstReport.selected = true;
+					secondReport.selected = true;
+					thirdReport.selected = true;
+					generate.enabled = true;
+				}
+				else
+				{
+					firstReport.selected = false;
+					secondReport.selected = false;
+					thirdReport.selected = false;
+					generate.enabled = false;
+				}
+			} 
+			 
+			 private function updateCheckBox():void
+			{
+				all.selected = false;
+				if (firstReport.selected || secondReport.selected || thirdReport.selected)
+				{
+					generate.enabled = true;
+				}
+				else
+				{
+					generate.enabled = false;
+				}
+			} 
+		]]>
+	</mx:Script>	
+	<mx:Form label="Select Report">		
+		<mx:FormItem>
+				<mx:CheckBox id="all" label="Select All" change="{updateCheckBoxAll()}"/>	
+				<mx:CheckBox id="firstReport" label="Cach Shift Closure Report" change="{updateCheckBox()}"/>	
+				<mx:CheckBox id="secondReport" label="Creditcard Comparison at Shift Closure" change="{updateCheckBox()}"/>	
+				<mx:CheckBox id="thirdReport" label="Detailed Payment Report at Shift Closure" change="{updateCheckBox()}"/>			
+		</mx:FormItem>		
+	</mx:Form>
+	<mx:HBox width="100%">
+		<mx:Button id="generate" label="Generate" enabled="false" width="{GlobalSettings.BUTTON_WIDTH_APPLY}" click="handleCreateReportList()"/>
+		<mx:Spacer width="100%"/>
+		<mx:Button id="close" label="Close" width="{GlobalSettings.BUTTON_WIDTH}" click="closeWindow()"/>		
+	</mx:HBox>
+	
+</mx:TitleWindow>

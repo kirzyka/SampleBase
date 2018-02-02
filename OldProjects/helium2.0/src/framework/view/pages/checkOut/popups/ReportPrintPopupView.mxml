@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<popup:BasePopupView
+	xmlns:popup="framework.view.components.popups.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	creationComplete="init()"
+	title="Actual report"
+	width="500">
+	
+	<mx:Script>
+		<![CDATA[
+			import framework.view.pages.checkOut.control.DebitorPaymentView;
+			import framework.module.CheckOutModule;
+			import mx.events.CloseEvent;
+			import framework.view.pages.checkOut.control.ReportPrintView;
+			import services.vo.inHouse.CheckOutReportsVO;
+			
+			override protected function close(event:CloseEvent = null):void
+			{
+				if (callBack is Function)
+				{
+					callBack();
+				}
+				
+				super.close(event);
+			}
+			
+			private function init():void
+			{
+				var reportView:ReportPrintView;
+				
+				reportView = new ReportPrintView();
+				reportView.title = "Do you want to view report/reports?";				
+				//reportView.url = model.checkOutModule.invoiceURL;
+				reportView.urlList = model.checkOutModule.invoiceURLList;
+				reportView.callBack = close;
+				addChild(reportView);				
+			}
+		]]>
+	</mx:Script>
+</popup:BasePopupView>

@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="utf-8"?>
+<view:VSubWindow
+	xmlns:view="framework.core.view.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:searchBox="h2olib.control.searchBox.*"
+	enabled="{model.vatModule.vatEnable}"
+	hide="handleHide()"
+	width="100%" height="100%">
+	
+	<mx:Script>
+		<![CDATA[
+			import framework.view.pages.miscellaneous.vat.subview.SaveVatPopup;
+			import services.vo.GlobalSettings;
+			import services.events.miscellaneous.vat.GetVATDataEvent;
+			import services.events.miscellaneous.vat.DeleteVATEvent;
+			import framework.view.components.popups.events.PopupEvent;
+			import framework.view.components.popups.DeletePopupView;
+			import mx.managers.PopUpManagerChildList;
+			import mx.events.DataGridEvent;
+			import mx.collections.SortField;
+			import mx.utils.ObjectUtil;
+			import mx.collections.ArrayCollection;
+			import mx.events.CollectionEvent;
+			import services.vo.GlobalFunctions;
+			import framework.managers.PopUpManagerExt;
+			import mx.controls.Alert;
+			import services.vo.backend.VatObjectVO;
+			import services.controller.AppController;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import framework.model.AppModelLocator;
+			import mx.collections.Sort;
+			
+			private var sortDirectionName:Number = 0;
+			private var sortDirectionValue:Number = 0;
+			
+			// The Sort object used to sort the collection.
+			private var sortA:Sort;
+			
+			// The sort fields used to determine the sort.
+			private var sortByName:SortField;
+			private var sortByValue:SortField;
+			
+			public override function update():void
+			{
+				model.vatModule.vatDP.addEventListener(CollectionEvent.COLLECTION_CHANGE, refreshVAT);
+				// get VATs from server
+				var event:GetVATDataEvent = new GetVATDataEvent(AppController.GET_VAT_DATA_EVENT);
+				event.callBack = updateVAT;
+				CairngormEventDispatcher.getInstance().dispatchEvent(event);
+			}
+			
+			private function updateVAT():void
+			{
+				sortA = new Sort();
+				sortByName = new SortField("sVatName", true);
+				sortByValue = new SortField("iVatValue", true, false, true);
+				sortA.fields = [sortByValue, sortByName];
+				model.vatModule.vatDP.sort = sortA;
+				// Refresh the collection view to show the sort.
+				model.vatModule.vatDP.refresh();
+				// Set the ArrayCollection as the DataGrid data provider.
+				vatData.dataProvider=model.vatModule.vatDP;
+			}
+			
+						
+			private function handleHide():void
+			{
+				clearSearchField();
+				refreshVAT();
+			}
+			
+			private function clearSearchField():void
+			{
+				search.text = "";
+			}
+			
+			private function refreshVAT():void
+			{
+				vatData.dataProvider = GlobalFunctions.search(model.vatModule.vatDP, search.text, ["sVatName"]);
+			}
+			
+			private function handleAdd():void
+			{
+				var popup:SaveVatPopup = PopUpManagerExt.createPopUp(this, SaveVatPopup) as SaveVatPopup;
+				PopUpManagerExt.centerPopUp(popup);
+				
+				popup.callBack = clearSearchField;
+			}
+			
+			private function handleEdit():void
+			{ 
+		 		var popup:SaveVatPopup = PopUpManagerExt.createPopUp(this, SaveVatPopup) as SaveVatPopup;
+				
+				popup.selectedIndex = vatData.selectedIndex;
+				popup.data = vatData.selectedItem as VatObjectVO;
+				popup.callBack = handleHide;
+				
+				PopUpManagerExt.centerPopUp(popup);
+	 		}
+			
+			
+			private function handleDelete():void
+			{
+				var pop:DeletePopupView = PopUpManagerExt.createPopUp(this, DeletePopupView) as DeletePopupView;
+				pop.title = "Delete";
+				pop.description = "Do you want to delete selected VAT?";
+				pop.addEventListener(PopupEvent.DELETE_HANDLER, delVat);
+			}
+			
+			private function delVat(e:PopupEvent):void
+			{
+				(e.target as DeletePopupView).removeEventListener(PopupEvent.DELETE_HANDLER, delVat);
+				var evt:DeleteVATEvent = new DeleteVATEvent( AppController.DELETE_VAT_EVENT );
+				evt.index = vatData.selectedIndex;
+				evt.targetArray = vatData.dataProvider as ArrayCollection;
+				evt.vat = vatData.selectedItem as VatObjectVO;
+				CairngormEventDispatcher.getInstance().dispatchEvent( evt );
+				(e.target as DeletePopupView).completeCall();
+				
+			}
+			
+			private function handleSearch():void
+			{
+				if(search.text == "")
+				{
+					vatData.dataProvider = model.vatModule.vatDP;
+					
+					return;
+				}
+				
+				vatData.dataProvider = GlobalFunctions.search(model.vatModule.vatDP, search.text, ["sVatName"]);
+			}
+			
+			private function handleSearchChange():void
+			{
+				var char:String = search.text.charAt(search.text.length-1);
+				
+				if(char == "^" || char == "[" || char == "]" || char == "\\")
+				{
+					if(search.text.length == 0) search.text = ''; 
+					else search.text = search.text.substr(0,search.text.length-1);
+				}
+				handleSearch();
+			}
+		]]>
+	</mx:Script>
+	
+	<searchBox:SearchBox id="search"
+		label="name of VAT"
+		changeByFocus="handleSearchChange()"
+		enter="handleSearchChange()"
+		width="180"/>
+	
+	<mx:AdvancedDataGrid id="vatData"
+		sortableColumns="true"
+		width="100%" height="100%">
+		<mx:columns>
+			<mx:AdvancedDataGridColumn id="VatObjName"
+				headerText="Name"
+				dataField="sVatName"/>
+			<mx:AdvancedDataGridColumn id="VatObjColumn"
+				headerText="Value"
+				dataField="iVatValue"/>
+		</mx:columns>
+	</mx:AdvancedDataGrid>
+	<mx:HBox width="50%">
+		<mx:Button id="btAddVAT"
+			label="Add"
+			click="handleAdd()"
+			width="{GlobalSettings.BUTTON_WIDTH}"/>
+		<mx:Button id="btEditVAT"
+			label="Edit"
+			enabled="{vatData.selectedItem}"
+			click="handleEdit()"
+			width="{GlobalSettings.BUTTON_WIDTH}"/>
+		<mx:Button id="btDeleteVAT"
+			label="Delete"
+			enabled="{vatData.selectedItem}"
+			click="handleDelete()"
+			width="{GlobalSettings.BUTTON_WIDTH}"/>
+	</mx:HBox>
+</view:VSubWindow>

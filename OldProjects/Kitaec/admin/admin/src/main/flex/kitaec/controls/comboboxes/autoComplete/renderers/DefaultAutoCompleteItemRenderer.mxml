@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:ItemRenderer
+        xmlns:fx="http://ns.adobe.com/mxml/2009"
+		xmlns:s="library://ns.adobe.com/flex/spark"
+		xmlns:mx="library://ns.adobe.com/flex/mx"
+
+        implements="kitaec.controls.comboboxes.autoComplete.renderers.IAutoCompleteRenderer"
+
+        autoDrawBackground="true"
+
+		dataChange="onDataChange(event)">
+
+	<fx:Script>
+		<![CDATA[
+
+        import kitaec.controls.comboboxes.autoComplete.AutoCompleteComboBox;
+
+        import mx.events.FlexEvent;
+			
+			[Bindable]
+			private var _label:String;
+			
+			private var _autoComplete:AutoCompleteComboBox;
+			
+			[Bindable]
+			public function get autoComplete():AutoCompleteComboBox {
+				return _autoComplete;
+			}
+			
+			public function set autoComplete(value:AutoCompleteComboBox):void {
+				_autoComplete = value;
+			}
+			
+			private var _typeAheadText:String;
+			
+			[Bindable]
+			public function get typeAheadText():String {
+				return _typeAheadText;
+			}
+			
+			public function set typeAheadText(value:String):void {
+				_typeAheadText = value;
+			
+			}
+			
+			protected function onDataChange(event:FlexEvent):void {
+				_label = highlighMatch(autoComplete.itemToLabel(data), typeAheadText);
+			}
+			
+			public static function highlighMatch(input:String, searchStr:String):String {
+				var matchPos:int = input.toLowerCase().indexOf(searchStr.toLowerCase());
+				var returnStr:String = input;
+				if (matchPos != -1) {
+					returnStr = input.substring(0, matchPos);
+					var matchedPart:String = input.substr(matchPos, searchStr.length);
+					
+					if (matchedPart.length > 0) {
+						returnStr += "<b><u>" + matchedPart + "</u></b>";
+						returnStr += input.substr(matchPos + searchStr.length, input.length) + " ";
+					} else {
+						returnStr = input;
+					}
+				}
+				return returnStr;
+			}
+		]]>
+	</fx:Script>
+
+	<mx:Label htmlText="{_label}"/>
+
+</s:ItemRenderer>

@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Box xmlns:mx="http://www.adobe.com/2006/mxml"
+	horizontalAlign="center"
+	verticalAlign="middle">
+
+	<mx:Script>
+		<![CDATA[
+			import framework.view.pages.reservationCreate.popups.SelectRateReservationPopupView;
+			import mx.collections.ArrayCollection;
+			import framework.model.AppModelLocator;
+			import services.vo.rates.companyRates.CompanyRateObjectVO;
+
+			private var model:AppModelLocator = AppModelLocator.getInstance();
+			
+			[Bindable]
+			public var parentView:SelectRateReservationPopupView;
+
+
+			private function onClick():void 
+			{
+				if(parentView.selectedCompanyRates == null)
+				{
+					parentView.selectedCompanyRates = new ArrayCollection();
+				}
+				if(parentView.selectedPackageRates  == null)
+				{
+					parentView.selectedPackageRates = new ArrayCollection();
+				}				
+				
+				if(chbSelect.selected) {
+					data.bIsSelected = true;
+					if(data is CompanyRateObjectVO) {
+						parentView.selectedCompanyRates.addItem(data);
+					}
+					else {
+						parentView.selectedPackageRates.addItem(data);
+					}
+				}
+				else {
+					data.bIsSelected = false;
+					if(data is CompanyRateObjectVO) {
+						parentView.selectedCompanyRates.removeItemAt(parentView.selectedCompanyRates.getItemIndex(data));
+					}
+					else {
+						parentView.selectedPackageRates.removeItemAt(parentView.selectedPackageRates.getItemIndex(data));
+					}
+				}
+			}
+		]]>
+	</mx:Script>
+
+	<mx:CheckBox id="chbSelect"
+		selected="{data.bIsSelected}"
+		click="onClick()">
+	</mx:CheckBox>
+</mx:Box>
+

@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="utf-8"?>
+<VSubWindow xmlns="framework.core.view.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:searchBox="h2olib.control.searchBox.*"
+	width="100%" height="100%">
+	<mx:Script>
+		<![CDATA[
+			import framework.view.pages.miscellaneous.langueges.subview.SaveLanguagePopupView;
+			import services.events.miscellaneous.langueges.GetLanguageEvent;
+			import services.events.miscellaneous.langueges.DeleteLanguageEvent;
+			import framework.view.components.popups.DeletePopupView;
+			import framework.view.components.popups.events.PopupEvent;
+			import mx.managers.PopUpManagerChildList;
+			import services.vo.common.LanguageVO;
+			import services.vo.GlobalSettings;
+			import mx.controls.CheckBox;
+			import services.vo.GlobalStorage;
+			
+			import mx.events.CollectionEvent;
+			import services.vo.GlobalFunctions;
+			import mx.collections.ArrayCollection;
+			import services.vo.backend.RoomSettingObjectVO;
+			import framework.managers.PopUpManagerExt;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.controller.AppController;
+			import framework.model.AppModelLocator;
+					
+			public override function update():void
+			{
+				var languageEvt:GetLanguageEvent = new GetLanguageEvent(AppController.GET_LANGUAGE_EVENT);
+				CairngormEventDispatcher.getInstance().dispatchEvent(languageEvt);
+			}
+			
+			private function handleAdd():void
+			{
+				var pop:SaveLanguagePopupView = PopUpManagerExt.createPopUp(this, SaveLanguagePopupView) as SaveLanguagePopupView;
+				pop.callBack = update;
+				PopUpManagerExt.centerPopUp(pop);
+			}
+			
+			private function handleEdit():void
+			{
+				var pop:SaveLanguagePopupView = PopUpManagerExt.createPopUp(this, SaveLanguagePopupView) as SaveLanguagePopupView;
+				pop.data = languageList.selectedItem as LanguageVO;
+				pop.callBack = update;
+				PopUpManagerExt.centerPopUp(pop);				
+			}
+			
+			private function handleDelete():void
+			{
+				var pop:DeletePopupView = PopUpManagerExt.createPopUp(this, DeletePopupView) as DeletePopupView;
+				pop.title = "Delete";
+				pop.description = "Are you sure to delete selected language?";
+				pop.addEventListener(PopupEvent.DELETE_HANDLER, delLanguage);
+			}
+			
+			private function delLanguage(e:PopupEvent):void
+			{
+				(e.target as DeletePopupView).removeEventListener(PopupEvent.DELETE_HANDLER, delLanguage);
+				var evt:DeleteLanguageEvent = new DeleteLanguageEvent(AppController.DELETE_LANGUAGE_EVENT);
+				evt.language = languageList.selectedItem as LanguageVO;
+				evt.index = languageList.selectedIndex;
+				evt.listLanguage = languageList.dataProvider as ArrayCollection;
+				CairngormEventDispatcher.getInstance().dispatchEvent( evt );
+				(e.target as DeletePopupView).completeCall();
+			}
+			
+			private function handleSearch():void
+			{	
+				if(search.text == "")
+				{
+					languageList.dataProvider = GlobalStorage.language;
+					return;
+				}
+				languageList.dataProvider = GlobalFunctions.search(GlobalStorage.language, search.text, [["sName"], ["sCode"]]);
+				
+			}
+			
+			private function handleSearchChange():void
+			{
+				var char:String = search.text.charAt(search.text.length-1);
+				
+				if(char == "^" || char == "[" || char == "]" || char == "\\")
+				{
+					if(search.text.length == 0) search.text = ''; 
+					else search.text = search.text.substr(0,search.text.length-1);
+				}
+				
+				handleSearch();
+			}
+			
+		
+			private function handleLanguageChange():void
+			{
+				/// get id of the country for which get his regions.
+				var currentLanguage:LanguageVO = languageList.selectedItem as LanguageVO;
+						
+			}
+			
+			
+		]]>
+	</mx:Script>
+	<mx:HBox>
+		<mx:FormItem direction="horizontal">
+			<searchBox:SearchBox id="search" width="180" label="Language" changeByFocus="handleSearchChange()" enter="handleSearchChange()"/>
+			<!--<mx:Button label="Search" click="handleSearch()" id="searchLanguage"/>-->
+		</mx:FormItem>		
+	</mx:HBox>
+	<mx:HBox width="100%" height="100%">
+		<mx:VBox width="100%" height="100%" borderStyle="solid">		
+			<mx:DataGrid id="languageList" labelField="sCountryName" width="100%" height="100%" 
+				itemClick="handleLanguageChange()" 
+				dataProvider="{GlobalStorage.language}">
+			<mx:columns>
+			<mx:DataGridColumn headerStyleName="HeaderDataGrid" headerText="Language"  id="languageName" dataField="sName"/>
+			<mx:DataGridColumn headerStyleName="HeaderDataGrid" headerText="Code"  id="languageCode" dataField="sCode"/>
+			</mx:columns>
+			</mx:DataGrid>
+		</mx:VBox>
+	</mx:HBox>
+	<mx:HBox width="50%" height="40">
+		<mx:Button label="Add" width="{GlobalSettings.BUTTON_WIDTH}" click="handleAdd()"  id="addLanguage"/>
+		<mx:Button label="Edit" width="{GlobalSettings.BUTTON_WIDTH}" click="handleEdit()" enabled="{languageList.selectedIndex > -1 }" id="editLanguage"/>
+		<mx:Button label="Delete" width="{GlobalSettings.BUTTON_WIDTH}" click="handleDelete()" enabled="{languageList.selectedIndex > -1 }" id="deleteLanguage"/>
+	</mx:HBox>
+	
+</VSubWindow>

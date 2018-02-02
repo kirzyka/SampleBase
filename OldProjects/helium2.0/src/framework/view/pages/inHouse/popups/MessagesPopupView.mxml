@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="utf-8"?>
+<BasePopupView
+	xmlns="framework.view.components.popups.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	prefix="popups.messages."
+	title="{model.locale.InHouse_Popups_Messages_Title}"
+	width="700" height="400">
+	<mx:Script>
+		<![CDATA[
+			import services.events.inHouse.GetMessageHistoryEvent;
+			import mx.collections.ArrayCollection;
+			import services.events.inHouse.MarkMessageAsReadEvent;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.vo.inHouse.InHouseViewVO;
+			import services.business.inHouse.InHouseDelegate;
+			import services.events.inHouse.SaveMessageEvent;
+			import framework.view.pages.inHouse.renders.EmailItemRenderer;
+			import mx.managers.PopUpManagerChildList;
+			import framework.managers.PopUpManagerExt;
+			import framework.view.pages.inHouse.renders.EmailIconRenderer;
+			import mx.controls.Label;
+			import services.vo.GlobalSettings;
+			import mx.controls.DateField;
+			import services.vo.inHouse.PersonMessageVO;
+			import mx.controls.dataGridClasses.DataGridColumn;
+			
+			/**
+			 *  This property is list with unread messages assigned to guest.
+			 *  
+			 *  @default []
+			 *  
+			 *  @see framework.vo.inHouse.PersonMessageVO
+			 */
+			private var _messages:/* PersonMessageVO */Array = [];
+			
+			/**
+			 *  Label function for view creation date of message by dd/mm/yyyy format.
+			 *  
+			 *  @param item:Object - item of dataprovider for caller table.
+			 *  @param column:DataGridColumn - column in grid.
+			 *  
+			 *  @result formated date as String.
+			 */
+			private function funcCreationTimeView(item:Object, column:DataGridColumn):String
+			{
+				return timeConverter((item as PersonMessageVO).dCreationTime);
+			}
+			
+			/**
+			 *  Label function for view deviver date of message by dd/mm/yyyy format.
+			 *  
+			 *  @param item:Object - item of dataprovider for caller table.
+			 *  @param column:DataGridColumn - column in grid.
+			 *  
+			 *  @result formated date as String.
+			 */
+			private function funcDeliverTimeView(item:Object, column:DataGridColumn):String
+			{
+				return timeConverter((item as PersonMessageVO).dDeliverTime);
+			}
+			
+			/**
+			 *  Converter from date and time as "YYYY-MM-DD hh:mm:ss" to
+			 *  ui format as "DD/MM/YYYY hh:mm:ss".
+			 *  
+			 *  @param dateTime:String - date and time as "YYYY-MM-DD hh:mm:ss"
+			 *         format
+			 *  
+			 *  @return formatted string as "DD/MM/YYYY hh:mm:ss"
+			 */
+			private function timeConverter(dateTime:String):String
+			{
+				if (!dateTime) return "";
+				
+				var aDateTime:Array = dateTime.split(" ");
+				var date:Date = DateField.stringToDate(aDateTime[0], GlobalSettings.DATE_SERVER_FORMAT);
+				var strDate:String = DateField.dateToString(date, GlobalSettings.DATE_FORMAT);
+				
+				return strDate + " " + aDateTime[1];
+			}
+			
+			/**
+			 *  The handle to open popup with body and info for message for guest.
+			 */
+			private function showMessage():void
+			{
+				if (messages.length > 0)
+				{
+					var event:MarkMessageAsReadEvent = new MarkMessageAsReadEvent(InHouseDelegate.MARK_MESSAGE_AS_READ);
+					event.messageId = (dgMessages.selectedItem as PersonMessageVO).lId;
+					event.callBack = markAsRead;
+					CairngormEventDispatcher.getInstance().dispatchEvent(event);
+				}
+			}
+			
+			private function markAsRead():void
+			{
+				(dgMessages.selectedItem as PersonMessageVO).bIsRead = true;
+				(dgMessages.selectedItem as PersonMessageVO).dDeliverTime = model.inHouseModule.deliverDateTime;
+				
+				var pop:MessageViewPopupView = PopUpManagerExt.createPopUp(this, MessageViewPopupView) as MessageViewPopupView;
+				pop.data = dgMessages.selectedItem;
+				
+				(dgMessages.dataProvider as ArrayCollection).refresh();
+			}
+			
+			[Bindable(event="messagesChanged")]
+			/**
+			 *  List with unread messages assigned to guest.
+			 */
+			public function get messages():Array
+			{
+				return _messages;
+			}
+			/**
+			 *  @private
+			 */
+			public function set messages(value:Array):void
+			{
+				_messages = value;
+				
+				dispatchEvent(new Event("messagesChanged"));
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:DataGrid id="dgMessages"
+		dataProvider="{messages}"
+		doubleClickEnabled="true"
+		draggableColumns="false"
+		resizableColumns="false"
+		doubleClick="showMessage()"
+		width="100%" height="100%">
+		<mx:columns>
+			<mx:DataGridColumn
+				headerText=""
+				itemRenderer="{new ClassFactory(EmailIconRenderer)}"
+				width="30"/>
+			<mx:DataGridColumn
+				headerText="{model.locale.InHouse_Popups_Messages_From}"
+				itemRenderer="{new ClassFactory(EmailItemRenderer)}"
+				dataField="sFrom"
+				width="150"/>
+			<mx:DataGridColumn
+				headerText="{model.locale.InHouse_Popups_Messages_Body}"
+				itemRenderer="{new ClassFactory(EmailItemRenderer)}"
+				dataField="sMsg"/>
+			<mx:DataGridColumn
+				headerText="{model.locale.InHouse_Popups_Messages_CreationTime}"
+				labelFunction="funcCreationTimeView"
+				itemRenderer="{new ClassFactory(EmailItemRenderer)}"
+				textAlign="center"
+				width="120"/>
+			<mx:DataGridColumn
+				headerText="{model.locale.InHouse_Popups_Messages_DeliverTime}"
+				labelFunction="funcDeliverTimeView"
+				itemRenderer="{new ClassFactory(EmailItemRenderer)}"
+				textAlign="center"
+				width="120"/>
+		</mx:columns>
+	</mx:DataGrid>
+	
+	<mx:HBox width="100%" horizontalAlign="right">
+		<mx:Button
+			label="{model.locale.Global_Button_Ok}"
+			click="close()"
+			width="{GlobalSettings.BUTTON_WIDTH_APPLY}"/>
+	</mx:HBox>
+</BasePopupView>

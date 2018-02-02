@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:FormItem
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	label="{model.locale.Global_VAT}:"
+	fontWeight="bold"
+	width="100%">
+	
+	<mx:Script>
+		<![CDATA[
+			import framework.model.AppModelLocator;
+			
+			[Bindable]
+			private var model:AppModelLocator = AppModelLocator.getInstance();
+			
+			/**
+			 *  This property is value of VAT.
+			 *  
+			 *  @default 0
+			 */
+			private var _vat:int = 0;
+			
+			// ===================================================================== //
+			//                       GETTER AND SETTER HANDLERS                      //
+			// ===================================================================== //
+			[Bindable(event="vatChanged")]
+			/**
+			 *  The value of VAT.
+			 */
+			public function get vat():int
+			{
+				return _vat;
+			}
+			/**
+			 *  @private
+			 */
+			public function set vat(value:int):void
+			{
+				_vat = value;
+				
+				dispatchEvent(new Event("vatChanged"));
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:Label
+		text="{vat}%"
+		fontWeight="bold"/>
+</mx:FormItem>

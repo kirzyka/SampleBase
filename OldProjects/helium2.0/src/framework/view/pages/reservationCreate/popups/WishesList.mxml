@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<BasePopupView 
+	xmlns="framework.view.components.popups.*" 
+	xmlns:mx="http://www.adobe.com/2006/mxml" 
+	xmlns:loader="framework.view.pages.loader.*"
+	
+	width="250" height="300"
+	creationComplete="init()"
+	
+	title="Special Whishes" >
+<mx:Script>
+	<![CDATA[
+		import services.vo.common.wishes.SettingsWishVO;
+		import mx.collections.ArrayCollection;
+		import services.vo.common.wishes.ItemsWishVO;
+		import services.vo.profiles.ProfileSpecialWishesVO;
+		import com.adobe.cairngorm.control.CairngormEventDispatcher;
+		import services.controller.AppController;
+		import services.events.profiles.individual.GetWishesListEvent;
+		import services.vo.profiles.ProfilePersonalVO;
+		import framework.model.AppModelLocator;
+		import framework.view.pages.profiles.popups.individual.renderer.WishesRenderer;
+		
+		public var profile:ProfilePersonalVO;
+		
+		private function init():void 
+		{
+			var getWishesListEvent :GetWishesListEvent = new GetWishesListEvent(AppController.GET_WISHES_LIST);	
+			getWishesListEvent.callBack = onGetWishesListComplete;		
+			CairngormEventDispatcher.getInstance().dispatchEvent(getWishesListEvent);
+		}
+		
+		private function onGetWishesListComplete():void
+		{
+			var wishes:ArrayCollection = model.profilesModule.wishesList;
+			var guestItemsWishes:ArrayCollection = new ArrayCollection(profile.aItemsWishes);
+			var guestSettingsWishes:ArrayCollection = new ArrayCollection(profile.aSettingsWishes);
+			
+			for(var i:int = 0; i < wishes.length; i++)
+			{
+				var item:* = wishes.getItemAt(i);
+				if (item is ItemsWishVO)
+				{
+					(item as ItemsWishVO).bIsSelected = guestItemsWishes.contains((item as ItemsWishVO).lId);
+				}
+				if (item is SettingsWishVO)
+				{
+					(item as SettingsWishVO).bIsSelected = guestSettingsWishes.contains((item as SettingsWishVO).lId);
+				}				
+			}
+		}
+		
+		private function applyChanges():void 
+		{
+			profile.aItemsWishes = new Array();
+			profile.aSettingsWishes = new Array();
+			var wishes:ArrayCollection = specialWishes.dataProvider as ArrayCollection;
+			for(var i:int = 0; i < wishes.length; i++)
+			{
+				var item:* = wishes.getItemAt(i);
+				if ((item is ItemsWishVO) && ((item as ItemsWishVO).bIsSelected))
+				{
+					profile.aItemsWishes.push((item as ItemsWishVO).lId);
+				}
+				
+				if ((item is SettingsWishVO) && ((item as SettingsWishVO).bIsSelected))
+				{
+					profile.aSettingsWishes.push((item as SettingsWishVO).lId);
+				}
+			}
+			completeCall();
+		}	
+			
+	]]>
+</mx:Script>
+
+<mx:List
+	id="specialWishes"
+	dataProvider="{model.profilesModule.wishesList}"
+	itemRenderer="{new ClassFactory(WishesRenderer)}"
+	height="100%"
+	width="100%"/>
+
+	
+<mx:ApplicationControlBar width="100%" horizontalAlign="right">
+	<mx:Button label="Ok" 
+		click="{applyChanges();}"/>
+	<mx:Button label="Cancel" 
+		click="{close();}"/>
+</mx:ApplicationControlBar>
+</BasePopupView>

@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="utf-8"?>
+<VSubWindow
+	xmlns="framework.core.view.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	width="100%"
+>
+	
+	<mx:Script>
+		<![CDATA[
+			import services.vo.GlobalSettings;
+			import mx.controls.DateField;
+			import services.vo.checkOut.itemRouting.ReservationSummaryCheckOutVO;
+			
+			// ===================================================================== //
+			//                         VARIABLES AND CONSTANTS                       //
+			// ===================================================================== //
+			/**
+			 *  This property is summary information of reservation for
+			 *  check out.
+			 *  
+			 *  @see services.vo.checkOut.itemRouting.ReservationSummaryCheckOutVO
+			 */
+			private var _summary:ReservationSummaryCheckOutVO;
+			
+			override protected function updateDisplayList(unscaledWidth:Number, unscaledHeight:Number):void
+			{
+				super.updateDisplayList(unscaledWidth, unscaledHeight);
+				// 
+			}
+			
+			// ===================================================================== //
+			//                       GETTER AND SETTER HANDLERS                      //
+			// ===================================================================== //
+			[Bindable(event="summaryChanged")]
+			/**
+			 *  The summary information of reservation for check out.
+			 */
+			public function get summary():ReservationSummaryCheckOutVO
+			{
+				return _summary
+			}
+			/**
+			 *  @private
+			 */
+			public function set summary(value:ReservationSummaryCheckOutVO):void
+			{
+				_summary = value;
+				
+				dispatchEvent(new Event("summaryChanged"));
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:Label text="{model.locale.CheckOut_ReservationSummary_Title}"
+		fontSize="16" fontWeight="bold"/>
+	
+	<mx:Form width="100%" height="100%" >
+		<mx:FormItem
+			width="100%" 
+			label="{model.locale.CheckOut_ReservationSummary_GuestName}:">
+			<mx:Text
+				id="guestName"
+				text="{summary.sGuestName}"
+				width="100%"/>
+		</mx:FormItem>
+		<mx:FormItem
+			width="100%"
+			label="{model.locale.CheckOut_ReservationSummary_Company}:">
+			<mx:Text
+				id="companyName"
+				text="{summary.sCompanyName}"
+				width="100%"/>
+		</mx:FormItem>
+		<mx:FormItem
+			width="100%"
+			label="{model.locale.CheckOut_ReservationSummary_TravelAgency}:">
+			<mx:Text
+				id="travelAgency"
+				text="{summary.sTravelAgency}"
+				width="100%"/>
+		</mx:FormItem>
+		<mx:FormItem
+			width="100%"
+			label="{model.locale.CheckOut_ReservationSummary_RoomNumber}:">
+			<mx:Label
+				id="roomNumber"
+				text="{summary.sRoomNumber}"/>
+		</mx:FormItem>
+		<mx:FormItem
+			width="100%"
+			label="{model.locale.CheckOut_ReservationSummary_Adults}:">
+			<mx:Label
+				id="adults"
+				text="{summary.iAdultsCount}"/>
+		</mx:FormItem>
+		<mx:FormItem
+			width="100%"
+			label="{'Children &lt; ' + model.hotelsModule.hotelTotalInfo.iChildAge1}:">
+			<mx:Label
+				id="childrenAbove"
+				text="{summary.iChildrenBefore}"/>
+		</mx:FormItem>
+		<mx:FormItem
+			width="100%"
+			label="{'Children &lt; ' + model.hotelsModule.hotelTotalInfo.iChildAge2}:">
+			<mx:Label
+				id="childrenMiddle"
+				text="{summary.iChildrenMiddle}"/>
+		</mx:FormItem>
+		<mx:FormItem
+			width="100%"
+			label="{'Children &lt; ' + model.hotelsModule.hotelTotalInfo.iChildAge3}:">
+			<mx:Label
+				id="childrenLeastX"
+				text="{summary.iChildrenAbove}"/>
+		</mx:FormItem>
+		<mx:FormItem
+			width="100%"
+			label="{model.locale.CheckOut_ReservationSummary_RoomType}:">
+			<mx:Label
+				id="roomType"
+				text="{summary.sRoomType}"/>
+		</mx:FormItem>
+		<mx:FormItem
+			width="100%"
+			label="{model.locale.CheckOut_ReservationSummary_ArrivalDate}:">
+			<mx:Label
+				id="arrivalDate"
+				text="{DateField.dateToString(DateField.stringToDate(summary.dArrivalDate,
+							GlobalSettings.DATE_SERVER_FORMAT), GlobalSettings.DATE_FORMAT)}"/>
+		</mx:FormItem>
+		<mx:FormItem
+			width="100%"
+			label="{model.locale.CheckOut_ReservationSummary_DepartureDate}:">
+			<mx:Label
+				id="departureDate"
+				text="{DateField.dateToString(DateField.stringToDate(summary.dDepartureDate,
+						GlobalSettings.DATE_SERVER_FORMAT), GlobalSettings.DATE_FORMAT)}"/>
+		</mx:FormItem>
+		<mx:FormItem
+			width="100%"
+			label="{model.locale.CheckOut_ReservationSummary_Rate}:">
+			<mx:Label
+				id="rate"
+				truncateToFit="true"
+				text="{summary.sRateName}"
+				width="100%"/>
+		</mx:FormItem>
+	</mx:Form>
+</VSubWindow>

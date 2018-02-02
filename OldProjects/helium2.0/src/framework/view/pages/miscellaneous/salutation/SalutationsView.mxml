@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="utf-8"?>
+<VSubWindow xmlns="framework.core.view.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:searchBox="h2olib.control.searchBox.*"
+
+	styleName="PageBigWithTopPadding">
+	<mx:Script>
+		<![CDATA[
+			import framework.view.pages.miscellaneous.salutation.subview.SaveSalutationPopupView;
+			import services.vo.common.LanguageVO;
+			import services.events.miscellaneous.langueges.GetLanguageEvent;
+			import services.events.miscellaneous.salutation.GetSalutationEvent;
+			import services.events.miscellaneous.salutation.DeleteSalutationEvent;
+			import framework.view.components.popups.DeletePopupView;
+			import framework.view.components.popups.events.PopupEvent;
+			import services.vo.common.SalutationVO;
+			import mx.managers.PopUpManagerChildList;
+			import services.vo.common.NationalityVO;
+			import services.vo.GlobalSettings;
+			import mx.controls.CheckBox;
+			import services.vo.GlobalStorage;
+
+			import mx.events.CollectionEvent;
+			import services.vo.GlobalFunctions;
+			import mx.collections.ArrayCollection;
+			import services.vo.backend.RoomSettingObjectVO;
+			import framework.managers.PopUpManagerExt;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.controller.AppController;
+			import framework.model.AppModelLocator;
+				
+			public override function update():void
+			{
+				var languageEvt:GetLanguageEvent = new GetLanguageEvent(AppController.GET_LANGUAGE_EVENT);
+				languageEvt.callBack = getSalut;
+				CairngormEventDispatcher.getInstance().dispatchEvent(languageEvt);
+				
+			}
+			
+			private function getSalut():void
+			{
+				if (languageList.selectedIndex == -1)
+					languageList.selectedIndex = 0;
+				var evt:GetSalutationEvent = new GetSalutationEvent(AppController.GET_SALUTATION_EVENT);
+				evt.languageId = (languageList.selectedItem as LanguageVO).lId;
+				CairngormEventDispatcher.getInstance().dispatchEvent(evt);
+			}
+			
+			private function handleAdd():void
+			{
+				var pop:SaveSalutationPopupView = PopUpManagerExt.createPopUp(this, SaveSalutationPopupView) as SaveSalutationPopupView;
+				pop.currentLanguage = languageList.selectedIndex;
+				//pop.data = null;
+				pop.callBack = getSalut;
+				PopUpManagerExt.centerPopUp(pop); 
+			}
+			
+			private function handleEdit():void
+			{
+				var pop:SaveSalutationPopupView = PopUpManagerExt.createPopUp(this, SaveSalutationPopupView) as SaveSalutationPopupView;
+				pop.data = salutationsList.selectedItem as SalutationVO;
+				pop.callBack = getSalut;
+				PopUpManagerExt.centerPopUp(pop);	 			
+			}
+			
+			private function handleDelete():void
+			{
+				/* PromtManager.getInstance().addNote(GlobalSettings.PROMT_MANAGER_QUEST, "Are you sure to delete selected Nationality?", delSalutation); */
+				var pop:DeletePopupView = PopUpManagerExt.createPopUp(this, DeletePopupView) as DeletePopupView;
+				pop.title = "Delete";
+				pop.description = "Are you sure to delete selected Salutation?";
+				pop.addEventListener(PopupEvent.DELETE_HANDLER, delSalutation);
+
+			}
+			
+			private function delSalutation(e:PopupEvent):void
+			{
+				(e.target as DeletePopupView).removeEventListener(PopupEvent.DELETE_HANDLER, delSalutation);				
+				var evt:DeleteSalutationEvent = new DeleteSalutationEvent(AppController.DELETE_SALUTATION_EVENT);
+				evt.salutation = salutationsList.selectedItem as SalutationVO;
+				CairngormEventDispatcher.getInstance().dispatchEvent( evt ); 				
+				getSalut();
+				(e.target as DeletePopupView).completeCall();
+
+			}
+			
+			private function handleSearch():void
+			{	
+				 if(search.text == "")
+				{
+					salutationsList.dataProvider = GlobalStorage.salutation;
+					return;
+				}
+				salutationsList.dataProvider = GlobalFunctions.search(GlobalStorage.salutation, search.text, [["sName"]]);
+				
+			}
+			
+			private function handleSearchChange():void
+			{
+				var char:String = search.text.charAt(search.text.length-1);
+				
+				if(char == "^" || char == "[" || char == "]" || char == "\\")
+				{
+					if(search.text.length == 0) search.text = ''; 
+					else search.text = search.text.substr(0,search.text.length-1);
+				}
+				
+				handleSearch();
+			}
+			
+		
+			private function handleLanguageChange():void
+			{
+				/// get id of the country for which get his regions.
+				//var currentLanguage:LanguageVO = languageList.selectedItem as LanguageVO;
+			}
+			
+			
+		]]>
+	</mx:Script>
+	<mx:HBox>
+		<mx:FormItem direction="horizontal">
+			<searchBox:SearchBox id="search" 
+				label="Label" 
+				enter="handleSearchChange()" 
+				changeByFocus="handleSearchChange()"
+				width="180"/>
+			<!--<mx:Button label="Search" click="handleSearch()" id="searchSalutations"/>-->
+		</mx:FormItem>		
+	</mx:HBox>
+	<mx:HBox width="100%" height="100%">
+		<mx:AdvancedDataGrid id="languageList" width="100%" height="100%" 
+			sortableColumns="true" dataProvider="{GlobalStorage.language}" change="getSalut()">
+		<mx:columns>
+			<mx:AdvancedDataGridColumn id="languageName"
+				headerText="Language Name" dataField="sName"/>
+		</mx:columns>
+	</mx:AdvancedDataGrid>
+		<mx:AdvancedDataGrid id="salutationsList" width="100%" height="100%"
+			sortableColumns="true" dataProvider="{GlobalStorage.salutation}">
+		<mx:columns>
+			<mx:AdvancedDataGridColumn id="SalutationName" 
+				headerText="Salutation Name" 
+				dataField="sName"/>
+			<mx:AdvancedDataGridColumn id="SalutationDescription"
+				headerText="Description" dataField="sDescription"/>
+		</mx:columns>
+	</mx:AdvancedDataGrid>
+	</mx:HBox>
+	<mx:HBox width="50%" height="40">
+		<mx:Button id="addNationality" 
+			label="{model.locale.Global_Button_Add}" 
+			click="handleAdd()" width="{GlobalSettings.BUTTON_WIDTH}" />
+		<mx:Button id="editNationality" 
+			label="{model.locale.Global_Button_Edit}" 
+			click="handleEdit()" enabled="{salutationsList.selectedIndex > -1 }" width="{GlobalSettings.BUTTON_WIDTH}"/>
+		<mx:Button id="deleteNationality" 
+			label="{model.locale.Global_Button_Delete}"  
+			click="handleDelete()" enabled="{salutationsList.selectedIndex > -1 }" width="{GlobalSettings.BUTTON_WIDTH}"/>
+	</mx:HBox>
+	
+</VSubWindow>
+

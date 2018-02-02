@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:HBox xmlns:mx="http://www.adobe.com/2006/mxml" width="100%" horizontalAlign="center" verticalAlign="middle">
+	
+	<mx:Script>
+		<![CDATA[
+			import services.events.rates.companyRates.DeleteCompanyRateEvent;
+			import services.vo.backend.CompanyRateObjectVO;
+			import services.vo.GlobalImageAssets;
+			import services.controller.AppController;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.events.backend.DeleteBedTypeEvent;
+			import framework.model.AppModelLocator;
+			import services.vo.backend.BedTypeObjectVO;
+			
+			private var model:AppModelLocator = AppModelLocator.getInstance();
+			
+			private function handleDelete():void
+			{	
+				var evt:DeleteCompanyRateEvent = new DeleteCompanyRateEvent( AppController.DELETE_COMPANY_RATE );
+
+					if (data as CompanyRateObjectVO)					
+						evt.idCompanyRate = data.iRateId;
+		
+				CairngormEventDispatcher.getInstance().dispatchEvent( evt );
+			}
+			
+			override public function set data(value:Object):void
+			{
+				super.data = value;
+			}
+		]]>
+	</mx:Script>
+
+	<mx:Image source="{GlobalImageAssets.getInstance().trashIcon}" id="del" alpha="1" click="handleDelete()" />
+</mx:HBox>

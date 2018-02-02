@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:HBox xmlns:mx="http://www.adobe.com/2006/mxml" width="100%" horizontalAlign="center" xmlns:control="h2olib.control.*">
+	
+	<mx:Script>
+		<![CDATA[
+		    import mx.events.ListEvent;
+		    import services.vo.GlobalStorage;
+			import services.vo.profiles.ProfilePersonalVO;
+			
+			private var profile:ProfilePersonalVO;
+		
+			override public function set data(value:Object):void
+			{
+				//super.data = value;
+				
+				
+				if(value as ProfilePersonalVO)
+				{
+					profile = value as ProfilePersonalVO;
+					//profile.smokerField = int(profile.bIsSmoking);
+					smoker.setItemByField("lId", profile.smokerField);
+					
+				}
+			}
+			
+			private function handleSmokerChange():void
+			{
+			    profile.smokerField = smoker.selectedItem.lId;
+				profile.bIsSmoking =(smoker.selectedItem.lId == 1)? true: false;
+			}
+			 
+		]]>
+	</mx:Script>
+	
+	<!--<mx:CheckBox id="smoker" change="handleSmokerChange()"/>-->
+	<control:ComboBoxEx
+                            id="smoker"
+                            dataProvider="{GlobalStorage.smokerField}"
+                            labelField="sName"
+                            width="80" height="23" change="handleSmokerChange()"/>
+	
+</mx:HBox>

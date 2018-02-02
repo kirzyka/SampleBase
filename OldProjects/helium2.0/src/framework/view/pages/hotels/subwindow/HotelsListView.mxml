@@ -1,0 +1,264 @@
+<?xml version="1.0" encoding="utf-8"?>
+<subwindow:VSubWindow
+	xmlns:subwindow="framework.core.view.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	width="100%" height="100%">
+	
+	<mx:Script>
+		<![CDATA[
+			import h2olib.utils.DateUtils;
+			import framework.view.pages.hotels.data.HotelStatus;
+			import framework.view.pages.hotels.popups.HotelDetailsView;
+			import services.controller.AppController;
+			import mx.controls.Label;
+			import framework.utils.SkinHelper;
+			import services.business.hotels.HotelsDelegate;
+			import mx.collections.ArrayCollection;
+			import mx.controls.dataGridClasses.DataGridColumn;
+			import services.events.backend.GetHotelDictionariesEvent;
+			import framework.view.components.popups.events.PopupEvent;
+			import framework.view.components.popups.DeletePopupView;
+			import services.vo.GlobalFunctions;
+			import mx.managers.PopUpManagerChildList;
+			import services.events.hotels.GetHotelsListEvent;
+			import services.vo.hotels.HotelInfoTotalVO;
+			import services.events.hotels.DeleteHotelEvent;
+			import services.vo.GlobalStorage;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import framework.managers.PopUpManagerExt;
+			
+			// ----------------------------------------------------------------- //
+			//                 OVERRIDE FUNCTIONS AND HANDLERS                   //
+			// ----------------------------------------------------------------- //
+			/**
+			 *  @override
+			 *  Open page for view. Update view list of hotels if it needs.
+			 */
+			override public function open():void
+			{
+				super.open();
+				// update hotels view by request to get hotels list from server
+				var event:GetHotelsListEvent = new GetHotelsListEvent(HotelsDelegate.GET_HOTELS_LIST);
+				event.callBack = trySelectHotel;
+				CairngormEventDispatcher.getInstance().dispatchEvent(event);
+			}
+			
+			// ----------------------------------------------------------------- //
+			//                  COMMON FUNCTIONS AND HANDLERS                    //
+			// ----------------------------------------------------------------- //
+			/**
+			 *  The callback function for selection hotel by choosed
+			 *  hotel for logging to system
+			 */
+			private function trySelectHotel():void
+			{
+				var hotels:ArrayCollection = model.hotelsModule.hotels;
+				var loggedHotel:HotelInfoTotalVO = model.hotelsModule.hotelTotalInfo;
+				// try to select hotel by choosed hotel for logging to system
+				if (loggedHotel != null)
+				{
+					for each(var hotel:HotelInfoTotalVO in hotels)
+					{
+						if (hotel.iHotelId == loggedHotel.iHotelId)
+						{
+							dgHotels.selectedItem = hotel;
+							return;
+						}
+					}
+				}
+			}
+			/**
+			 *  Open popup for add new hotel to system.
+			 */
+			private function onOpenAddHotelPopup():void
+			{
+				var pop:HotelDetailsView = PopUpManagerExt.createPopUp(this, HotelDetailsView) as HotelDetailsView;
+			}
+			/**
+			 *  Open popup for edit selected hotel to system.
+			 */
+			private function onOpenEditHotelPopup():void
+			{
+				var pop:HotelDetailsView = PopUpManagerExt.createPopUp(this, HotelDetailsView) as HotelDetailsView;
+				pop.data = dgHotels.selectedItem as HotelInfoTotalVO;
+				pop.hotelIndex = dgHotels.selectedIndex;
+			}
+			/**
+			 *  Open popup for try to remove selected hotel from
+			 *  system.
+			 */
+			private function onOpenRemovePopup():void
+			{
+				var pop:DeletePopupView = PopUpManagerExt.createPopUp(this, DeletePopupView) as DeletePopupView;
+				pop.title = "Delete Hotel";
+				pop.description = "Are you sure to delete hotel " + (dgHotels.selectedItem as HotelInfoTotalVO).sHotelName + "?";
+				pop.subDescription = "All the hotel configurations will be lost.";
+				pop.addEventListener(PopupEvent.DELETE_HANDLER, onTryRemoveHotel);
+			}
+			/**
+			 *  The success handler to try to remove selected hotel.
+			 *  
+			 *  @param e:PopupEvent - get instance of target by event.
+			 */
+			private function onTryRemoveHotel(e:PopupEvent):void
+			{
+				// reconfigurate delete popup
+				var pop:DeletePopupView = (e.target as DeletePopupView)
+				pop.removeEventListener(PopupEvent.DELETE_HANDLER, onTryRemoveHotel);
+				pop.callBack = completeRemoveHotel;
+				// make request to server to remove selected hotel
+				var event:DeleteHotelEvent = new DeleteHotelEvent(HotelsDelegate.REMOVE_HOTEL);
+				event.callBack = pop.completeCall;
+				CairngormEventDispatcher.getInstance().dispatchEvent(event);
+			}
+			/**
+			 *  The complete callback fuynction for remove selected hotel from
+			 *  list by success responce from server.
+			 */
+			private function completeRemoveHotel():void
+			{
+				dgHotels.dataProvider.removeItemAt(dgHotels.selectedIndex);
+			}
+			/**
+			 *  The handle of selection hotel in the list.
+			 */
+			private function onHotelSelect():void
+			{
+				// clear support data by hotel
+				clear();
+				// store full info by selected hotel
+				model.hotelsModule.hotelTotalInfo = dgHotels.selectedItem as HotelInfoTotalVO;
+				// get hotel dictionary by selected hotel
+				var event:GetHotelDictionariesEvent = new GetHotelDictionariesEvent(AppController.GET_PAGE_OF_START_HOTEL);
+				event.hotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+				CairngormEventDispatcher.getInstance().dispatchEvent(event);
+			}
+			/**
+			 *  Clear supported data by hotel such as room settings, room types,
+			 *  etc.
+			 */
+			private function clear():void
+			{
+				model.hotelsModule.hotelRoomTypes.removeAll();
+				model.hotelsModule.stageDP.removeAll();
+				model.hotelsModule.hotelRoomSettings.removeAll();
+			}
+			
+			// ----------------------------------------------------------------- //
+			//                         LABEL FUNCTIONS                           //
+			// ----------------------------------------------------------------- //
+			/**
+			 *  Label function for view status of configuration hotel.
+			 *  
+			 *  @param hotel:HotelInfoTotalVO - itemfrom data provider for cell
+			 *         and label function;
+			 *  @param column:DataGridColumn - column by item.
+			 *  
+			 *  @return status of hotel as string.
+			 */
+			private function funcHotelStatus(hotel:HotelInfoTotalVO, column:DataGridColumn):String
+			{
+				// check status of hotel
+				switch (hotel.iHotelStatusId)
+				{
+					case HotelStatus.CODE_COMPLETE:
+						return "Complete";
+						break;
+					case HotelStatus.CODE_ADD:
+						return "New hotel";
+						break;
+					case HotelStatus.CODE_ROOM_SETTING_COMPLETE:
+						return "RS complete";
+						break;
+					case HotelStatus.CODE_ROOM_TYPE_COMPLETE:
+						return "RT complete";
+						break;
+				}
+				// default status of hotel is "undefined"
+				return "Undefined status";
+			}
+			/**
+			 *  Label function for view date and time for last updatefor hotel.
+			 *  
+			 *  @param hotel:HotelInfoTotalVO - itemfrom data provider for cell
+			 *         and label function;
+			 *  @param column:DataGridColumn - column by item.
+			 *  
+			 *  @return lat time update of hotel as string by format DD/MM/YYYY (hh:mm:ss).
+			 */
+			private function funcLastUpdate(hotel:HotelInfoTotalVO, column:DataGridColumn):String
+			{
+				var times:Array = hotel.sHotelLastUpdateTime.split(" ");
+				var date:String = DateUtils.dateConvert(times[0], DateUtils.SERVER_TO_CLIENT);
+				return date + " (" + times[1] + ")";
+			}
+		]]>
+	</mx:Script>
+
+	<mx:DataGrid id="dgHotels"
+		dataProvider="{model.hotelsModule.hotels}"
+		draggableColumns="false"
+		resizableColumns="false"
+		itemClick="onHotelSelect()"
+		headerHeight="{SkinHelper.GRID_HEADER_HEIGHT}"
+		rowHeight="{SkinHelper.GRID_ROW_HEIGHT}"
+		styleName="{SkinHelper.GRID_BASE_STYLE}"
+		width="100%" height="100%">
+		<mx:columns>
+			<mx:DataGridColumn
+				headerStyleName="{SkinHelper.GRID_HEADER_STYLE}"
+				headerText="Hotel Code"
+				dataField="sHotelCode"/>
+			<mx:DataGridColumn
+				headerStyleName="{SkinHelper.GRID_HEADER_STYLE}"
+				headerText="Hotel Name"
+				dataField="sHotelName"/>
+			<mx:DataGridColumn
+				headerStyleName="{SkinHelper.GRID_HEADER_STYLE}"
+				headerText="Hotel Chain"
+				dataField="sHotelHChainName"/>
+			<mx:DataGridColumn
+				headerStyleName="{SkinHelper.GRID_HEADER_STYLE}"
+				headerText="Region"
+				dataField="sHotelRegion"/>
+			<mx:DataGridColumn
+				headerStyleName="{SkinHelper.GRID_HEADER_STYLE}"
+				headerText="Country"
+				dataField="sHotelCountry"/>
+			<mx:DataGridColumn
+				headerStyleName="{SkinHelper.GRID_HEADER_STYLE}"
+				headerText="Hotel Status"
+				labelFunction="funcHotelStatus"
+				itemRenderer="{new ClassFactory(Label)}"/>
+			<mx:DataGridColumn
+				headerStyleName="{SkinHelper.GRID_HEADER_STYLE}"
+				headerText="Last Update"
+				labelFunction="funcLastUpdate"
+				itemRenderer="{new ClassFactory(Label)}"/>
+			<mx:DataGridColumn
+				headerStyleName="{SkinHelper.GRID_HEADER_STYLE}"
+				headerText="By Whom"
+				dataField="sHotelLastUpdaterName"/>
+		</mx:columns>
+	</mx:DataGrid>
+
+	<mx:HBox width="100%" horizontalAlign="right">
+		<mx:Button id="btAddHotel"
+			label="Add"
+			click="onOpenAddHotelPopup()"
+			height="{SkinHelper.BUTTON_HEIGHT}"
+			width="{SkinHelper.BUTTON_WIDTH}"/>
+		<mx:Button id="btEditHotel"
+			label="Edit"
+			enabled="{dgHotels.selectedItem}"
+			click="{onOpenEditHotelPopup()}"
+			height="{SkinHelper.BUTTON_HEIGHT}"
+			width="{SkinHelper.BUTTON_WIDTH}"/>
+		<mx:Button id="btRemoveHotel"
+			label="Delete"
+			enabled="{dgHotels.selectedItem}"
+			click="onOpenRemovePopup()"
+			height="{SkinHelper.BUTTON_HEIGHT}"
+			width="{SkinHelper.BUTTON_WIDTH}"/>
+	</mx:HBox>
+</subwindow:VSubWindow>

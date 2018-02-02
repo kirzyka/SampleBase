@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<window:BaseWindow
+	xmlns:window="framework.core.view.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:subwindow="framework.view.pages.hotels.subwindow.*"
+	xmlns:tabnav="h2olib.control.advancedTabNavigator.*"
+	xmlns:hotels="framework.view.pages.hotels.*"
+	styleName="PageBigWithTopPadding"
+	creationComplete="handleComplete()">
+	
+	<mx:Script>
+		<![CDATA[
+			import framework.core.view.VSubWindow;
+			import framework.view.pages.hotels.data.HotelStatus;
+			import services.vo.GlobalSettings;
+			import framework.core.utils.UtilsMXML;
+			import mx.binding.utils.ChangeWatcher;
+			import mx.binding.utils.BindingUtils;
+			import services.vo.GlobalStorage;
+			import framework.model.AppModelLocator;
+			
+			override public function show():void
+			{
+				onChangeView();
+			}
+			
+			private function handleComplete():void
+			{
+				ChangeWatcher.watch(model.hotelsModule, "hotelTotalInfo", watchEnabled);
+				ChangeWatcher.watch(GlobalStorage, "hotelState", watchEnabled);
+				GlobalStorage.changeEnabledHotelTubs = checkButtonsEnabled;
+			}
+			/**
+			 *  Watcher handler.
+			 *  <p>If hotel's info was changed by any params or state of the hotel,
+			 *  it needs to make possibility to enabled of button of configuration
+			 *  of the hotel.
+			 *
+			 *  @param evt:Event
+			 *
+			 *  @see framework.model.RModel#hotelsModule#hotelTotalInfo
+			 *  @see mx.core.UIComponent#callLater
+			 */
+			private function watchEnabled(evt:Event = null):void
+			{
+				callLater(checkButtonsEnabled);
+			}
+			
+			/**
+			 *  Check the available to management of the hotels.
+			 */
+			private function checkButtonsEnabled():void
+			{
+				// room settings button
+				roomSettings.enabled = ((model.hotelsModule.hotelTotalInfo!=null) && (model.hotelsModule.hotelTotalInfo.iHotelId > 0));
+			}
+			
+			/**
+			 * change 
+			 */ 
+			private function onChangeView():void
+			{
+				// update index selected page
+				model.hotelsModule.currPage = atnHotelViews.selectedIndex;
+				// open neccessary sub view
+				if (atnHotelViews.selectedChild as VSubWindow)
+				{
+					(atnHotelViews.selectedChild as VSubWindow).open();
+				}
+			}
+		]]>
+	</mx:Script>
+
+	<tabnav:AdvancedTabNavigator id="atnHotelViews"
+		selectedIndex="{model.hotelsModule.currPage}"
+		tabPosition="leftTop" tabWidth="170"
+		change="onChangeView()"
+		styleName="verticalTabNavigator"
+		width="100%" height="100%">
+		<subwindow:HotelsListView
+			label="Hotel List"
+			width="100%" height="100%"/>
+		<subwindow:ApplyRoomSettingsView id="roomSettings"
+			label="Room Settings"
+			enabled="{(model.hotelsModule.hotelTotalInfo.iHotelId > 0)}"
+			width="100%" height="100%"/>
+		<subwindow:ApplyRoomTypesView id="roomTypes"
+			label="Room Types"
+			enabled="{(model.hotelsModule.hotelTotalInfo.iHotelId > 0)}"
+			width="100%" height="100%"/>
+		<subwindow:StageConfigurationView id="floorPlan"
+			label="Floors and Rooms"
+			enabled="{UtilsMXML.and(model.hotelsModule.hotelTotalInfo.iHotelId > 0,
+				model.hotelsModule.hotelTotalInfo.iHotelStatusId == HotelStatus.CODE_COMPLETE ||
+				model.hotelsModule.hotelTotalInfo.iHotelStatusId == HotelStatus.CODE_ROOM_TYPE_COMPLETE)}"
+			width="100%" height="100%"/>
+	</tabnav:AdvancedTabNavigator>
+</window:BaseWindow>

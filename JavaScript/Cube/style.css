@@ -1,0 +1,72 @@
+.clearfix {
+    float: none;
+    clear: both;
+}
+
+.side {
+    width: 90px;
+    height: 90px;
+    border: 1px solid #ccc;
+}
+
+.side-1 {
+    margin-left: 96px;
+    margin-bottom: 3px;
+}
+
+.side-2 {
+    display: inline-block;
+}
+
+.side-3 {
+    display: inline-block;
+    border: 2px solid #444;
+}
+
+.side-4 {
+    display: inline-block;
+}
+
+.side-5 {
+    display: inline-block;
+}
+
+.side-6 {
+    margin-left: 96px;
+}
+
+.side-cell {
+    border: 1px solid #999;
+    width: 33%;
+    height: 33%;
+    float: left;
+    box-sizing: border-box;
+}
+
+.y {
+    background: yellow;
+}
+
+.b {
+    background: blue;
+}
+
+.r {
+    background: red;
+}
+
+.g {
+    background: green;
+}
+
+.o {
+    background: orange;
+}
+
+.w {
+    background: white;
+}
+
+.z {
+    background: #000;
+}

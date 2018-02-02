@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="utf-8"?>
+<view:BaseView 
+	xmlns:fx="http://ns.adobe.com/mxml/2009" 
+	xmlns:s="library://ns.adobe.com/flex/spark" 
+	xmlns:mx="library://ns.adobe.com/flex/mx" 
+	xmlns:view="view.*" 
+	
+	 width="100%" height="100%"
+	 >
+	
+	
+	<view:layout>
+		<s:VerticalLayout/>
+	</view:layout>
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	
+	<fx:Script>
+		<![CDATA[
+			import com.serialization.json.JSON;
+			
+			import flash.net.navigateToURL;
+			
+			import model.AppModel;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			
+			import utils.AppUtils;
+			import utils.CollectionUtils;
+			
+			import vk.vo.WallPostVO;
+			
+			import vo.CategoryVO;
+			import vo.ProductTodayVO;
+			import vo.ProductVO;
+
+			[Embed (source='assets/img/help.png')]
+			private const helpImg:Class;
+			
+			[Bindable]
+			private var products:ArrayCollection;
+			[Bindable]
+			private var totalScore:String = "0";
+					
+			
+			private function onAdd():void
+			{
+				appModel.productsToday.addItem(new ProductTodayVO(new Date().getTime(), 
+																  ProductVO(cmbProduct.selectedItem).categoryId,
+																  ProductVO(cmbProduct.selectedItem).id, 
+																  nsWeight.value));
+				getTotalScore();
+			}
+
+			private function onDelete():void
+			{
+				appModel.productsToday.removeItemAt(appModel.productsToday.getItemIndex(dg.selectedItem));
+				getTotalScore();
+			}
+			
+			private function getProducts():void
+			{
+				//cmbProduct.textInput.text = "";
+				cmbProduct.selectedIndex = -1;
+				products = appModel.modCollections.getProductsByCategory(cmbCategory.selectedItem);
+			}
+			
+			private function getTotalScore():void
+			{
+				var result:Number = 0;
+				for each(var item:ProductTodayVO in appModel.productsToday)
+				{
+					var product:ProductVO = ProductVO(CollectionUtils.getObjectByKey(appModel.modCollections.getProductsByCategoryId(item.categoryId), "id", item.productId));
+					if(product)
+					{
+						result += Math.round(product.score / 10 * item.weight) / 10
+					}
+				}
+				totalScore = String(result);
+				var au:AppUtils = new AppUtils()
+				au.saveData();
+			}
+			
+			private function productCalegoryLF(item:ProductTodayVO, column:DataGridColumn):String
+			{
+				var category:CategoryVO = CategoryVO(CollectionUtils.getObjectByKey(appModel.modCollections.categories, "id", item.categoryId))
+				return category ? category.categoryName : "";
+			}
+			
+			private function productNameLF(item:ProductTodayVO, column:DataGridColumn):String
+			{
+				var product:ProductVO = ProductVO(CollectionUtils.getObjectByKey(appModel.modCollections.getProductsByCategoryId(item.categoryId), "id", item.productId))
+				return product ? product.productName : "";
+			}
+			
+			private function scoreLF(item:ProductTodayVO, column:DataGridColumn):String
+			{
+				var product:ProductVO = ProductVO(CollectionUtils.getObjectByKey(appModel.modCollections.getProductsByCategoryId(item.categoryId), "id", item.productId))
+				return product ? String(Math.round(product.score / 10 * item.weight) / 10) : "";
+			}	
+			
+			// ADS
+		
+			private function onHideAds():void
+			{
+				ads.includeInLayout = ads.visible = false;
+			}
+			
+			private function openSite():void
+			{
+				navigateToURL(new URLRequest("http://vk.com/fit_gym"), "blank");
+			}
+			
+		]]>
+	</fx:Script>
+	<mx:ApplicationControlBar width="100%">
+		<s:VGroup width="100%">			
+			<s:HGroup width="100%">
+				<s:Label text="Категория:"
+						 width="70"
+						 fontWeight="bold"/>
+				<s:ComboBox id="cmbCategory"
+							dataProvider="{appModel.modCollections.categories}"
+							labelField="categoryName"
+							change="{getProducts()}"
+							width="100%"/>
+				
+			</s:HGroup>
+			<s:HGroup width="100%">
+				<s:Label text="Продукт:"
+						 width="70"
+						 fontWeight="bold"/>
+				<s:ComboBox id="cmbProduct"
+							dataProvider="{products}"
+							labelField="productName"
+							width="100%"
+							enabled="{cmbCategory.selectedItem}"/>
+			</s:HGroup>	
+			<s:HGroup width="100%">
+				<mx:Spacer width="70"/>
+				<s:NumericStepper id="nsWeight"
+								  maxChars="4"
+								  maximum="9999"
+								  minimum="0"
+								  value="100"
+								  stepSize="10"/>
+				<s:Label text="грамм"/>
+				<s:Button id="btnAdd"
+						  label="добавить"
+						  click="onAdd()"
+						  enabled="{cmbProduct.selectedIndex > -1}"/>
+				<s:Button id="btnDelete"
+						  label="удалить"
+						  click="onDelete()"
+						  enabled="{dg.selectedItem}"/>	
+				<mx:Spacer width="100%"/>
+				<mx:Image source="{helpImg}" 
+						  buttonMode="true"
+						  toolTip="помощь"
+						  click="{appModel.currentView = AppModel.HELP_SCREEN}"/>
+			</s:HGroup>	
+		</s:VGroup>
+	</mx:ApplicationControlBar>
+	<mx:DataGrid id="dg"
+				 dataProvider="{appModel.productsToday}"
+				 width="100%" height="100%"
+				 creationComplete="{getTotalScore()}"
+				 >
+		<mx:columns>
+			<mx:DataGridColumn headerText="Категория"
+							   labelFunction="productCalegoryLF"/>
+			<mx:DataGridColumn headerText="Продукт"
+							   labelFunction="productNameLF"/>
+			<mx:DataGridColumn headerText="Вес (г.)"
+							   dataField="weight"
+							   width="60"/>
+			<mx:DataGridColumn headerText="Баллы"
+							   labelFunction="scoreLF"
+							   width="60"/>			
+		</mx:columns>		
+	</mx:DataGrid>
+	<mx:ApplicationControlBar width="100%">
+		<mx:Spacer width="100%"/>
+		<s:Label text="Всего баллов: {totalScore}" fontWeight="bold"/>
+	</mx:ApplicationControlBar>
+	
+	
+	<s:VGroup id="ads"
+		width="100%" height="75">
+		<s:HGroup width="100%">
+			<s:Label text="последние новости группы:"/>
+			<mx:Spacer width="100%"/>
+			<s:Label text="скрыть"
+				useHandCursor="true" buttonMode="true"
+				click="onHideAds()"/>
+		</s:HGroup>
+		<s:Label id="txtADS" 
+			width="100%" height="100%"
+			fontWeight="bold"
+			text="{appModel.adsString}"
+			useHandCursor="true" buttonMode="true"
+			maxDisplayedLines="3"
+			click="openSite()"/>
+	</s:VGroup>
+</view:BaseView>

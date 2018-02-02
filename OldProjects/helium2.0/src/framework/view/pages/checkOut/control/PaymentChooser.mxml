@@ -1,0 +1,255 @@
+<?xml version="1.0" encoding="utf-8"?>
+<VSubWindow
+	xmlns:control="framework.core.view.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns="framework.core.view.*"
+	xmlns:control1="h2olib.control.*"
+
+	creationComplete="init()"
+	verticalScrollPolicy="off"
+	horizontalScrollPolicy="off" >
+	
+	<mx:Script>
+		<![CDATA[
+			import mx.utils.ObjectUtil;
+			import framework.module.CheckOutModule;
+			import mx.events.ValidationResultEvent;
+			import services.vo.GlobalSettings;
+			import services.vo.reservation.CreditCardTypeVO;
+			import services.vo.reservation.CreditCardVO;
+			import services.vo.GlobalStorage;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.controller.AppController;
+			import services.events.frontend.GetCreditTypeEvent;
+			import services.vo.checkOut.itemRouting.PaymentVO;
+			import framework.view.pages.checkOut.data.PaymentData;
+			import mx.collections.ArrayCollection;
+			
+			[Bindable]
+			private var years:ArrayCollection = new ArrayCollection();
+			
+			private const months:ArrayCollection = new ArrayCollection(["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"]);
+			
+			private const prefix:String = "frame.otherPayments.";
+			
+			[Bindable]
+			private var provider:ArrayCollection = new ArrayCollection();
+			
+			[Bindable]
+			public var adjust:Boolean = false;
+			
+			private function init():void
+			{
+				var event:GetCreditTypeEvent = new GetCreditTypeEvent(AppController.GET_CREDIT_TYPE_EVENT);
+				CairngormEventDispatcher.getInstance().dispatchEvent(event);
+				
+				for(var i:int = model.date.fullYear; i < model.date.fullYear + 10; i++)
+				{
+					years.addItem(i);
+				}
+				
+				provider.addItem(CheckOutModule.paymentTypes.getItemAt(0));
+				provider.addItem(CheckOutModule.paymentTypes.getItemAt(1));
+			}
+			
+			private function handlePaymentTypeChange():void
+			{
+				currentState = (cmbPaymentType.selectedItem as PaymentData).state;
+				
+				dispatchEvent(new Event("validChanged"));
+			}
+			
+			
+			public function clear():void
+			{
+				if ((cmbPaymentType.selectedItem) && (cmbPaymentType.selectedItem as PaymentData).type == PaymentVO.TYPE_CARD)
+				{
+					tiCardNumber.text = "";
+					cmbCardType.selectedIndex = 0;
+					cmbExpDateYear.selectedIndex = 0;
+					cmbExpDateMonth.selectedIndex = 0;
+					tiOwner.text = "";
+				}
+				
+				ntiAmount.text = "0.00";
+				if(provider.length > 0)
+				{
+					cmbPaymentType.selectedItem = provider[0];
+					handlePaymentTypeChange();
+				}
+			}
+			
+			public function get payment():PaymentVO
+			{
+				var payment:PaymentVO = new PaymentVO();
+				var card:CreditCardVO;
+				
+				if ((cmbPaymentType.selectedItem as PaymentData).type == PaymentVO.TYPE_CARD)
+				{
+					card = new CreditCardVO();
+					card.sCardNumber = tiCardNumber.text;
+					card.iType = (cmbCardType.selectedItem as CreditCardTypeVO).lId;
+					card.sExpDate = cmbExpDateYear.selectedLabel + "-" + cmbExpDateMonth.selectedLabel + "-01";
+					card.bIsIndividual = (tiOwner.text.length != 0);
+				}
+				
+				payment.oMapCreditCard = card;
+				payment.fValue = ntiAmount.text;
+				// check adjust statement
+				if (cbAdjustPayment.selected)
+				{
+					payment.fValue = "-" + payment.fValue;
+				}
+				payment.iType = (cmbPaymentType.selectedItem as PaymentData).type;
+				payment.lPaymentLineId = model.checkOutModule.paymentLineId;
+				
+				return payment;
+			}
+			
+			[Bindable(event="validChanged")]
+			/**
+			 *  Validator of all required fields.
+			 */
+			public function get valid():Boolean
+			{
+				var res:Boolean = true;
+				// check payment type - if type is credit card, validate it.
+				if ((cmbPaymentType) && (cmbPaymentType.selectedItem) && (cmbPaymentType.selectedItem as PaymentData).type == PaymentVO.TYPE_CARD)
+				{
+					if (!cmbCardType.selectedItem) return false;
+					if (tiCardNumber.text.length < 14) return false;
+					//res &&= cmbCardType.selectedItem;
+					//res &&= (tiCardNumber.text.length == 16);
+				}
+				// validate amout of payment
+				if ((ntiAmount) && (nvAmount))
+				{
+					var validate:ValidationResultEvent = nvAmount.validate();
+					//res &&= (validate.type == ValidationResultEvent.VALID);
+					if (validate && validate.type != ValidationResultEvent.VALID)
+					{
+						return false;
+					}
+					else
+					{
+						if (Number(ntiAmount.text) == 0) return false;
+					}
+				}
+				
+				return res;
+			}
+			private function amountChanged():void
+			{
+				/*nvAmount.enabled = true;
+				var validate:ValidationResultEvent = nvAmount.validate();
+				if (validate.type == ValidationResultEvent.VALID)
+				{
+					ntiAmount.text = nfAmount.format(ntiAmount.text);
+				}
+				nvAmount.enabled = false;*/
+				
+				dispatchEvent(new Event('validChanged'));
+			}			
+			
+		]]>
+	</mx:Script>
+	
+	<control:states>
+		<mx:State name="CreditCard">
+			<mx:AddChild relativeTo="{frmPayment}" position="lastChild">
+				<mx:target>
+					<mx:FormItem
+						label="{model.locale.CheckOut_Payment_OtherPayment_CreditCardType}:">
+						<mx:ComboBox id="cmbCardType"
+							dataProvider="{GlobalStorage.creditType}"
+							labelField="sName"
+							width="150"/>
+					</mx:FormItem>
+				</mx:target>
+			</mx:AddChild>
+			<mx:AddChild relativeTo="{frmPayment}" position="lastChild">
+				<mx:target>
+					<mx:FormItem
+						label="{model.locale.CheckOut_Payment_OtherPayment_CreditCardNumber}:"
+						required="true">
+						<mx:TextInput id="tiCardNumber"
+							restrict="0-9"
+							maxChars="16"
+							change="{dispatchEvent(new Event('validChanged'))}"
+							width="150"/>
+					</mx:FormItem>
+				</mx:target>
+			</mx:AddChild>
+			<mx:AddChild relativeTo="{frmPayment}" position="lastChild">
+				<mx:target>
+					<mx:FormItem
+						label="{model.locale.CheckOut_Payment_OtherPayment_ExpirationDate}:"
+						direction="horizontal"
+						required="true">
+						<mx:ComboBox id="cmbExpDateYear"
+							dataProvider="{years}"/>
+						<mx:ComboBox id="cmbExpDateMonth"
+							dataProvider="{months}"/>
+					</mx:FormItem>
+				</mx:target>
+			</mx:AddChild>
+			<mx:AddChild relativeTo="{frmPayment}" position="lastChild">
+				<mx:target>
+					<mx:FormItem
+						label="{model.locale.CheckOut_Payment_OtherPayment_CreditCardOf}:">
+						<mx:TextInput id="tiOwner"
+							maxChars="50"
+							width="150"/>
+					</mx:FormItem>
+				</mx:target>
+			</mx:AddChild>
+		</mx:State>
+	</control:states>
+	
+	<mx:Form id="frmPayment"
+		labelWidth="200"
+		width="100%" height="100%">
+		<mx:FormItem
+			label="{model.locale.CheckOut_Payment_OtherPayment_PaymentType}:">
+			<mx:ComboBox id="cmbPaymentType"
+				dataProvider="{provider}"
+				change="handlePaymentTypeChange()"
+				labelField="name"
+				width="150"/>
+		</mx:FormItem>
+		<mx:FormItem
+			label="{model.locale.CheckOut_Payment_OtherPayment_Amount}:">
+			<control1:NumericTextInput id="ntiAmount"
+				change="{amountChanged()}"
+				width="100"/>
+		</mx:FormItem>
+		<mx:FormItem
+			includeInLayout="{adjust}"
+			visible="{adjust}">
+			<mx:CheckBox id="cbAdjustPayment"
+				label="Adjust"/>
+		</mx:FormItem>
+	</mx:Form>
+	
+	<!--
+		Optional data for using. For example, formatters, validators, etc.
+	  -->
+	<mx:NumberFormatter id="nfAmount"
+		precision="2"
+		useThousandsSeparator="false"
+		rounding="none"/>
+	
+	<mx:NumberValidator id="nvAmount"
+		source="{ntiAmount}"
+		property="text" 
+		domain="real"/>
+	<mx:StringValidator id="svCreditCardNumber"
+		required="false"
+		source="{tiCardNumber}"
+		property="text"
+		minLength="14"
+		maxLength="16"
+		tooLongError="This field should contain at least 14 characters."
+		tooShortError="This field should contain at least 14 characters."
+		enabled="{(cmbPaymentType.selectedItem as PaymentData).type == PaymentVO.TYPE_CARD}"/>
+</VSubWindow>

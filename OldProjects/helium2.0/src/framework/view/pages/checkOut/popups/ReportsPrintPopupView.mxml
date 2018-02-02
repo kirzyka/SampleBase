@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<popup:BasePopupView
+	xmlns:popup="framework.view.components.popups.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	creationComplete="init()"
+	title="Reports"
+	width="500">
+	
+	<mx:Script>
+		<![CDATA[
+			import framework.view.pages.checkOut.control.DebitorPaymentView;
+			import framework.module.CheckOutModule;
+			import mx.events.CloseEvent;
+			import framework.view.pages.checkOut.control.ReportPrintView;
+			import services.vo.inHouse.CheckOutReportsVO;
+			
+			public var isTryToCloseLine:Boolean = false;
+			
+			override protected function close(event:CloseEvent = null):void
+			{
+				if (callBack is Function)
+				{
+					callBack();
+				}
+				
+				super.close(event);
+			}
+			
+			private function init():void
+			{
+				var reportView:ReportPrintView;
+				var reports:Array = model.checkOutModule.acceptPaymentData.aCheckOutReports;
+				
+				if ((reports.length == 0) && (!isTryToCloseLine))
+				{
+					close();
+				}
+				
+				for each(var report:CheckOutReportsVO in reports)
+				{
+					reportView = new ReportPrintView();
+					for each(var view:DebitorPaymentView in model.checkOutModule.paymentItemsView)
+					{
+						if (view.paymentId == report.lAccountId)
+						{
+							reportView.title = view.title;
+						}
+					}
+					reportView.url = report.sReportName;
+					
+					addChild(reportView);
+				}
+				
+				if ((isTryToCloseLine) && (model.checkOutModule.acceptPaymentData.sActualReport))
+				{
+					reportView = new ReportPrintView();
+					reportView.title = "Actual report"
+					reportView.url = model.checkOutModule.acceptPaymentData.sActualReport;
+					addChild(reportView);
+				}
+			}
+		]]>
+	</mx:Script>
+</popup:BasePopupView>

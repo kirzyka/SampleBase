@@ -1,0 +1,338 @@
+<?xml version="1.0" encoding="utf-8"?>
+<sub:VSubWindow xmlns:sub="framework.core.view.*" xmlns:mx="http://www.adobe.com/2006/mxml" width="100%">
+
+	<mx:Script>
+		<![CDATA[
+			import framework.core.utils.UtilsGolobal;
+			import mx.binding.utils.BindingUtils;
+			import services.vo.common.loyaltyPrograms.LoyaltyProgramsVO;
+			import framework.model.AppModelLocator;
+			import services.vo.GlobalFunctions;
+			import services.events.reports.GetReportEvent;
+			import services.vo.backend.ReportVO;
+			import services.vo.common.SourceCodesVO;
+			import services.vo.backend.RoomSettingObjectVO;
+			import services.vo.common.MarketCodesVO;
+			import services.vo.hotels.HotelRoomWithBedTypesObjectVO;
+			import services.vo.GlobalSettings;
+			import services.vo.GlobalStorage;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.events.miscellaneous.loyaltyPrograms.GetLoyaltyProgramsEvent;
+			import services.controller.AppController;
+			import services.events.roomSettings.GetRoomSettingsDataEvent;
+			import mx.collections.ArrayCollection;
+			import services.vo.reports.ArrivalReportVO;
+
+			
+			///////////////////////////////////////////////////////////////////////
+			private var _arrivalPreferences:ArrayCollection = new ArrayCollection();
+			[Bindable (event = "reportsArrivalPreferencesChanges")]			
+			private function get arrivalPreferences():ArrayCollection
+			{
+				return _arrivalPreferences;
+			}
+			private function set arrivalPreferences(value:ArrayCollection):void
+			{
+				_arrivalPreferences = value;
+				dispatchEvent(new Event("reportsArrivalPreferencesChanges"));
+			}
+			////////////////////////////////////////////////////////////////////////
+			
+			////////////////////////////////////////////////////////////////////////////
+			private var _arrivalMembershipTypes:ArrayCollection = new ArrayCollection();
+			[Bindable (event = "reportsArrivalMembershipTypesChanges")]
+			private function get arrivalMembershipTypes():ArrayCollection
+			{
+				return _arrivalMembershipTypes;
+			}
+			private function set arrivalMembershipTypes(value:ArrayCollection):void
+			{
+				_arrivalMembershipTypes = value;
+				dispatchEvent(new Event("reportsArrivalMembershipTypesChanges"));
+			}
+			////////////////////////////////////////////////////////////////////////////
+			//config
+			[Bindable]
+  			public var indicatorGapFormItem:int = 14;
+
+  			/**
+			 *	Get reports. This function we have in parent.
+			*/
+  			public var getReports:Function = new Function();
+
+  			/**
+			 *	Get selected All for all list. This function we have in parent.
+			*/
+  			public var allClick:Function = new Function();
+
+			public var reportType:int;
+			private const SORT_ORDER_ROOM_NO:int      = 1; // for iSortOrder in HousekeepingReportVO
+  			private const SORT_ORDER_ALPHABETICAL:int = 2;
+
+			public function init():void
+			{
+				arrivalPreferences.removeAll();
+				var roomSettingsDPlength:int = model.roomSettingsModule.roomSettingsDP.length;
+				for (var i:int = 0; i < roomSettingsDPlength; i++)
+				 {
+				 	if ((model.roomSettingsModule.roomSettingsDP.getItemAt(i) as RoomSettingObjectVO).bIsSpwish)
+				 		arrivalPreferences.addItem(model.roomSettingsModule.roomSettingsDP.getItemAt(i));
+				 }
+
+				 arrivalPref.dataProvider = arrivalPreferences;
+
+				 arrivalMembershipTypes = UtilsGolobal.clone(GlobalStorage.loyaltyPrograms) as ArrayCollection;
+			}
+
+
+			/**
+			 *	Get selected references for Preferences  (in Arrival).
+			*/
+
+			public function updateSelectionPreferences (index:int,selected:Boolean):void
+			{
+				var tempSelect:Boolean = (arrivalPreferences.getItemAt(index) as RoomSettingObjectVO).bIsSelected;
+
+				if (tempSelect) tempSelect = false
+				else tempSelect = true;
+
+				(arrivalPreferences.getItemAt(index) as RoomSettingObjectVO).bIsSelected = tempSelect;
+			}
+
+			/**
+			 *	Get selected references for LoyaltyProgram  (in Arrival).
+			*/
+
+			public function updateSelectionArrivalLoyaltyProgram (index:int,selected:Boolean):void
+			{
+				var tempSelect:Boolean = (arrivalMembershipTypes.getItemAt(index) as LoyaltyProgramsVO).bIsSelected;
+
+				if (tempSelect) tempSelect = false
+				else tempSelect = true;
+
+				(arrivalMembershipTypes.getItemAt(index) as LoyaltyProgramsVO).bIsSelected = tempSelect;
+			}
+
+
+			private function handlePrintArrivalReport():void
+			{
+				var arrivalReport:ArrivalReportVO = new ArrivalReportVO();
+
+				arrivalReport.sArrivalFrom = DateField.dateToString(arrivalArrival.selectedDate, GlobalSettings.DATE_SERVER_FORMAT);//arrivalArrival.selectedDate.time/1000;
+				arrivalReport.sArrivalTo = DateField.dateToString(arrivalDeparture.selectedDate, GlobalSettings.DATE_SERVER_FORMAT);//arrivalDeparture.selectedDate.time/1000;
+
+				arrivalReport.bCheckIn = arrivalShowName.selected;
+				if (arrivalSortOrderRoom.selected)
+				{
+					arrivalReport.iSortOrder = SORT_ORDER_ROOM_NO;
+				}
+				if (arrivalSortOrderAlphabetical.selected)
+				{
+					arrivalReport.iSortOrder = SORT_ORDER_ALPHABETICAL;
+				}
+
+				if (!arrivalAllRoomType.selected)
+				{
+				var tempRoomTypesLength:int = model.hotelsModule.hotelRoomTypes.length;	
+				for (var i:int = 0; i < tempRoomTypesLength; i++)
+					if ((model.hotelsModule.hotelRoomTypes.getItemAt(i) as HotelRoomWithBedTypesObjectVO).oRoomQuality.bIsSelected)
+						arrivalReport.aRoomType.push((model.hotelsModule.hotelRoomTypes.getItemAt(i) as HotelRoomWithBedTypesObjectVO).oRoomQuality.lQualityId);
+				}
+
+				if (!arrivalAllMarketCode.selected)
+				{
+				var tempMarketCodesLength:int = GlobalStorage.marketCodes.length;	
+				for (i = 0; i < tempMarketCodesLength; i++)
+					if ((GlobalStorage.marketCodes.getItemAt(i) as MarketCodesVO).bIsSelected)
+						arrivalReport.aMarketCode.push((GlobalStorage.marketCodes.getItemAt(i) as MarketCodesVO).iId);
+				}
+
+				if (!arrivalAllSourceCode.selected)
+				{
+				var tempSourceCodesLength:int = GlobalStorage.sourceCodes.length;
+				for (i = 0; i < tempSourceCodesLength; i++)
+					if ((GlobalStorage.sourceCodes.getItemAt(i) as SourceCodesVO).bIsSelected)
+						arrivalReport.aSourceCode.push((GlobalStorage.sourceCodes.getItemAt(i) as SourceCodesVO).iId);
+				}
+
+				if (!arrivalAllMemberType.selected)
+				{
+				var tempArrivalMembershipTypesLength:int = arrivalMembershipTypes.length;
+				for (i = 0; i < tempArrivalMembershipTypesLength; i++)
+					if ((arrivalMembershipTypes.getItemAt(i) as LoyaltyProgramsVO).bIsSelected)
+						arrivalReport.aMembershipType.push((arrivalMembershipTypes.getItemAt(i) as LoyaltyProgramsVO).lId);
+				}
+
+				if (!arrivalAllPref.selected)
+				{
+				var tempArrivalPreferencesLength:int = arrivalPreferences.length;
+				for (i = 0; i < tempArrivalPreferencesLength; i++)
+					if ((arrivalPreferences.getItemAt(i) as RoomSettingObjectVO).bIsSelected)
+						arrivalReport.aPreferences.push((arrivalPreferences.getItemAt(i) as RoomSettingObjectVO).iRsettingId);
+				}
+
+				getReports( arrivalReport, reportType, null );
+			}
+
+
+			/**
+			 *	Get selected references for SourceCode.
+			*/
+
+			public function updateSelectionArrivalSourceCode(index:int,selected:Boolean):void
+			{
+				var tempSelect:Boolean = (GlobalStorage.sourceCodes.getItemAt(index) as SourceCodesVO).bIsSelected;
+
+				if (tempSelect) tempSelect = false
+				else tempSelect = true;
+
+				(GlobalStorage.sourceCodes.getItemAt(index) as SourceCodesVO).bIsSelected = tempSelect;
+			}
+
+			/**
+			 *	Get selected references for MarketCode.
+			*/
+
+			public function updateSelectionArrivalMarketCode(index:int,selected:Boolean):void
+			{
+				var tempSelect:Boolean = (GlobalStorage.marketCodes.getItemAt(index) as MarketCodesVO).bIsSelected;
+
+				if (tempSelect) tempSelect = false
+				else tempSelect = true;
+
+				(GlobalStorage.marketCodes.getItemAt(index) as MarketCodesVO).bIsSelected = tempSelect;
+			}
+
+			/**
+			 *	Get selected references for RoomTypes.
+			*/
+
+			public function updateSelectionArrivalRoomType(index:int,selected:Boolean):void
+			{
+				var tempSelect:Boolean = (model.hotelsModule.hotelRoomTypes.getItemAt(index) as HotelRoomWithBedTypesObjectVO).oRoomQuality.bIsSelected;
+
+				if (tempSelect) tempSelect = false
+				else tempSelect = true;
+
+				(model.hotelsModule.hotelRoomTypes.getItemAt(index) as HotelRoomWithBedTypesObjectVO).oRoomQuality.bIsSelected = tempSelect;
+			}
+
+
+		]]>
+	</mx:Script>
+
+
+		<mx:Panel label="Arrival Report" width="100%" layout="vertical" horizontalScrollPolicy="off" styleName="reportPanel">
+			<mx:HBox height="85%" width="100%" horizontalScrollPolicy="off">
+				<mx:Form paddingLeft="-15" paddingRight="-5" height="100%">
+					<mx:FormItem label="from Date:" labelWidth="120">
+						<mx:DateField id="arrivalArrival" width="{GlobalSettings.WIDTH_DATE_FIELD}"
+							selectedDate="{GlobalFunctions.getDate()}" formatString="{GlobalSettings.DATE_FORMAT}"/>
+					</mx:FormItem>
+					<mx:FormItem label="to Date:" labelWidth="120">
+						<mx:DateField id="arrivalDeparture" width="{GlobalSettings.WIDTH_DATE_FIELD}"
+							selectedDate="{GlobalFunctions.getDate()}" formatString="{GlobalSettings.DATE_FORMAT}"/>
+					</mx:FormItem>
+					<mx:FormItem >
+						<mx:CheckBox id="arrivalShowName" label="Show CheckIn user" selected="true"/>
+						<mx:RadioButton id="arrivalSortOrderRoom" selected="true" label="Sort Order Room No" groupName="arrival"/>
+						<mx:RadioButton id="arrivalSortOrderAlphabetical" label="Sort Order Alphabetical" groupName="arrival"/>
+					</mx:FormItem>
+					<mx:FormItem label="Special Wishes:" labelWidth="120" height="100%" indicatorGap="{indicatorGapFormItem}">
+						<mx:List id="arrivalPref" dataProvider="{arrivalPreferences}" width="120" height="100%" enabled="false">
+								<mx:itemRenderer>
+									<mx:Component>
+										<mx:CheckBox
+											label="{data.sRsettingCode}"
+											selected="{data.bIsSelected}"
+											change="{outerDocument.updateSelectionPreferences(outerDocument.arrivalPref.selectedIndex, this.selected)}"/>
+									</mx:Component>
+								</mx:itemRenderer>
+						</mx:List>
+						<mx:CheckBox id="arrivalAllPref" label="All special wishes" selected="true"
+								change="{allClick(arrivalAllPref, arrivalPref)}"/>
+					</mx:FormItem>
+				</mx:Form>
+
+				<mx:Form paddingLeft="-10" paddingRight="0" height="100%">
+					<mx:FormItem label="Room Types:" labelWidth="120"  height="50%" indicatorGap="{indicatorGapFormItem}">
+							<mx:List id="arrivalRoomType" enabled="false"
+								dataProvider="{model.hotelsModule.hotelRoomTypes}"
+								width="150" height="100%">
+								<mx:itemRenderer>
+									<mx:Component>
+										<mx:CheckBox
+											label="{data.oRoomQuality.sQualityName}"
+											selected="{data.oRoomQuality.bIsSelected}"
+											change="{outerDocument.updateSelectionArrivalRoomType( outerDocument.arrivalRoomType.selectedIndex, this.selected)}"/>
+									</mx:Component>
+								</mx:itemRenderer>
+							</mx:List>
+							<mx:CheckBox id="arrivalAllRoomType" label="All room types" selected="true"
+								change="{allClick(arrivalAllRoomType, arrivalRoomType)}"/>
+					</mx:FormItem>
+					<mx:FormItem label="Loyalty Program:" labelWidth="120" height="50%" indicatorGap="{indicatorGapFormItem}">
+						<mx:List id="arrivalMemberType" enabled="false"
+								dataProvider="{arrivalMembershipTypes}"
+								width="150" height="100%">
+								<mx:itemRenderer>
+									<mx:Component>
+										<mx:CheckBox
+											label="{data.sName}"
+											selected="{data.bIsSelected}"
+											change="{outerDocument.updateSelectionArrivalLoyaltyProgram(outerDocument.arrivalMemberType.selectedIndex, this.selected)}"/>
+									</mx:Component>
+								</mx:itemRenderer>
+						</mx:List>
+						<mx:CheckBox id="arrivalAllMemberType" label="All member types" selected="true"
+								change="{allClick(arrivalAllMemberType, arrivalMemberType)}"/>
+					</mx:FormItem>
+				</mx:Form>
+				<mx:Form paddingLeft="-60" height="100%">
+					<mx:FormItem labelWidth="130" height="100%" indicatorGap="{indicatorGapFormItem}">
+							<mx:Label text="Market Code:"/>
+							<mx:List id="arrivalMarketCode" enabled="false" height="90%"
+								dataProvider="{GlobalStorage.marketCodes}"
+								width="120">
+								<mx:itemRenderer>
+									<mx:Component>
+										<mx:CheckBox
+											label="{data.sName}"
+											selected="{data.bIsSelected}"
+											change="{outerDocument.updateSelectionArrivalMarketCode( outerDocument.arrivalMarketCode.selectedIndex, this.selected)}"/>
+									</mx:Component>
+								</mx:itemRenderer>
+							</mx:List>
+							<mx:CheckBox id="arrivalAllMarketCode" label="All market codes" selected="true"
+								change="{allClick(arrivalAllMarketCode, arrivalMarketCode)}"/>
+					</mx:FormItem>
+				</mx:Form>
+
+
+				<mx:Form paddingLeft="-60" height="100%">
+					<mx:FormItem labelWidth="130" height="100%"
+						indicatorGap="{indicatorGapFormItem}">
+							<mx:Label text="Source Code:"/>
+							<mx:List id="arrivalSourceCode" enabled="false" height="90%"
+								dataProvider="{GlobalStorage.sourceCodes}"
+								width="120">
+								<mx:itemRenderer>
+									<mx:Component>
+										<mx:CheckBox
+											label="{data.sName}"
+											selected="{data.bIsSelected}"
+											change="{outerDocument.updateSelectionArrivalSourceCode(outerDocument.arrivalSourceCode.selectedIndex, this.selected)}"/>
+									</mx:Component>
+								</mx:itemRenderer>
+							</mx:List>
+							<mx:CheckBox id="arrivalAllSourceCode" label="All source codes" selected="true"
+								change="{allClick(arrivalAllSourceCode, arrivalSourceCode)}"/>
+					</mx:FormItem>
+				</mx:Form>
+
+			</mx:HBox>
+			<mx:HBox width="100%" horizontalAlign="right" paddingRight="15">
+				<mx:Button label="Print Report" click="handlePrintArrivalReport()" paddingRight="3"/>
+			</mx:HBox>
+		</mx:Panel>
+</sub:VSubWindow>

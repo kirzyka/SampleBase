@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Application
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:services="services.*"
+	xmlns:controller="services.controller.*"
+	xmlns:view="framework.view.*"
+	historyManagementEnabled="false"
+	layout="absolute"
+	preinitialize="{preinitialize()}"
+	creationComplete="callLater(handleInit)">	
+	
+	
+	<mx:Script>
+		<![CDATA[
+			import mx.rpc.events.FaultEvent;
+			import framework.version.AppVersion;
+			import framework.utils.HeliumHelper;
+			import services.vo.GlobalStorage;
+			import mx.rpc.events.ResultEvent;
+			import framework.managers.PopUpManagerExt;
+			import services.vo.hotels.HotelRoomObjectVO;
+			import mx.managers.SystemManager;
+			import mx.managers.HistoryManager;
+			import framework.model.AppModelLocator;
+			import mx.controls.Alert;
+			
+			// ----------------------------------------------------------- //
+			//                          CONSTANTS                          //
+			// ----------------------------------------------------------- //
+			/**
+			 *  This constant is count of milliseconds in one minute:
+			 *    <li>
+			 *       <ul>60 - seconds in one minute;</ul>
+			 *       <ul>1000 - miliseconds in one second.<ul>
+			 *    <li>
+			 */
+			protected const MS_MINUTE:Number = 60 * 1000;
+			
+			// ----------------------------------------------------------- //
+			//                          VARIABLES                          //
+			// ----------------------------------------------------------- //
+			[Bindable]
+			private var model:AppModelLocator = AppModelLocator.getInstance();
+			
+			private var _tmrStayOver:Timer = new Timer(60, MS_MINUTE);
+			
+			private function preinitialize():void
+			{
+				serviceLoader.send();
+			}
+			
+			/**
+			 *  Initialize.
+			 */
+			
+			private function handleInit():void
+			{
+				model.owner = this;
+				// over stay timer
+				addEventListener("stayOverStart", onStayOverBegin);
+				_tmrStayOver.addEventListener(TimerEvent.TIMER_COMPLETE, onStayOverComplete);
+				
+				var url:String = loaderInfo.url;
+				var index:int = url.lastIndexOf("/");
+				HeliumHelper.rootURL = url.substring(0, index) + "/";
+			}
+			
+			/**
+			 *  Begin over stay functionality.
+			 *  
+			 *  @param e:Event - not used.
+			 */
+			private function onStayOverBegin(e:Event = null):void
+			{
+				// configure listeners for control user activity
+				stage.addEventListener(MouseEvent.CLICK, onResetStayOver);
+				stage.addEventListener(KeyboardEvent.KEY_UP, onResetStayOver);
+				// start stay over timer
+				_tmrStayOver.start();
+			}
+			/**
+			 *  Reset over stay by user activity.
+			 *
+			 *  @param e:Event - not used.
+			 */
+			private function onResetStayOver(e:Event = null):void
+			{
+				_tmrStayOver.stop();
+				_tmrStayOver.reset();
+				_tmrStayOver.start();
+			}
+			/**
+			 *  Active stay over.
+			 *  
+			 *  @param e:timer - not used.
+			 */
+			private function onStayOverComplete(e:TimerEvent):void
+			{
+				// remove listeners for control user activity
+				stage.removeEventListener(MouseEvent.CLICK, onResetStayOver);
+				stage.removeEventListener(KeyboardEvent.KEY_UP, onResetStayOver);
+				// stop stay over timer
+				_tmrStayOver.stop();
+				_tmrStayOver.reset();
+				// log out user
+				model.backendIndex = 0;
+				model.mainViewIndex = 0;
+				model.isLogOut = false;
+				PopUpManagerExt.removeAll();
+			}
+			
+			private function handleViewDebugInfo():void
+			{
+				Alert.show(String(model.lastResponse.aDebugInfo));
+			}
+			
+			private function onGetServices(e:ResultEvent):void
+			{
+				try
+				{
+					var settings:XML = e.result as XML;
+					var endpoint:String = settings.endpoint[0].@uri;
+					GlobalStorage.endpoint = endpoint;
+				}
+				catch(ex:Error)
+				{
+					Alert.show("File services-config.xml is broken!");
+				}
+			}
+			private function onGetServicesError(e:FaultEvent):void
+			{
+				Alert.show('File not found!')
+			}
+
+		]]>
+	</mx:Script>
+
+	<mx:Style source="assets/main.css"/>
+	<mx:Style source="assets/ramada.css"/>
+
+	<services:Services id="services"/>
+	<controller:AppController id="controller"/>
+
+	<mx:HTTPService id="serviceLoader"
+		resultFormat="e4x"
+		url="services-config.xml"
+		result="onGetServices(event)"
+		fault="{onGetServicesError(event)}"/>
+
+		
+	<view:MainView id="mainView"
+		width="100%" height="100%" />
+
+	<mx:Button
+		label="Debug Info"
+		top="3"
+		click="handleViewDebugInfo()"
+		width="80" styleName="LogOutButton" height="19" left="12"/>
+
+	<mx:Label
+		text="Version: {AppVersion.VERSION}"
+		top="2"
+		left="110"/>
+</mx:Application>

@@ -1,0 +1,305 @@
+<?xml version="1.0" encoding="utf-8"?>
+<subwindow:VSubWindow
+	xmlns:subwindow="framework.core.view.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	width="100%" height="100%" creationComplete="handleInit()">
+
+	<mx:Script>
+		<![CDATA[
+			import framework.view.pages.hotels.data.HotelStatus;
+			import framework.view.pages.hotels.renderer.ApplySettingsListItemRenderer;
+			import framework.core.utils.UtilsGolobal;
+			import services.events.backend.GetHotelDictionariesEvent;
+			import services.events.roomSettings.GetRoomSettingsDataEvent;
+			import services.events.hotels.SaveHotelRoomSettingsEvent;
+			import services.events.hotels.GetHotelRoomSettingsEvent;
+			import services.events.hotels.AddRoomSettingsToHotelEvent;
+			import services.vo.GlobalStorage;
+			import mx.events.CollectionEvent;
+			import services.controller.AppController;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import mx.managers.DragManager;
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.events.DragEvent;
+			import services.vo.backend.RoomSettingObjectVO;
+			import framework.model.AppModelLocator;
+
+			//////////////////////////////////////////////////////////////////////////
+			private var _cloneSysRoomSettings:ArrayCollection = new ArrayCollection();
+			[Bindable (event = "cloneSysRoomSettingsChange")]
+			private function get cloneSysRoomSettings():ArrayCollection
+			{
+				return _cloneSysRoomSettings;
+			}
+			private function set cloneSysRoomSettings(value:ArrayCollection):void
+			{
+				_cloneSysRoomSettings = value;
+        		dispatchEvent(new Event("cloneSysRoomSettingsChange"));
+			}
+			//////////////////////////////////////////////////////////////////////////
+
+			private var hotelId:Number = -1;
+
+			private var currRSIds:Array = new Array();
+
+			/**
+			 * Initialize
+			 */ 
+			private function handleInit():void
+			{
+				model.hotelsModule.hotelRoomSettings.addEventListener(CollectionEvent.COLLECTION_CHANGE, setRoomSettingsIds);
+
+				totalList.addEventListener(AddRoomSettingsToHotelEvent.MOVE_SETTING, handleAddRoomSetting);
+				hotelSettingsList.addEventListener(AddRoomSettingsToHotelEvent.MOVE_SETTING, handleRemoveSetting);
+			}
+			
+			/**
+			 *  @override
+			 *  Open page for view. Update view list of room setting if it needs.
+			 */
+			override public function open():void
+			{
+				super.open();
+				var evt:GetRoomSettingsDataEvent = new GetRoomSettingsDataEvent( AppController.GET_ROOM_SETTINGS_DATA_EVENT );
+				evt.callBack = copyRoomSettingData;
+				CairngormEventDispatcher.getInstance().dispatchEvent( evt );
+		
+				if (model.hotelsModule.hotelRoomSettings.length == 0)
+				{
+					var event:GetHotelDictionariesEvent = new GetHotelDictionariesEvent(AppController.GET_PAGE_OF_START_HOTEL);
+					event.hotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+					CairngormEventDispatcher.getInstance().dispatchEvent(event);
+				}
+			}
+
+			/**
+			 * Check data
+			 */ 
+			private function isDataEqual():Boolean
+			{
+				var res:Boolean = true;
+
+				var tempLength:int = model.hotelsModule.hotelRoomSettings.length;
+				for(var i:int = 0; i < tempLength; i++)
+					if((model.hotelsModule.hotelRoomSettings.getItemAt(i) as RoomSettingObjectVO).iRsettingId != (currRSIds[i]  as RoomSettingObjectVO).iRsettingId) res = false
+
+				return res;
+			}
+
+			/**
+			 * copy room setting data
+			 */ 
+			private function copyRoomSettingData():void
+			{
+				cloneSysRoomSettings = UtilsGolobal.clone(model.roomSettingsModule.roomSettingsDP) as ArrayCollection;
+				var hotelRoomSettingLength:int = model.hotelsModule.hotelRoomSettings.length;
+				for( var i:int=0; i < hotelRoomSettingLength; i++)
+				{
+					for (var j:int= (cloneSysRoomSettings.length-1); j >= 0; j--)
+					{
+						if ((cloneSysRoomSettings.getItemAt(j) as RoomSettingObjectVO).iRsettingCode == (model.hotelsModule.hotelRoomSettings.getItemAt(i) as RoomSettingObjectVO).iRsettingCode)
+						{
+							cloneSysRoomSettings.removeItemAt(j);
+						}						
+					}
+				}
+			}
+
+			/**
+			 * Add room setting to right part
+			 */
+			private function handleAddRoomSetting(evt:AddRoomSettingsToHotelEvent = null):void
+			{
+				/**
+				 * count of selected system room setting
+				 */
+				var count:int = 0;
+				var item:RoomSettingObjectVO;
+				var sysRoomSettingsLength:int = cloneSysRoomSettings.length;
+				var hotelRoomSettings:ArrayCollection = model.hotelsModule.hotelRoomSettings;
+				for (var i:int = sysRoomSettingsLength-1; i >= 0; i--)
+				{
+					if ((cloneSysRoomSettings.getItemAt(i) as RoomSettingObjectVO).bIsSelected)
+					{
+						item = (cloneSysRoomSettings.getItemAt(i) as RoomSettingObjectVO);
+						item.iParentId = item.iRsettingId;
+						item.iRsettingId = 0;
+						item.bIsSelected = false;
+						hotelRoomSettings.addItem(item);
+						hotelRoomSettings.source.sortOn('sRsettingCode');
+						cloneSysRoomSettings.removeItemAt(i);
+						count++;
+					}
+				}
+
+				/**
+				 * if we don't have selected system room setting, we used sectedIndex
+				 */
+				if (count == 0)
+				{
+					item = totalList.selectedItem as RoomSettingObjectVO;
+					item.iParentId = item.iRsettingId;
+					item.iRsettingId = 0;
+					hotelRoomSettings.addItem(item);
+					hotelRoomSettings.source.sortOn('sRsettingCode');
+					cloneSysRoomSettings.removeItemAt(totalList.selectedIndex);
+				}
+				else
+				{
+					/* for (var j:int = 0; j < sysRoomSettingsLength; j++)
+						(cloneSysRoomSettings.getItemAt(j) as RoomSettingObjectVO).bIsSelected = false;	 */					
+				}
+			}
+
+			/**
+			 * Remote setting from right part
+			 */ 
+			private function handleRemoveSetting(evt:AddRoomSettingsToHotelEvent = null):void
+			{
+				var item:RoomSettingObjectVO = hotelSettingsList.selectedItem as RoomSettingObjectVO;
+
+				if (item.iParentId == 0)
+					{
+						item.iRsettingId = item.iParentId;
+						item.iParentId = 0;
+					}
+
+				cloneSysRoomSettings.addItem(item);
+				cloneSysRoomSettings.source.sortOn('sRsettingCode');
+
+				model.hotelsModule.hotelRoomSettings.removeItemAt(hotelSettingsList.selectedIndex);
+			}
+
+			/**
+			 * get setting label
+			 */ 
+			private function getSettingsLabel(item:Object):String
+			{
+				var evtItem:RoomSettingObjectVO = item as RoomSettingObjectVO;
+
+				return evtItem.sRsettingCode + " - " + evtItem.sRsettingDesctiptionLocale;
+			}
+
+			/**
+			 * set room settings id
+			 */ 
+			private function setRoomSettingsIds(evt:CollectionEvent = null):void
+			{
+				currRSIds.splice(0);
+				var hotelRoomSettings:ArrayCollection = model.hotelsModule.hotelRoomSettings;
+				for(var i:int = 0; i < hotelRoomSettings.length; i++)
+				{
+					currRSIds.push( hotelRoomSettings.getItemAt(i) as RoomSettingObjectVO);
+				}
+			}
+
+			/**
+			 * Request to server save Room Setting
+			 */ 
+			private function handleApply():void
+			{
+				setRoomSettingsIds();
+
+				var evt:SaveHotelRoomSettingsEvent = new SaveHotelRoomSettingsEvent( AppController.SAVE_HOTEL_ROOM_SETTINGS );
+				evt.ids = currRSIds;
+				evt.callBack = getOldHotelRoomSettings;
+				evt.dispatch();
+
+				hotelId = model.hotelsModule.hotelTotalInfo.iHotelId;
+				
+				if (model.hotelsModule.hotelTotalInfo.iHotelStatusId != HotelStatus.CODE_COMPLETE)
+				{
+					model.hotelsModule.hotelTotalInfo.iHotelStatusId = HotelStatus.CODE_ROOM_SETTING_COMPLETE;
+				}
+			}
+
+			/**
+			 * Get old hotel room settings
+			 */ 
+			private function getOldHotelRoomSettings():void
+			{
+				var getRSevt:GetHotelRoomSettingsEvent = new GetHotelRoomSettingsEvent( AppController.GET_HOTEL_ROOM_SETTINGS );
+				getRSevt.dispatch();
+			}
+
+			/**
+			 * handle data drag enter
+			 */ 
+			private function handleDataDragEnter(evt:DragEvent):void
+			{
+				if(evt.currentTarget as DataGrid)
+				{
+					DragManager.acceptDragDrop(evt.currentTarget as DataGrid);
+
+				}
+			}
+
+			/**
+			 * handle drag and drop
+			 */ 
+			private function handleDataDragDrop(event:DragEvent):void
+			{
+				var item:RoomSettingObjectVO = totalList.selectedItem as RoomSettingObjectVO;
+
+				if (item.iParentId == 0)
+				{
+					item.iParentId = item.iRsettingId;
+					item.iRsettingId = 0;
+				}
+				cloneSysRoomSettings.removeItemAt(totalList.selectedIndex);
+				model.hotelsModule.hotelRoomSettings.addItem(item);
+            }
+        
+            /**
+			 *	Get selected room settings.
+			*/
+			public function updateSysRoomSettingSelected (index:int,selected:Boolean):void
+			{
+				var tempSelect:Boolean = (cloneSysRoomSettings.getItemAt(index) as RoomSettingObjectVO).bIsSelected;
+
+				if (tempSelect) tempSelect = false
+				else tempSelect = true;
+
+				(cloneSysRoomSettings.getItemAt(index) as RoomSettingObjectVO).bIsSelected = tempSelect;
+			}
+			
+		]]>
+	</mx:Script>
+	<mx:HBox width="100%" height="100%" verticalAlign="middle">
+		<mx:DataGrid id="totalList" width="100%" height="100%" dragEnter="handleDataDragEnter(event)"
+			dataProvider="{cloneSysRoomSettings}" dragEnabled="true" headerHeight="22" rowHeight="33" styleName="grid">
+			<mx:columns>
+				<mx:DataGridColumn width="30" dataField="bIsSelected" headerText="" textAlign="center">
+					<mx:itemRenderer>
+						<mx:Component>
+							<mx:CheckBox
+								label=""
+								selected="{data.bIsSelected}"
+								change="{outerDocument.updateSysRoomSettingSelected( outerDocument.totalList.selectedIndex, this.selected)}"/>
+						</mx:Component>
+					</mx:itemRenderer>
+				</mx:DataGridColumn>
+				<mx:DataGridColumn headerStyleName="HeaderDataGrid" headerText="Code" dataField="sRsettingCode" width="180"/>
+				<mx:DataGridColumn headerStyleName="HeaderDataGrid" headerText="Desctiption" dataField="sRsettingDesctiptionLocale"
+					itemRenderer = "{new ClassFactory(ApplySettingsListItemRenderer)}"/>
+			</mx:columns>
+		</mx:DataGrid>
+		<mx:VBox >
+			<mx:Button id="leftToRight" enabled="{totalList.selectedIndex != -1}" click="handleAddRoomSetting()" label=">>"/>
+			<mx:Button id="rightToLeft" enabled="{hotelSettingsList.selectedIndex != -1}" click="handleRemoveSetting()" label="&lt;&lt;"/>
+		</mx:VBox>
+		<mx:DataGrid id="hotelSettingsList" width="100%" height="100%" dataProvider="{model.hotelsModule.hotelRoomSettings}"
+			dragEnter="handleDataDragEnter(event)" dragDrop="handleDataDragDrop(event)" headerHeight="22" rowHeight="33" styleName="grid">
+			<mx:columns>
+				<mx:DataGridColumn headerStyleName="HeaderDataGrid" headerText="Code" dataField="sRsettingCode" width="180"/>
+				<mx:DataGridColumn headerStyleName="HeaderDataGrid" headerText="Desctiption" dataField="sRsettingDesctiptionLocale"
+					itemRenderer = "{new ClassFactory(ApplySettingsListItemRenderer)}"/>
+			</mx:columns>
+		</mx:DataGrid>
+	</mx:HBox>
+
+	<mx:HBox width="100%" horizontalAlign="right">
+		<mx:Button label="Apply" click="handleApply()" width="120" enabled="{model.hotelsModule.hotelRoomSettings.length > 0}"/>
+	</mx:HBox>
+</subwindow:VSubWindow>

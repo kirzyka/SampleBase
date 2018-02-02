@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<popup:CheckOutPopupView
+	xmlns:popup="framework.view.pages.checkOut.popups.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	title="Merge items by transactions">
+	
+	<mx:Script>
+		<![CDATA[
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.business.checkOut.CheckOutDelegate;
+			import services.events.checkOut.MergeItemsEvent;
+			import services.vo.checkOut.itemRouting.ItemCheckOutVO;
+			import services.vo.GlobalSettings;
+			
+			public var selectedItems:Array;
+			public var selectedIndexes:Array;
+			
+			private function handleMergeItems():void
+			{
+				var event:MergeItemsEvent = new MergeItemsEvent(CheckOutDelegate.MERGE_ITEMS);
+				
+				for each(var item:ItemCheckOutVO in selectedItems)
+				{
+					event.itemMergeIds.push(item.lId);
+				}
+				event.selectedIndexes = selectedIndexes;
+				event.selectedItems = selectedItems; 
+				event.argId = 0;
+				// optional data
+				event.isAttached = isAttached;
+				event.attachedId = attachedId;
+				event.callBack = completeCall;
+				CairngormEventDispatcher.getInstance().dispatchEvent(event);
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:Label
+		text="Are you sure you want to merge selected transactions?"
+		fontWeight="bold"/>
+	
+	<mx:HBox width="100%" horizontalAlign="right">
+		<mx:Button
+			label="{model.locale.Global_Button_Apply}"
+			click="handleMergeItems()"
+			width="{GlobalSettings.BUTTON_WIDTH_APPLY}"/>
+		<mx:Button
+			label="{model.locale.Global_Button_Cancel}"
+			click="close()"
+			width="{GlobalSettings.BUTTON_WIDTH}"/>
+	</mx:HBox>
+</popup:CheckOutPopupView>

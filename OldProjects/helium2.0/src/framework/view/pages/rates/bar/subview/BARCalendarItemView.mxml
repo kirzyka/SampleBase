@@ -1,0 +1,220 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Box xmlns:mx="http://www.adobe.com/2006/mxml" width="100" height="90" horizontalAlign="left" verticalGap="0"
+	verticalScrollPolicy="off" horizontalScrollPolicy="off" borderStyle="solid" 
+	creationComplete="handleInit()" visible="{getIndex() &lt; model.maxDaysInMonth}"
+	paddingRight="7" paddingLeft="2"
+	enabled ="{(model.ratesModule.barModule.cellsData.getItemAt(data.index) as BARSaveItemVO).sBarDate == DateField.dateToString( GlobalFunctions.getDate(), GlobalSettings.DATE_FORMAT )}"
+	toolTipShow="true"
+	toolTip="{(model.ratesModule.barModule.cellsData.getItemAt(data.index) as BARSaveItemVO).oBarHotel.sCnlDescEvent}">
+	  
+	<mx:Script>
+		<![CDATA[
+			import services.vo.hotels.HotelRoomWithBedTypesObjectVO;
+			import services.vo.hotels.HotelRoomTypeObjectVO;
+			import services.vo.rates.bar.BARSaveItemVO;
+			import services.vo.rates.bar.BARItemObjectVO;
+			import mx.binding.utils.ChangeWatcher;
+			import services.vo.GlobalSettings;
+			import mx.controls.DateField;
+			import services.vo.GlobalStorage;
+			import services.vo.GlobalFunctions;
+			import services.vo.backend.RoomWithBedTypesObjectVO;
+			import services.vo.backend.RoomTypesObjectVO;
+			import services.vo.backend.DateResultVO;
+			import mx.collections.ArrayCollection;
+			import framework.model.AppModelLocator;
+			
+			[Bindable]
+			public var currDate:String;
+			
+			
+			[Bindable]
+			public var dateResult:Date;
+			
+			[Bindable]
+			private var model:AppModelLocator = AppModelLocator.getInstance();
+			
+			[Bindable]
+			/**
+			 *  This property contain viewing date for current item.
+			 */
+			private var viewDate:String;
+			[Bindable]
+			/**
+			 *  This property contain viewing price for current item.
+			 */
+			public var viewPrice:String;
+			[Bindable]
+			/**
+			 *  This property contain viewing list of prices for current
+			 *  item by index of the room type.
+			 */
+			private var viewBedTypeList:ArrayCollection;// = model.barModule.currentBedTypes;
+			
+			override public function set data(value:Object):void
+			{
+				super.data = value;
+				
+				//enabled = ((model.barModule.cellsData.getItemAt(data.index) as BARItemObjectVO).lBarDate*1000 >= model.lCurrentDate);
+			}
+			/**
+			 *	Update calendar when month changed.
+			*/
+			private function handleInit():void
+			{
+				changeViewParam();
+				ChangeWatcher.watch(data, "index", changeViewParam);
+				ChangeWatcher.watch(model.ratesModule.barModule, "currentRoomTypeIndex", changeViewParam);
+				ChangeWatcher.watch(model.ratesModule.barModule, "creationForm", changeViewParam);
+			}
+			
+			public function changeViewParam(evt:Event = null):void
+			{
+				var barItem:BARSaveItemVO = (model.ratesModule.barModule.cellsData.getItemAt(data.index) as BARSaveItemVO);
+				var barItems:Array = new Array(); // if select all room types
+				var roomTypeIndex:int = model.ratesModule.barModule.currentRoomTypeIndex;
+				var temp:ArrayCollection = new ArrayCollection();
+				
+				var objectForViewBedTypeList:Object = new Object();				
+				viewDate = DateField.dateToString(model.ratesModule.barModule.listOfDate[data.index], GlobalSettings.DATE_FORMAT);
+				
+				viewBedTypeList = new ArrayCollection();
+				
+				var tempRoomType:HotelRoomWithBedTypesObjectVO = model.hotelsModule.hotelRoomTypesCopyWithAll.getItemAt(roomTypeIndex) as HotelRoomWithBedTypesObjectVO;
+				viewBedTypeList.removeAll();
+				///////////////////////// create list of room types
+				if (tempRoomType.oRoomQuality.lQualityId == 0)
+				{
+					var hotelRoomTypesLength:int = model.hotelsModule.hotelRoomTypes.length;
+					for (var k:int = 0; k < hotelRoomTypesLength; k++)
+					{
+					priceTxt.visible = false;
+					priceTxt.height = 0;
+					priceTxt.text = "";
+					barItem = (model.ratesModule.barModule.cellsData.getItemAt(data.index) as BARSaveItemVO);	
+					barItems.push((barItem.aBarPrices.length > 0) ? barItem.aBarPrices[k].fPriceOneAdult : "0");
+					
+					objectForViewBedTypeList = new Object();
+					objectForViewBedTypeList.price = barItems[k];
+					objectForViewBedTypeList.type = model.hotelsModule.hotelRoomTypes.getItemAt(k);
+					viewBedTypeList.addItem(objectForViewBedTypeList);
+					}	
+				}
+				else if (tempRoomType.aRoomWithBedTypes != null && tempRoomType.aRoomWithBedTypes.length != 0)
+				{
+					priceTxt.visible = true;
+					priceTxt.height = 16;
+					priceTxt.text = (barItem.aBarPrices.length > 0) ? barItem.aBarPrices[roomTypeIndex-1].fPriceOneAdult : "0";
+					priceTxt.text = priceTxt.text + "€";	
+					for (k = 0; k < tempRoomType.aRoomWithBedTypes.length; k++)
+						viewBedTypeList.addItem(tempRoomType.aRoomWithBedTypes[k]);
+					}
+				else
+					{
+						priceTxt.visible = true;
+						priceTxt.height = 16;
+						priceTxt.text = (barItem.aBarPrices.length > 0) ? barItem.aBarPrices[roomTypeIndex-1].fPriceOneAdult : "0";
+						priceTxt.text = priceTxt.text + "€";
+						viewBedTypeList.addItem(tempRoomType.flx_oRoomStandalone);
+					}
+			}
+			
+			/**
+			 *	return BAR Item data
+			*/			
+			public function getItemData():BARItemObjectVO
+			{
+				return data.itemData;
+			}
+			
+			public function setItemData(value:BARItemObjectVO):void
+			{
+				data.itemData = value;
+			}
+			/**
+			 *	return date text
+			*/
+			public function getDate():String
+			{
+				return dateTxt.text;
+			}
+			/**
+			 *	return Index of BAR item for model.barModule.cellsData
+			*/
+			public function getIndex():Number
+			{
+				return data.index;
+			}
+			
+			public function getTypePrices():ArrayCollection
+			{
+				return new ArrayCollection();
+			}
+			/**
+			 *	return label for Bed Type List
+			*/
+			private function getBedTypeLabel(item:Object):String
+			{
+				if (item is HotelRoomTypeObjectVO)
+				{
+				var currItem:HotelRoomTypeObjectVO = item as HotelRoomTypeObjectVO;	
+				if (currItem.oRoomType.oBedType != null)				
+					return currItem.oRoomType.oBedType.sTypeName;
+				else return '';
+				}
+				if (item is Object)
+				{
+				var currItem2:Object = item;	
+				return  (currItem2.type.oRoomQuality.sQualityName as String).substring(0, 9) + " " + currItem2.price + " €" ;			
+				} 
+				else return '';
+			}
+			
+			/**
+			 *  Get date of set date from provider.
+			 */
+			public function get date():Date
+			{
+				if (itemData != null)
+					return DateField.stringToDate(itemData.sBarDate, GlobalSettings.DATE_FORMAT);
+				
+				return null;
+			}
+			
+			public function get itemData():BARSaveItemVO
+			{
+				if (data && data.hasOwnProperty("itemData"))
+				{
+					return data["itemData"] as BARSaveItemVO;
+				}
+				return null;
+			}
+			
+			public function set itemData(value:BARSaveItemVO):void
+			{
+				if (data) data["itemData"] = value;
+			}
+			
+			public function get itemFullData():BARSaveItemVO
+			{
+				if (itemData != null)
+				{
+					return itemData as BARSaveItemVO;
+				}
+				return null;
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:Label id="dateTxt" 
+		fontWeight="bold" 
+		text="{currDate}"/>
+	<mx:Label id="priceTxt" 
+		fontWeight="bold" />
+	<mx:List id="priceList"  
+			 dataProvider="{viewBedTypeList}" 
+			 labelFunction="getBedTypeLabel"
+			 fontSize="9" textAlign="left" selectable="false"
+			 borderStyle="none" backgroundAlpha="0"
+			 height="100%" width="100%" rowHeight="15"/>
+</mx:Box>

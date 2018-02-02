@@ -1,0 +1,92 @@
+#base-box {
+    position: fixed;
+    top: 8px;
+    bottom: 0;
+    right: 0;
+    left: 0;
+    text-align: center;
+}
+
+#loading-box {
+    position: relative;
+    display: inline-block;
+    box-sizing: border-box;
+    width: 960px;
+    height: 640px;
+    text-align: center;
+    padding-top: 600px;
+    padding-left: 50px;
+    padding-right: 50px;
+    color: #457eac;
+    background: url('/images/bg.jpg');
+}
+
+#loading-full {
+    width: 100%;
+    position: relative;
+    border: 1px #555 solid;
+    background-color: #ccecf7;
+    height: 6px;
+}
+#loading-progress {
+    width: 0%;
+    background-color: #6999c3;
+    height: 6px;
+}
+
+#game-box {
+    position: absolute;
+    display: none;
+    box-sizing: border-box;
+    width: 960px;
+    top: 0;
+    left: 0;
+}
+
+#stats-box {
+    position: absolute;
+    box-sizing: border-box;
+    width: 120px;
+    top: 0px;
+    left: 0px;
+    padding: 10px;
+    background: #305579;
+    opacity: 0.85;
+}
+
+#stats-box p {
+    margin: 5px;
+}
+
+.element {
+    display: inline-block;
+    vertical-align: middle;
+}
+
+#stats-box .icon {
+    width: 32px;
+    height: 32px;
+}
+
+#stats-box .label {
+    color: #ccecf7;
+    padding-left: 10px;
+    font-size: 18pt;
+    font-weight: bold;
+}
+
+#lives-icon {
+    background: url('/images/ui/heart.png');
+}
+
+#lives-label {
+
+}
+
+#coins-icon {
+    background: url('/images/ui/coin.png');
+}
+
+#coins-label {
+
+}

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:HBox xmlns:mx="http://www.adobe.com/2006/mxml">
+	
+	<mx:Script>
+		<![CDATA[
+			import mx.controls.List;
+			import mx.controls.ComboBox;
+			
+			override public function set data(value:Object):void
+			{
+				super.data = value;
+				
+				checkLabel.label = data[(owner as List).labelField];
+			}
+			
+			private function handleData(evt:Event):void
+			{
+				this.addEventListener(MouseEvent.MOUSE_DOWN, disablePropagation); 
+			}
+			
+			private function handleChange(event:Event):void
+            {
+            	event.stopImmediatePropagation();      
+            }
+             
+            private function disablePropagation(event:Event):void
+            {
+            	event.stopPropagation();  
+            } 
+			
+		]]>
+	</mx:Script>
+	
+	<mx:CheckBox id="checkLabel" change="handleChange(event);" creationComplete="handleData(event)"/>
+	
+</mx:HBox>

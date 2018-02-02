@@ -1,0 +1,17 @@
+<popup ng-init="loginVm.init()" ng-keypress="loginVm.keypress($event)" is-modal="true">
+	<div class="login-form" ng-class="loginVm.styleClass">
+		<div class="content">
+
+			<div class="form">
+				<input type="email" title="Username"
+					   placeholder="Enter email"
+					   autofocus
+					   ng-model="loginVm.user.email" >
+			</div>
+
+			<div class="control-box">
+				<div class="button login-btn" ng-click="loginVm.submit()">Login</div>
+			</div>
+		</div>
+	</div>
+</popup>

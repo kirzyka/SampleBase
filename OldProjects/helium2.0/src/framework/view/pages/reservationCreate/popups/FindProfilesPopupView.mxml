@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="utf-8"?>
+<BasePopupView title="Search Profile"
+	xmlns="framework.view.components.popups.*"
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	layout="vertical"
+	width="640" height="320"
+	creationComplete="init()">
+	<mx:Script>
+		<![CDATA[
+			import services.business.profiles.ProfileDelegate;
+			import mx.managers.PopUpManagerChildList;
+			import services.events.profiles.individual.GetProfileByIdEvent;
+			import services.vo.profiles.ProfilePersonalVO;
+			import services.events.profiles.individual.FindProfileBySurnameEvent;
+			import services.events.profiles.individual.FindProfileByNameEvent;
+			import framework.view.pages.profiles.popups.individual.SaveIndividualProfilePopupView;
+			import services.vo.frontend.ReservationOrderVO;
+			import framework.model.AppModelLocator;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import services.controller.AppController;
+			import framework.managers.PopUpManagerExt;
+
+			public var orderIndex:int;
+			public var roomIndex:int;
+
+			private function init():void
+			{
+				txtSearchField.text = model.profilesModule.currSearchField;
+				if (txtSearchField.text!='')
+					handleSearch();
+			}
+
+			private function handleSearch():void
+			{
+				if(cmbSearchTypeProfile.selectedIndex == 0) 
+				{
+					var findBySurnameEvent:FindProfileBySurnameEvent = new FindProfileBySurnameEvent(ProfileDelegate.FIND_PROFILE_BY_SURNAME);
+					findBySurnameEvent.pattern = txtSearchField.text;
+					findBySurnameEvent.count = 500;
+					findBySurnameEvent.page = 1;
+					CairngormEventDispatcher.getInstance().dispatchEvent(findBySurnameEvent);
+				}
+				else 
+				{
+					var findByNameEvent:FindProfileByNameEvent = new FindProfileByNameEvent(ProfileDelegate.FIND_PROFILE_BY_NAME);
+					findByNameEvent.pattern = txtSearchField.text;
+					findByNameEvent.count = 500;
+					findByNameEvent.page = 1;
+					CairngormEventDispatcher.getInstance().dispatchEvent(findByNameEvent);						
+				}
+
+			}
+
+			private function handleCancel():void
+			{
+				close();
+			}
+
+			private function handlePastProfile():void
+			{
+				var getProfileEvent:GetProfileByIdEvent = new GetProfileByIdEvent(ProfileDelegate.GET_PROFILE_BY_ID);
+				getProfileEvent.profileId = resultList.selectedItem.lMainId;
+				getProfileEvent.callBack = getFullProfileHandler;
+				CairngormEventDispatcher.getInstance().dispatchEvent(getProfileEvent);
+			}
+
+			private function getFullProfileHandler():void {
+				callBack(model.profilesModule.currentProfile);
+				close();
+			}
+
+			private function handleCreate():void
+			{
+				var pop:SaveIndividualProfilePopupView = PopUpManagerExt.createPopUp(this, SaveIndividualProfilePopupView) as SaveIndividualProfilePopupView;
+				pop.show();
+			}
+
+		]]>
+	</mx:Script>
+
+	<mx:StringValidator source="{txtSearchField}" property="text" minLength="1" />
+
+	<mx:HBox width="100%">
+		<mx:Label text="Search By:"/>
+		<mx:ComboBox id="cmbSearchTypeProfile"
+			dataProvider="{model.reservationModule.typeProfileSearch}"
+			labelField="label"/>
+		<mx:TextInput id="txtSearchField"/>
+		<mx:Button label="Find"
+			click="handleSearch()"
+			enabled="{txtSearchField.text.length > 0}"/>
+	</mx:HBox>
+
+	<mx:DataGrid id="resultList"
+		doubleClickEnabled="{model.profilesModule.individualPageList.length > 0 ? true : false}"
+		width="100%"
+		doubleClick="handlePastProfile()"
+		height="100%"
+		dataProvider="{model.profilesModule.individualPageList}" rowHeight="33" headerHeight="22" styleName="grid">
+		<mx:columns>
+			<mx:DataGridColumn headerText="Name" dataField="sSurname"/>
+			<mx:DataGridColumn headerText="First Name" dataField="sName"/>
+			<mx:DataGridColumn headerText="Company" dataField="sCompany"/>
+			<mx:DataGridColumn headerText="Phone" dataField="sPhone"/>
+			<mx:DataGridColumn headerText="Email" dataField="sEmail"/>
+		</mx:columns>
+	</mx:DataGrid>
+	<mx:HBox width="100%"
+		horizontalAlign="right">
+		<mx:Button id="btnCreateProfile"
+			label="Create new profile"
+			fontWeight="bold"
+			click="handleCreate()"/>
+	</mx:HBox>
+</BasePopupView>
